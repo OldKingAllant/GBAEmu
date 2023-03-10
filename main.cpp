@@ -1,7 +1,10 @@
 #include <iostream>
 
+#include "./cpu/core/Register.hpp"
+#include "./cpu/core/CPSR.h"
+
 int main(int argc, char* argv[]) {
-	std::cout << "Hello World!" << std::endl;
+	std::cout << sizeof(GBA::cpu::CPSR);
 
 	std::cin.get();
 }
