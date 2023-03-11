@@ -1,24 +1,10 @@
 #pragma once
 
 #include "../../common/Defs.hpp"
+#include "../ProcessorDefs.h"
 
 namespace GBA::cpu {
 	using namespace common;
-
-	/*
-	* Processor modes.
-	* They define the current 
-	* register bank.
-	*/
-	enum class Mode : u8 {
-		User = 0x10,
-		FIQ = 0x11,
-		IRQ = 0x12,
-		SWI = 0x13,
-		ABRT = 0x17,
-		UND = 0x1B,
-		SYS = 0x1F
-	};
 
 	/*
 	* Opcode type and len.

@@ -1,0 +1,2 @@
+https://rust-console.github.io/gbatek-gbaonly/
+https://developer.arm.com/documentation/ddi0406/c?lang=en
