@@ -6,14 +6,6 @@
 namespace GBA::cpu {
 	using namespace common;
 
-	/*
-	* Opcode type and len.
-	*/
-	enum class InstructionMode : bool {
-		ARM = 0,
-		THUMB = 1
-	};
-
 	//This could be a problem
 	//But probably not,
 	//everything is aligned

@@ -3,6 +3,8 @@
 
 #include "../common/Defs.hpp"
 
+#include <type_traits>
+
 namespace GBA::cpu {
 	using namespace common;
 	/*
@@ -48,6 +50,25 @@ namespace GBA::cpu {
 
 		return static_cast<u8>(-1);
 	}
+
+	enum class ExceptionCode {
+		RESET,
+		UNDEF,
+		SOFTI,
+		PABRT,
+		DABRT,
+		ADDRE,
+		IRQ,
+		FIQ
+	};
+
+	/*
+	* Opcode type and len.
+	*/
+	enum class InstructionMode : bool {
+		ARM = 0,
+		THUMB = 1
+	};
 }
 
 #endif

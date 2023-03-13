@@ -38,8 +38,26 @@ namespace GBA::cpu {
 			return m_banks[m_curr_mode].array[id];
 		}
 
-		void SetReg(u8 id, u32 value) {
+		void SetReg(u8 id, u32 const& value) {
 			m_banks[m_curr_mode].array[id] = value;
+		}
+
+		u32 GetReg(Mode mode, u8 id) const {
+			return m_banks[GetModeFromID(mode)].array[id];
+		}
+
+		void SetReg(Mode mode, u8 id, u32 const& value) {
+			m_banks[GetModeFromID(mode)].array[id] = value;
+		}
+
+		void AddOffset(u8 id, i32 const& value) {
+			m_banks[m_curr_mode].array[id] =
+				static_cast<i32>(m_banks[m_curr_mode].array[id]) + value;
+		}
+
+		void AddOffset(Mode mode, u8 id, i32 const& value) {
+			m_banks[GetModeFromID(mode)].array[id] =
+				static_cast<i32>(m_banks[GetModeFromID(mode)].array[id]) + value;
 		}
 
 		void SwitchMode(Mode new_mode);
