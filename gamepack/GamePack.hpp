@@ -1,0 +1,44 @@
+#pragma once
+
+#include "../common/Defs.hpp"
+#include "backups/Backup.hpp"
+#include <filesystem>
+
+#include "mapping/FileMapping.hpp"
+#include "Header.hpp"
+
+namespace GBA::gamepack {
+	using namespace common;
+
+	namespace fs = std::filesystem;
+
+	class GamePack {
+	public :
+		GamePack();
+
+		bool LoadFrom(fs::path const& path);
+		backups::BackupType BackupType() const;
+		bool LoadBackup(fs::path const& from);
+
+		u16 Read(u32 address) const;
+		void Write(u32 address, u16 value);
+
+		GamePackHeader const& GetHeader() const {
+			return m_head;
+		}
+
+		~GamePack();
+
+	private :
+		bool MapFile();
+		bool UnMapFile();
+
+		u16* m_rom;
+		backups::Backup* m_backup;
+		fs::path m_path;
+
+		mapping::FileMapInfo m_info;
+
+		GamePackHeader m_head;
+	};
+}

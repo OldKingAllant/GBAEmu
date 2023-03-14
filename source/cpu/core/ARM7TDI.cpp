@@ -142,5 +142,7 @@ namespace GBA::cpu {
 
 			//Execute thumb instr.
 		}
+
+		return 0;
 	}
 }
