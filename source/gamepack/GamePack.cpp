@@ -20,10 +20,10 @@ namespace GBA::gamepack {
 		if (!MapFile())
 			return false;
 
-		m_rom = reinterpret_cast<u16*>(m_info.map_address);
+		m_rom = reinterpret_cast<u8*>(m_info.map_address);
 
-		std::copy_n(m_rom, sizeof(GamePackHeader) / 2,
-			reinterpret_cast<u16*>(&m_head));
+		std::copy_n(m_rom, sizeof(GamePackHeader),
+			reinterpret_cast<u8*>(&m_head));
 
 		return true;
 	}
@@ -37,7 +37,9 @@ namespace GBA::gamepack {
 	}
 
 	u16 GamePack::Read(u32 address) const {
-		return 0xFFFF;
+		//Implement backup read
+
+		return *reinterpret_cast<u16*>(m_rom + address);
 	}
 
 	void GamePack::Write(u32 address, u16 value) {}

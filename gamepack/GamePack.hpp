@@ -33,7 +33,7 @@ namespace GBA::gamepack {
 		bool MapFile();
 		bool UnMapFile();
 
-		u16* m_rom;
+		u8* m_rom;
 		backups::Backup* m_backup;
 		fs::path m_path;
 

@@ -1,26 +1,25 @@
 #pragma once
 
-#include "./CPSR.hpp"
-#include "./Register.hpp"
-#include "./Pipeline.hpp"
+#include "CPUContext.hpp"
 
 namespace GBA::cpu {
 	class ARM7TDI {
 	public :
 		ARM7TDI(memory::Bus* bus);
 
-		void EnterException(ExceptionCode const& exc);
-		void RestorePreviousMode(u32 old_pc);
+		void SkipBios();
 
 		u8 Step();
 		
 		static u32 GetExceptVector(ExceptionCode const& exc);
 		static Mode GetModeFromExcept(ExceptionCode const& exc);
 
+		CPUContext& GetContext() {
+			return m_ctx;
+		}
+
 	private :
-		RegisterManager m_regs;
-		CPSR m_cpsr;
-		CPSR m_spsr[5];
-		Pipeline m_pipeline;
+		CPUContext m_ctx;
+		memory::Bus* m_bus;
 	};
 }

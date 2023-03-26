@@ -1,13 +1,33 @@
 #include "../../../cpu/core/ARM7TDI.hpp"
+#include "../../../cpu/arm/ARM_Implementation.h"
 
 #include <cassert>
 
 namespace GBA::cpu {
+
+	/*
+	*  SP_svc=03007FE0h
+  SP_irq=03007FA0h
+  SP_usr=03007F00h
+	*/
 	ARM7TDI::ARM7TDI(memory::Bus* bus) :
-		m_regs(), m_cpsr(), 
-		m_spsr{}, m_pipeline(bus) {
-		m_cpsr.instr_state = InstructionMode::ARM;
-		m_cpsr.mode = Mode::User;
+		m_ctx{.m_pipeline = Pipeline(bus)},
+		m_bus(bus) {
+		m_ctx.m_cpsr.instr_state = InstructionMode::ARM;
+		m_ctx.m_cpsr.mode = Mode::User;
+
+		m_ctx.m_regs.SetReg(Mode::SWI, 13, 0x03007FE0);
+		m_ctx.m_regs.SetReg(Mode::IRQ, 13, 0x03007FA0);
+		m_ctx.m_regs.SetReg(Mode::User, 13, 0x03007F00);
+
+		m_ctx.m_pipeline.Bubble<InstructionMode::ARM>(0x00);
+	}
+
+	void ARM7TDI::SkipBios() {
+		m_ctx.m_regs.SetReg(15, 0x08000000);
+		m_ctx.m_regs.SwitchMode(Mode::User);
+
+		m_ctx.m_pipeline.Bubble<InstructionMode::ARM>(0x08000000);
 	}
 
 	u32 ARM7TDI::GetExceptVector(ExceptionCode const& mode) {
@@ -72,8 +92,8 @@ namespace GBA::cpu {
 		return static_cast<Mode>(-1);
 	}
 
-	void ARM7TDI::EnterException(ExceptionCode const& exc) {
-		Mode mode = GetModeFromExcept(exc);
+	void CPUContext::EnterException(ExceptionCode exc) {
+		Mode mode = ARM7TDI::GetModeFromExcept(exc);
 
 		m_regs.SwitchMode(mode);
 
@@ -88,9 +108,9 @@ namespace GBA::cpu {
 			exc == ExceptionCode::FIQ)
 			m_cpsr.fiq_disable = true;
 
-		u32 exc_vector = GetExceptVector(exc);
+		u32 exc_vector = ARM7TDI::GetExceptVector(exc);
 
-		m_regs.SetReg(14, 0 /*Save ret. address*/);
+		m_regs.SetReg(14, 0/*m_regs.GetReg(15)*/ /*Save ret. address*/);
 		m_regs.SetReg(15, exc_vector);
 
 		m_pipeline.Bubble<InstructionMode::ARM>(exc_vector);
@@ -98,7 +118,7 @@ namespace GBA::cpu {
 		m_cpsr.mode = mode;
 	}
 	
-	void ARM7TDI::RestorePreviousMode(u32 old_pc) {
+	void CPUContext::RestorePreviousMode(u32 old_pc) {
 		assert(m_cpsr.mode != Mode::User
 			&& m_cpsr.mode != Mode::SYS);
 			
@@ -126,21 +146,34 @@ namespace GBA::cpu {
 		//Check if IRQ occurred
 		//Check halt status
 
-		if (m_cpsr.instr_state == InstructionMode::ARM) {
-			u32 opcode = m_pipeline.Pop<InstructionMode::ARM>();
-			m_regs.AddOffset(15, 0x4);
+		bool branch = false;
 
-			m_pipeline.Fetch<InstructionMode::ARM>();
+		if (m_ctx.m_cpsr.instr_state == InstructionMode::ARM) {
+			u32 opcode = m_ctx.m_pipeline.Pop<InstructionMode::ARM>();
 
-			//Execute ARM instr.
+			m_ctx.m_pipeline.Fetch<InstructionMode::ARM>();
+
+			arm::ExecuteArm(opcode, m_ctx, m_bus, branch);
 		}
 		else {
-			u16 opcode = m_pipeline.Pop<InstructionMode::THUMB>();
-			m_regs.AddOffset(15, 0x2);
+			u16 opcode = m_ctx.m_pipeline.Pop<InstructionMode::THUMB>();
 
-			m_pipeline.Fetch<InstructionMode::THUMB>();
+			m_ctx.m_pipeline.Fetch<InstructionMode::THUMB>();
 
 			//Execute thumb instr.
+		}
+
+		if (branch) {
+			if (m_ctx.m_cpsr.instr_state == InstructionMode::ARM)
+				m_ctx.m_pipeline.Bubble<InstructionMode::ARM>(m_ctx.m_regs.GetReg(15));
+			else
+				m_ctx.m_pipeline.Bubble<InstructionMode::THUMB>(m_ctx.m_regs.GetReg(15));
+		}
+		else {
+			if (m_ctx.m_cpsr.instr_state == InstructionMode::ARM)
+				m_ctx.m_regs.AddOffset(15, 0x4);
+			else 
+				m_ctx.m_regs.AddOffset(15, 0x2);
 		}
 
 		return 0;
