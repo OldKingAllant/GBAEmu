@@ -35,36 +35,74 @@ namespace GBA::cpu {
 		RegisterManager();
 
 		u32 GetReg(u8 id) const {
-			return m_banks[m_curr_mode].array[id];
+			return m_curr_regs.array[id];
 		}
 
 		void SetReg(u8 id, u32 value) {
-			m_banks[m_curr_mode].array[id] = value;
+			m_curr_regs.array[id] = value;
 		}
 
 		u32 GetReg(Mode mode, u8 id) const {
-			return m_banks[GetModeFromID(mode)].array[id];
+			u8 mode_id = GetModeFromID(mode);
+
+			if (id < 8 || id == 15 || mode_id == m_curr_mode)
+				return m_curr_regs.array[id];
+
+			if(id - 8 >= BANK_START[mode_id])
+				return m_banked_regs[mode_id][id - 8];
+
+			if (m_curr_mode != GetModeFromID(Mode::FIQ))
+				return m_curr_regs.array[id];
+
+			return m_commonly_shared[id - 8];
 		}
 
 		void SetReg(Mode mode, u8 id, u32 value) {
-			m_banks[GetModeFromID(mode)].array[id] = value;
+			u8 mode_id = GetModeFromID(mode);
+
+			if (id < 8 || id == 15 || mode_id == m_curr_mode) {
+				m_curr_regs.array[id] = value; 
+				return;
+			}
+
+			if (id - 8 >= BANK_START[mode_id]) {
+				m_banked_regs[mode_id][id - 8] = value;
+				return;
+			}
+
+			if (m_curr_mode != GetModeFromID(Mode::FIQ)) {
+				m_curr_regs.array[id] = value;
+				return;
+			}
+
+			m_commonly_shared[id - 8] = value;
 		}
 
 		void AddOffset(u8 id, i32 value) {
-			m_banks[m_curr_mode].array[id] =
-				static_cast<i32>(m_banks[m_curr_mode].array[id]) + value;
+			m_curr_regs.array[id] =
+				static_cast<i32>(m_curr_regs.array[id]) + value;
 		}
 
 		void AddOffset(Mode mode, u8 id, i32 value) {
-			m_banks[GetModeFromID(mode)].array[id] =
-				static_cast<i32>(m_banks[GetModeFromID(mode)].array[id]) + value;
+			u32 base_value = GetReg(mode, id);
+
+			base_value =
+				static_cast<i32>(base_value) + value;
+
+			SetReg(mode, id, base_value);
 		}
 
 		void SwitchMode(Mode new_mode);
 
+		static constexpr inline u8 BANK_START[] = {
+			5, 0, 5, 5, 5, 5
+		};
+
 	private :
 		u8 m_curr_mode;
-		Bank m_banks[6];
+		Bank m_curr_regs;
+		u32 m_commonly_shared[5];
+		u32 m_banked_regs[6][7];
 	};
 }
 

@@ -9,9 +9,15 @@ namespace GBA::cpu {
 
 	class Pipeline {
 	public :
-		Pipeline(memory::Bus* bus);
+		Pipeline();
+
+		void AttachBus(memory::Bus* bus) {
+			m_bus = bus;
+		}
 
 		u32 GetFetchPC() const;
+		u32 GetFetched() const;
+		u32 GetDecoded() const;
 
 		template <InstructionMode InstrSet>
 		void Bubble(u32 address) {

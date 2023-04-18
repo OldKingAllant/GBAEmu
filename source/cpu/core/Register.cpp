@@ -1,8 +1,21 @@
 #include "../../../cpu/core/Register.hpp"
 
+#include <memory>
+
 namespace GBA::cpu {
+	/*u8 m_curr_mode;
+		Bank m_curr_regs;
+		u32 m_commonly_shared[5];
+		u32 m_banked_regs[6][7];
+
+		static constexpr inline u8 BANK_START[] = {
+			5, 0, 5, 5, 5, 5
+		};
+	*/
+
 	RegisterManager::RegisterManager() :
-		m_curr_mode(0), m_banks{} {}
+		m_curr_mode{}, m_curr_regs {}, 
+		m_commonly_shared{}, m_banked_regs{} {}
 
 	/*
 	* Switch current register bank to 
@@ -16,44 +29,27 @@ namespace GBA::cpu {
 		if (mode == m_curr_mode)
 			return;
 
-		//Copy first 8 common regs
-		for (u8 i = 0; i < 8; i++) {
-			m_banks[mode].array[i] =
-				m_banks[m_curr_mode].array[i];
+		//Save/retrieve banked registers
+		u8 banked_index_curr_mode = BANK_START[m_curr_mode];
+		u8 banked_index_new_mode = BANK_START[mode];
+
+		std::copy(m_curr_regs.array + banked_index_curr_mode + 8,
+			m_curr_regs.array + 15, m_banked_regs[m_curr_mode] + banked_index_curr_mode);
+
+		if (new_mode == Mode::FIQ) {
+			//Save shared regs
+			std::copy(m_curr_regs.array + 8, m_curr_regs.array + 13, m_commonly_shared);
 		}
 
-		u8 source = 0;
-		u8 dest = 0;
-
-		if (new_mode != Mode::FIQ) {
-			if (m_curr_mode == 0x01) {
-				//The current mode is FIQ
-				//No registers can be copied
-				//We must retrieve the old values
-				source = 0;
-				dest = mode;
-			}
-			else {
-				//We can copy shared regs
-				source = m_curr_mode;
-				dest = mode;
-			}
-		}
-		else {
-			//There are no registers to copy in the new bank
-			//We must save the current values 
-			source = m_curr_mode;
-			dest = 0;
+		if (m_curr_mode == GetModeFromID(Mode::FIQ)) {
+			//Retrieve shared regs
+			std::copy(m_commonly_shared, m_commonly_shared + 5, m_curr_regs.array + 8);
 		}
 
-		//Copy regs with given config.
-		for (u8 i = 8; i < 13; i++) {
-			m_banks[dest].array[i] =
-				m_banks[source].array[i];
-		}
+		std::copy(m_banked_regs[mode] + banked_index_new_mode, m_banked_regs[mode] + 7,
+			m_curr_regs.array + 8 + banked_index_new_mode);
 
-		//The PC is always shared
-		m_banks[mode].r15 = m_banks[m_curr_mode].r15;
+		
 
 		m_curr_mode = mode;
 	}

@@ -1,60 +1,70 @@
 #include <iostream>
 
-#include "cpu/core/ARM7TDI.hpp"
-#include "gamepack/GamePack.hpp"
-#include "memory/Bus.hpp"
-#include "cpu/arm/ARM_Implementation.h"
+#include "emu/Emulator.hpp"
 
-#include <imgui.h>
-#include <backends>
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
+
+#include "debugger/DebugWindow.hpp"
+
+#ifdef main
+#undef main
+#endif // main
+
 
 int main(int argc, char* argv[]) {
 	std::string rom = "./testRoms/arm/arm.gba";
 
-	GBA::gamepack::GamePack gp;
-	GBA::memory::Bus bus;
+	GBA::emulation::Emulator emu{rom};
 
-	gp.LoadFrom(rom);
+	emu.GetContext().processor.SkipBios();
 
-	bool res = GBA::gamepack::VerifyHeader(&gp.GetHeader());
+	if (SDL_Init(SDL_INIT_VIDEO)) {
+		std::cerr << SDL_GetError() << std::endl;
 
-	bus.ConnectGamepack(&gp);
-
-	GBA::cpu::ARM7TDI arm(&bus);
-
-	arm.SkipBios();
-
-	arm.Step();
-	arm.Step();
-	arm.Step();
-
-	auto ctx = arm.GetContext();
-
-	GBA::cpu::arm::ARMInstruction instr{ 0 };
-	//GBA::cpu::arm::ARMBlockTransfer transfer(instr);
-
-	instr.data = 0xe92d0000;
-
-	bool branch = false;
-
-	GBA::cpu::arm::ExecuteArm(instr, ctx, &bus, branch);
-
-	if (!SDL_Init(SDL_INIT_VIDEO)) {
+		std::cin.get();
 		std::exit(0);
 	}
 
-	SDL_Window* window = SDL_CreateWindow("GBA Emulator",
-		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 600, 600,
-		SDL_WINDOW_SHOWN
-	);
+	if (!IMG_Init(IMG_INIT_JPG | IMG_INIT_PNG)) {
+		std::cerr << SDL_GetError() << std::endl;
 
-	SDL_Renderer* rend = SDL_CreateRenderer(window, -1,
-		SDL_RENDERER_ACCELERATED);
+		std::cin.get();
+		std::exit(0);
+	}
+
+	auto& ctx = emu.GetContext();
+
+	GBA::debugger::DebugWindow debugger{};
+
+	debugger.SetProcessor(&ctx.processor);
+	debugger.SetBus(&ctx.bus);
+	debugger.SetGamePack(&ctx.pack);
+
+	debugger.Init();
+
+	if (!debugger.IsRunning()) {
+		std::cerr << "SDL Init failed : " << SDL_GetError() << std::endl;
+		std::exit(0);
+	}
+
+	while (!debugger.StopRequested()) {
+		SDL_Event ev;
+
+		while (SDL_PollEvent(&ev)) {
+			if (debugger.ConfirmEventTarget(&ev))
+				debugger.ProcessEvent(&ev);
+		}
+
+		if (!debugger.StopRequested()) {
+			debugger.Update();
+		}
+
+		emu.RunEmulation(debugger.GetEmulatorStatus());
+	}
 
 
-	ImGui::CreateContext();
-	ImGui::
+	SDL_Quit();
 
 	std::cin.get();
 }

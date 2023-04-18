@@ -4,6 +4,7 @@
 #include "../common/Defs.hpp"
 
 #include <type_traits>
+#include <string_view>
 
 namespace GBA::cpu {
 	using namespace common;
@@ -21,6 +22,33 @@ namespace GBA::cpu {
 		UND = 0x1B,
 		SYS = 0x1F
 	};
+
+	static std::string_view GetStringFromMode(Mode mode) {
+		switch (mode) {
+		case Mode::User:
+			return "USR";
+
+		case Mode::SYS:
+			return "SYS";
+
+		case GBA::cpu::Mode::FIQ:
+			return "FIQ";
+			
+		case GBA::cpu::Mode::IRQ:
+			return "IRQ";
+			
+		case GBA::cpu::Mode::SWI:
+			return "SWI";
+			
+		case GBA::cpu::Mode::ABRT:
+			return "ABRT";
+			
+		case GBA::cpu::Mode::UND:
+			return "UND";
+		}
+
+		return "";
+	}
 
 	static u8 GetModeFromID(Mode mode) {
 		switch (mode)
@@ -51,6 +79,33 @@ namespace GBA::cpu {
 		return static_cast<u8>(-1);
 	}
 
+	static Mode GetIDFromMode(u8 mode) {
+		switch (mode)
+		{
+		case 0x0:
+			return Mode::User;
+
+		case 0x1:
+			return Mode::FIQ;
+
+		case 0x2:
+			return Mode::IRQ;
+
+		case 0x3:
+			return Mode::SWI;
+			
+		case 0x4:
+			return Mode::ABRT;
+			
+		case 0x5:
+			return Mode::UND;
+
+		default:
+			return (Mode)0;
+			break;
+		}
+	}
+
 	enum class ExceptionCode {
 		RESET,
 		UNDEF,
@@ -69,6 +124,10 @@ namespace GBA::cpu {
 		ARM = 0,
 		THUMB = 1
 	};
+
+	static std::string_view GetStringFromState(InstructionMode mode) {
+		return mode == InstructionMode::ARM ? "ARM" : "THUMB";
+	}
 }
 
 #endif

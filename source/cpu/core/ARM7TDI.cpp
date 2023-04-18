@@ -5,14 +5,8 @@
 
 namespace GBA::cpu {
 
-	/*
-	*  SP_svc=03007FE0h
-  SP_irq=03007FA0h
-  SP_usr=03007F00h
-	*/
-	ARM7TDI::ARM7TDI(memory::Bus* bus) :
-		m_ctx{.m_pipeline = Pipeline(bus)},
-		m_bus(bus) {
+	ARM7TDI::ARM7TDI() :
+		m_ctx{} {
 		m_ctx.m_cpsr.instr_state = InstructionMode::ARM;
 		m_ctx.m_cpsr.mode = Mode::User;
 
@@ -20,6 +14,12 @@ namespace GBA::cpu {
 		m_ctx.m_regs.SetReg(Mode::IRQ, 13, 0x03007FA0);
 		m_ctx.m_regs.SetReg(Mode::User, 13, 0x03007F00);
 
+		m_ctx.m_pipeline.Bubble<InstructionMode::ARM>(0x00);
+	}
+
+	void ARM7TDI::AttachBus(memory::Bus* bus) {
+		m_bus = bus;
+		m_ctx.m_pipeline.AttachBus(bus);
 		m_ctx.m_pipeline.Bubble<InstructionMode::ARM>(0x00);
 	}
 

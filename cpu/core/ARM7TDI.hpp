@@ -5,7 +5,9 @@
 namespace GBA::cpu {
 	class ARM7TDI {
 	public :
-		ARM7TDI(memory::Bus* bus);
+		ARM7TDI();
+
+		void AttachBus(memory::Bus* bus);
 
 		void SkipBios();
 

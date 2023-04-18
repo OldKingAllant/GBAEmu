@@ -2,7 +2,15 @@
 #include "../../../cpu/core/CPUContext.hpp"
 #include "../../../memory/Bus.hpp"
 
-namespace GBA::cpu::arm {
+#include <bit>
+
+#include "../../../common/Logger.hpp"
+
+#include "../../../common/Error.hpp"
+
+namespace GBA::cpu::arm{
+	LOG_CONTEXT(ARM_Interpreter);
+
 	ARMInstructionType DecodeArm(u32 opcode) {
 		u16 bits = (((opcode >> 20) & 0xFF) << 4) | ((opcode >> 4) & 0xF);
 		u32 masked = bits & ARMInstructionMask::BRANCH;
@@ -70,6 +78,12 @@ namespace GBA::cpu::arm {
 			post_increment = 4;
 
 		if (instr.s_bit) {
+			if (instr.writeback) {
+				//Writeback with S bit set is not allowed
+				LOG_ERROR("Writeback with S bit is not allowed");
+				error::DebugBreak();
+			}
+
 			while (list) {
 				if (list & 1) {
 					base += pre_increment;
@@ -102,7 +116,8 @@ namespace GBA::cpu::arm {
 	}
 
 	void inline LoadBlock(ARMBlockTransfer instr, CPUContext& ctx,  memory::Bus* bus, bool& branch) {
-		
+		LOG_ERROR("LDM Not implemented");
+		error::DebugBreak();
 	}
 
 	void BlockDataTransfer(ARMBlockTransfer instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
@@ -114,20 +129,21 @@ namespace GBA::cpu::arm {
 		u32 base = ctx.m_regs.GetReg(instr.base_reg);
 		u32 original_base = base;
 
+		if (instr.s_bit && (ctx.m_cpsr.mode == Mode::User ||
+			ctx.m_cpsr.mode == Mode::SYS)) {
+			return;
+		}
+
 		if (!instr.increment) {
 			//Registers are processed in increasing
 			//addresses, which means that if we
 			//are decrementing the address after
 			//each load/store, we should start
 			//from the lowest address and then increment
-			u32 rlist = instr.rlist;
 
-			while (rlist) {
-				if (rlist & 1)
-					base -= 4;
+			u8 popcnt = std::popcount(instr.rlist);
 
-				rlist >>= 1;
-			}
+			base -= popcnt * 4;
 		}
 
 		ctx.m_regs.SetReg(instr.base_reg, base);
