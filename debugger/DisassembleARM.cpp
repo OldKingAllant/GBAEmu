@@ -7,6 +7,8 @@
 #include <iomanip>
 #include <sstream>
 
+#include "../common/BitManip.hpp"
+
 namespace GBA::debugger {
 	namespace arm = cpu::arm;
 
@@ -126,6 +128,200 @@ namespace GBA::debugger {
 		return buffer.str();
 	}
 
+	Disasm DisassembleARMDataProcess(arm::ARMInstruction opcode, cpu::CPUContext& ctx) {
+		constexpr const char* opcode_str[] = {
+			"AND", "EOR", "SUB", "RSB", "ADD",
+			"ADC", "SBC", "RSC", "TST", "TEQ",
+			"CMP", "CMN", "ORR", "MOV", "BIC", 
+			"MVN"
+		};
+
+		u8 operation = (opcode.data >> 21) & 0xF;
+
+		std::ostringstream buffer{ "", std::ios::app };
+
+		buffer << opcode_str[operation];
+
+		buffer << DisassembleARMCondition(opcode.condition);
+
+		if ((opcode.data >> 20) & 1)
+			buffer << "S";
+
+		buffer << " r";
+
+		buffer << ((opcode.data >> 12) & 0xF);
+
+		buffer << ", ";
+
+		if (operation != 0x0D && operation != 0x0F) {
+			u8 second_reg = ((opcode.data >> 16) & 0xF);
+			u8 first_reg = ((opcode.data >> 12) & 0xF);
+
+			if(second_reg != first_reg)
+				buffer << "r" << ((opcode.data >> 16) & 0xF) << ", ";
+		}
+		
+		if ((opcode.data >> 25) & 1) {
+			u32 value = opcode.data & 0xFF;
+			u8 shift = (opcode.data >> 8) & 0xF;
+			shift *= 2;
+
+			value = std::rotr(value, shift);
+
+			buffer << "0x" << std::hex << value;
+
+			return buffer.str();
+		}
+
+		buffer << "r" << (opcode.data & 0xF) << " ";
+
+		constexpr const char* shift_type[] = {
+			"LSL", "LSR", "ASR", "ROR"
+		};
+
+		buffer << shift_type[(opcode.data >> 5) & 0b11] << " ";
+
+		if ((opcode.data >> 4) & 1) {
+			//Shift by reg
+			u8 shift_reg = (opcode.data >> 8) & 0xF;
+
+			buffer << "r" << (u32)shift_reg;
+		}
+		else {
+			//Shift by immediate
+			u8 amount = (opcode.data >> 7) & 0x1F;
+
+			buffer << (u32)amount;
+		}
+
+		return buffer.str();
+	}
+
+	Disasm DisassembleARMPsrTransfer(arm::ARMInstruction instr, cpu::CPUContext& ctx) {
+		std::ostringstream buffer{ "" };
+
+		if ((instr.data >> 21) & 1)
+			buffer << "MSR";
+		else {
+			buffer << "MRS ";
+
+			u32 dest_reg = (instr.data >> 12) & 0xF;
+
+			buffer << "r" << dest_reg << ", ";
+
+			if ((instr.data >> 22) & 1) {
+				buffer << "SPSR";
+			}
+			else {
+				buffer << "CPSR";
+			}
+
+			return buffer.str();
+		}
+		
+		/*
+		*  19      f  write to flags field     Bit 31-24 (aka _flg)
+		   18      s  write to status field    Bit 23-16 (reserved, don't change)
+		   17      x  write to extension field Bit 15-8  (reserved, don't change)
+           16      c  write to control field   Bit 7-0   (aka _ctl)
+		*/
+
+		if ((instr.data >> 16) & 0xF)
+			buffer << "_";
+
+		if ((instr.data >> 19) & 1)
+			buffer << "f";
+
+		if ((instr.data >> 18) & 1)
+			buffer << "s";
+
+		if ((instr.data >> 17) & 1)
+			buffer << "x";
+
+		if ((instr.data >> 16) & 1)
+			buffer << "c";
+
+		buffer << " ";
+
+		if ((instr.data >> 22) & 1) {
+			buffer << "SPSR, ";
+		}
+		else {
+			buffer << "CPSR, ";
+		}
+
+		if ((instr.data >> 25) & 1) {
+			//Immediate
+			u32 value = instr.data & 0xFF;
+			u8 shift = (instr.data >> 8) & 0xF;
+			shift *= 2;
+
+			value = std::rotr(value, shift);
+
+			buffer << "0x" << std::hex << value;
+		}
+		else {
+			u8 source_reg = instr.data & 0xF;
+
+			buffer << "r" << source_reg;
+		}
+
+		return buffer.str();
+	}
+
+	Disasm DisassembleARMSingleHDSTransfer(arm::ARMInstruction instr, cpu::CPUContext& ctx) {
+		std::ostringstream buffer{ "" };
+
+		std::string cond = DisassembleARMCondition(instr.condition);
+
+		u8 load = CHECK_BIT(instr.data, 20);
+		u8 opcode = (instr.data >> 5) & 3;
+
+		constexpr const char* strings[] = {
+			"STR", "LDR", "STR",
+			"LDR", "LDR", "LDR"
+		};
+
+		constexpr const char* suffix[] = {
+			"H", "D", "D",
+			"H", "SB", "SH"
+		};
+
+		u8 pos = (load << 2) | (opcode  - 1);
+
+		buffer << strings[pos] << cond << suffix[pos];
+
+		buffer << " ";
+
+		u8 base_reg = (instr.data >> 16) & 0xF;
+		u8 dest_reg = (instr.data >> 12) & 0xF;
+
+		buffer << "r" << (u32)dest_reg;
+
+		if (!CHECK_BIT(instr.data, 24) ||
+			CHECK_BIT(instr.data, 21)) {
+			buffer << "!";
+		}
+
+		buffer << ", [r" << (u32)base_reg << ", ";
+
+		if (CHECK_BIT(instr.data, 22)) {
+			u32 immediate = instr.data & 0xF;
+			immediate |= ((instr.data >> 8) & 0xF) << 4;
+
+			buffer << "0x" << std::hex << immediate;
+		}
+		else {
+			u32 reg = instr.data & 0xF;
+
+			buffer << "r" << reg;
+		}
+
+		buffer << "]";
+
+		return buffer.str();
+	}
+
 	Disasm DisassembleARM(u32 opcode, cpu::CPUContext& ctx) {
 		arm::ARMInstructionType type = arm::DecodeArm(opcode);
 
@@ -140,6 +336,17 @@ namespace GBA::debugger {
 
 		case arm::ARMInstructionType::BLOCK_DATA_TRANSFER:
 			return DisassembleARMBlockTransfer(instruction, ctx);
+
+		case arm::ARMInstructionType::DATA_PROCESSING_IMMEDIATE:
+		case arm::ARMInstructionType::DATA_PROCESSING_REGISTER_REG:
+		case arm::ARMInstructionType::DATA_PROCESSING_REGISTER_IMM:
+			return DisassembleARMDataProcess(instruction, ctx);
+
+		case arm::ARMInstructionType::PSR_TRANSFER:
+			return DisassembleARMPsrTransfer(instruction, ctx);
+
+		case arm::ARMInstructionType::SINGLE_HDS_TRANSFER:
+			return DisassembleARMSingleHDSTransfer(instruction, ctx);
 		}
 
 		return "UNDEFINED";

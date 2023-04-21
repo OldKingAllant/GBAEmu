@@ -134,12 +134,12 @@ namespace GBA::cpu {
 
 		m_cpsr = m_spsr[curr_mode_id - 1];
 
-		if (m_cpsr.instr_state == InstructionMode::ARM) {
+		/*if (m_cpsr.instr_state == InstructionMode::ARM) {
 			m_pipeline.Bubble<InstructionMode::ARM>(old_pc);
 		}
 		else {
 			m_pipeline.Bubble<InstructionMode::THUMB>(old_pc);
-		}
+		}*/
 	}
 
 	u8 ARM7TDI::Step() {
