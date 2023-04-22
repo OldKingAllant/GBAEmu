@@ -58,7 +58,12 @@ namespace GBA::memory {
 
 		void ConnectGamepack(gamepack::GamePack* pack);
 
+		~Bus();
+
 	private :
 		gamepack::GamePack* m_pack;
+
+		u8* m_wram;
+		u8* m_iwram;
 	};
 }

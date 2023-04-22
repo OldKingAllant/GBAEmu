@@ -27,7 +27,7 @@ namespace GBA::error {
 #if defined(WIN32) || defined(__WIN32__) || defined(_WIN32)
 		__debugbreak();
 #else 
-#if defined(__x86_64__) || defined(_M_ARM64)
+#if defined(__x86_64__) || defined(_M_AMD64)
 		__asm {
 			int 3
 		}

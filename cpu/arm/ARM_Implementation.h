@@ -144,17 +144,35 @@ namespace GBA::cpu::arm {
 
 		u32 data;
 	};
+
+	union ARM_SingleHDSTransfer {
+		ARM_SingleHDSTransfer(ARMInstruction instr) :
+			data{ instr.data } {}
+
+		struct {
+			u8 offset_low : 4;
+			bool : 1;
+			u8 opcode : 2;
+			bool : 1;
+			u8 offset_hi : 4;
+			u8 source_dest_reg : 4;
+			u8 base_reg : 4;
+			bool load : 1;
+			bool writeback : 1;
+			bool immediate_offset : 1;
+			bool increment : 1;
+			bool pre_inc : 1;
+			u8 : 3;
+			u8 condition : 4;
+		};
+
+		u32 data;
+	};
 #pragma pack(pop)
-
-
 
 	ARMInstructionType DecodeArm(u32 opcode);
 
 	void ExecuteArm(ARMInstruction instr, CPUContext& ctx,  memory::Bus* bus, bool& branch);
-
-	//void DataProcessing(ARMInstruction instr, CPUContext& ctx, memory::Bus* bus, bool& branch);
-
-	//void BranchExchange()
 
 	void Branch(ARMBranch instr, CPUContext& ctx, memory::Bus* bus, bool& branch);
 

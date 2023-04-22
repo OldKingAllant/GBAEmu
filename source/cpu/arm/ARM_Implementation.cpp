@@ -184,6 +184,49 @@ namespace GBA::cpu::arm{
 
 			branch = true;
 		}
+
+		u32 HDSTransfer(i32 base, u8 reg, u8 opcode,
+			bool pre, bool increment, CPUContext& ctx,
+			memory::Bus* bus, bool& branch) {
+			u8 pre_inc = pre;
+			u8 post_inc = !pre;
+
+			if (!increment) {
+				pre_inc *= -1;
+				post_inc *= -1;
+			}
+
+			switch (opcode)
+			{
+			case 0b001: {
+				base += (i8)2 * (i8)pre_inc;
+				u32 to_write = ctx.m_regs.GetReg(reg);
+				to_write += 12 * (reg == 15);
+				bus->Write<u16>(base, to_write);
+				base += (i8)2 * (i8)post_inc;
+			}
+			break;
+			case 0b010:
+				LOG_ERROR("LDRD not implemented");
+				error::DebugBreak();
+			case 0b011:
+				LOG_ERROR("STRD not implemented");
+				error::DebugBreak();
+			case 0b101:
+				LOG_ERROR("LDRH not implemented");
+				error::DebugBreak();
+			case 0b110:
+				LOG_ERROR("LDRSB not implemented");
+				error::DebugBreak();
+			case 0b111:
+				LOG_ERROR("LDRSH not implemented");
+				error::DebugBreak();
+			default:
+				break;
+			}
+
+			return base;
+		}
 	}
 
 	bool IsPsrTransfer(u32 opcode) {
@@ -299,13 +342,8 @@ namespace GBA::cpu::arm{
 			return;
 		}
 
-		u8 pre_increment = 0;
-		u8 post_increment = 0;
-
-		if (instr.pre_increment)
-			pre_increment = 4;
-		else
-			post_increment = 4;
+		u8 pre_increment = 4 * instr.pre_increment;
+		u8 post_increment = 4 * !instr.pre_increment;
 
 		if (instr.s_bit) {
 			if (instr.writeback) {
@@ -342,12 +380,61 @@ namespace GBA::cpu::arm{
 			}
 		}
 
-		ctx.m_regs.SetReg(base_reg, base);
+		//ctx.m_regs.SetReg(base_reg, base - 4 * !instr.pre_increment);
 	}
 
 	void inline LoadBlock(ARMBlockTransfer instr, CPUContext& ctx,  memory::Bus* bus, bool& branch) {
-		LOG_ERROR("LDM Not implemented");
-		error::DebugBreak();
+		u16 list = instr.rlist;
+
+		u8 reg_id = 0;
+
+		u8 base_reg = instr.base_reg;
+
+		u32 base = ctx.m_regs.GetReg(base_reg);
+
+		if (list == 0) {
+			ctx.m_regs.SetReg(15, bus->Read<u32>(base));
+
+			if (instr.increment)
+				ctx.m_regs.AddOffset(base_reg, 0x40);
+			else
+				ctx.m_regs.AddOffset(base_reg, -64);
+
+			branch = true;
+
+			return;
+		}
+
+		u8 pre_increment = 4 * instr.pre_increment;
+		u8 post_increment = 4 * !instr.pre_increment;
+
+		if (instr.s_bit) {
+			LOG_ERROR("LDM With S bit bot implemented");
+			error::DebugBreak();
+		}
+		else {
+			while (list) {
+				if (list & 1) {
+					base += pre_increment;
+
+					ctx.m_regs.SetReg(reg_id, bus->Read<u32>(base));
+
+					base += post_increment;
+				}
+
+				list >>= 1;
+				reg_id++;
+			}
+		}
+
+		if (CHECK_BIT(instr.rlist, 15)) {
+			branch = true;
+
+			if (instr.s_bit)
+				ctx.RestorePreviousMode(ctx.m_regs.GetReg(15));
+		}
+
+		//ctx.m_regs.SetReg(base_reg, base - 4 * !instr.pre_increment);
 	}
 
 	void BlockDataTransfer(ARMBlockTransfer instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
@@ -364,16 +451,22 @@ namespace GBA::cpu::arm{
 			return;
 		}
 
+		u8 popcnt = std::popcount(instr.rlist);
+
+		u32 new_base = 0;
+
 		if (!instr.increment) {
 			//Registers are processed in increasing
 			//addresses, which means that if we
 			//are decrementing the address after
 			//each load/store, we should start
 			//from the lowest address and then increment
-
-			u8 popcnt = std::popcount(instr.rlist);
-
+			instr.pre_increment = !instr.pre_increment;
 			base -= popcnt * 4;
+			new_base = base;
+		}
+		else {
+			new_base = base + popcnt * 4;
 		}
 
 		ctx.m_regs.SetReg(instr.base_reg, base);
@@ -406,8 +499,8 @@ namespace GBA::cpu::arm{
 		
 		if (!instr.writeback)
 			ctx.m_regs.SetReg(instr.base_reg, original_base);
-		else if (!instr.increment && instr.rlist)
-			ctx.m_regs.SetReg(instr.base_reg, base);
+		else if (instr.rlist)
+			ctx.m_regs.SetReg(instr.base_reg, new_base);
 	}
 
 	template <typename InstructionT>
@@ -450,9 +543,30 @@ namespace GBA::cpu::arm{
 		error::DebugBreak();
 	}
 
-	void SingleHDSTransfer(ARMInstruction instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
-		LOG_ERROR("Single HDS Transfer Not implemented");
-		error::DebugBreak();
+	void SingleHDSTransfer(ARM_SingleHDSTransfer instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+		u32 offset = 0;
+
+		if (instr.immediate_offset)
+			offset = instr.offset_low | (instr.offset_hi << 4);
+		else
+			offset = ctx.m_regs.GetReg(instr.offset_low);
+
+		u32 base = ctx.m_regs.GetReg(instr.base_reg);
+
+		if (instr.base_reg == 15)
+			base += 8;
+
+		base += offset;
+
+		u8 dest = instr.source_dest_reg;
+
+		u8 opcode = ((u8)instr.load << 2) | instr.opcode;
+
+		base = detail::HDSTransfer(base, dest, opcode,
+			instr.pre_inc, instr.increment, ctx, bus, branch);
+
+		if (instr.writeback || !instr.pre_inc)
+			ctx.m_regs.SetReg(instr.base_reg, base);
 	}
 
 	void ExecuteArm(ARMInstruction instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {

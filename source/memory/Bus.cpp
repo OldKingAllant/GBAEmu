@@ -1,9 +1,19 @@
 #include "../../memory/Bus.hpp"
 #include "../../gamepack/GamePack.hpp"
 
+#include "../../common/Logger.hpp"
+#include "../../common/Error.hpp"
+
 namespace GBA::memory {
+	LOG_CONTEXT(Memory bus);
+
 	Bus::Bus() :
-		m_pack(nullptr) {}
+		m_pack(nullptr), m_wram(nullptr),
+		m_iwram(nullptr)
+	{
+		m_wram = new u8[0x3FFFF];
+		m_iwram = new u8[0x7FFF];
+	}
 
 	void Bus::ConnectGamepack(gamepack::GamePack* pack) {
 		m_pack = pack;
@@ -71,10 +81,10 @@ namespace GBA::memory {
 			return 0x00;
 
 		case MEMORY_RANGE::EWRAM:
-			return 0x00;
+			return reinterpret_cast<u16*>(m_wram)[addr_low / 2];
 
 		case MEMORY_RANGE::IWRAM:
-			return 0x00;
+			return reinterpret_cast<u16*>(m_iwram)[addr_low / 2];
 
 		case MEMORY_RANGE::IO:
 			return 0x00;
@@ -117,10 +127,10 @@ namespace GBA::memory {
 			return 0x00;
 
 		case MEMORY_RANGE::EWRAM:
-			return 0x00;
+			return reinterpret_cast<u32*>(m_wram)[addr_low / 4];
 
 		case MEMORY_RANGE::IWRAM:
-			return 0x00;
+			return reinterpret_cast<u32*>(m_iwram)[addr_low / 4];
 
 		case MEMORY_RANGE::IO:
 			return 0x00;
@@ -151,19 +161,152 @@ namespace GBA::memory {
 
 	template <>
 	void Bus::Write(u32 address, u8 value) {
-		(void)address;
-		(void)value;
+		LOG_ERROR("8 bit memory write not implemented");
+		error::DebugBreak();
+
+		MEMORY_RANGE region = (MEMORY_RANGE)(address >> 24);
+		u32 addr_low = address & 0x00FFFFFF;
+
+		if ((u8)region >= NUM_REGIONS)
+			return;
+
+		if (addr_low & ~REGIONS_LEN[(u8)region])
+			return;
+
+		switch (region) {
+		case MEMORY_RANGE::BIOS:
+			break;
+
+		case MEMORY_RANGE::EWRAM:
+			break;
+
+		case MEMORY_RANGE::IWRAM:
+			break;
+
+		case MEMORY_RANGE::IO:
+			break;
+
+		case MEMORY_RANGE::PAL:
+			break;
+
+		case MEMORY_RANGE::VRAM:
+			break;
+
+		case MEMORY_RANGE::OAM:
+			break;
+
+		case MEMORY_RANGE::ROM_REG_1:
+		case MEMORY_RANGE::ROM_REG_2:
+		case MEMORY_RANGE::ROM_REG_3:
+			break;
+
+		case MEMORY_RANGE::SRAM:
+			break;
+		}
 	}
 
 	template <>
 	void Bus::Write(u32 address, u16 value) {
-		(void)address;
-		(void)value;
+		MEMORY_RANGE region = (MEMORY_RANGE)(address >> 24);
+		u32 addr_low = address & 0x00FFFFFF;
+
+		if ((u8)region >= NUM_REGIONS)
+			return;
+
+		if (addr_low & ~REGIONS_LEN[(u8)region])
+			return;
+
+		addr_low &= ~1;
+
+		switch (region) {
+		case MEMORY_RANGE::BIOS:
+			break;
+
+		case MEMORY_RANGE::EWRAM:
+			reinterpret_cast<u16*>(m_wram)[addr_low / 2] = value;
+			break;
+
+		case MEMORY_RANGE::IWRAM:
+			reinterpret_cast<u16*>(m_iwram)[addr_low / 2] = value;
+			break;
+
+		case MEMORY_RANGE::IO:
+			break;
+
+		case MEMORY_RANGE::PAL:
+			break;
+
+		case MEMORY_RANGE::VRAM:
+			break;
+
+		case MEMORY_RANGE::OAM:
+			break;
+
+		case MEMORY_RANGE::ROM_REG_1:
+		case MEMORY_RANGE::ROM_REG_2:
+		case MEMORY_RANGE::ROM_REG_3:
+			break;
+
+		case MEMORY_RANGE::SRAM:
+			break;
+		}
 	}
 
 	template <>
 	void Bus::Write(u32 address, u32 value) {
-		(void)address;
-		(void)value;
+		MEMORY_RANGE region = (MEMORY_RANGE)(address >> 24);
+		u32 addr_low = address & 0x00FFFFFF;
+
+		if ((u8)region >= NUM_REGIONS)
+			return;
+
+		if (addr_low & ~REGIONS_LEN[(u8)region])
+			return;
+
+		addr_low &= ~3;
+
+		switch (region) {
+		case MEMORY_RANGE::BIOS:
+			LOG_ERROR("Writing to BIOS memory\n"
+				"Address : 0x{:x}, Value : 0x{:x}", address, value);
+			break;
+
+		case MEMORY_RANGE::EWRAM:
+			reinterpret_cast<u32*>(m_wram)[addr_low / 4] = value;
+			break;
+
+		case MEMORY_RANGE::IWRAM:
+			reinterpret_cast<u32*>(m_iwram)[addr_low / 4] = value;
+			break;
+
+		case MEMORY_RANGE::IO:
+			LOG_INFO(" IO memory write");
+			break;
+
+		case MEMORY_RANGE::PAL:
+			break;
+
+		case MEMORY_RANGE::VRAM:
+			break;
+
+		case MEMORY_RANGE::OAM:
+			break;
+
+		case MEMORY_RANGE::ROM_REG_1:
+		case MEMORY_RANGE::ROM_REG_2:
+		case MEMORY_RANGE::ROM_REG_3:
+			break;
+
+		case MEMORY_RANGE::SRAM:
+			break;
+		}
+	}
+
+	Bus::~Bus() {
+		if (m_iwram)
+			delete[] m_iwram;
+
+		if (m_wram)
+			delete[] m_wram;
 	}
 }
