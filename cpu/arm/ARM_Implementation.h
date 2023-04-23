@@ -31,7 +31,7 @@ namespace GBA::cpu::arm {
 		static constexpr u32 ALU_REGISTER_IMMEDIATE =      0b111000000001;
 		static constexpr u32 ALU_IMMEDIATE =               0b111000000000;
 		static constexpr u32 MULTIPLY =                    0b111100001111;
-		static constexpr u32 MULTIPLY_HALF =               0b111100001001;
+		static constexpr u32 MULTIPLY_HALF =               0b111110011001;
 		static constexpr u32 SINGLE_HDS_TRANSFER =		   0b111000001001;
 	};
 

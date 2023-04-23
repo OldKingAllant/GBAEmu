@@ -409,7 +409,7 @@ namespace GBA::cpu::arm{
 		u8 post_increment = 4 * !instr.pre_increment;
 
 		if (instr.s_bit) {
-			LOG_ERROR("LDM With S bit bot implemented");
+			LOG_ERROR("LDM With S bit not implemented");
 			error::DebugBreak();
 		}
 		else {

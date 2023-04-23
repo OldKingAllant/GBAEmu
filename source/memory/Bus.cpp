@@ -35,10 +35,10 @@ namespace GBA::memory {
 			return 0x00;
 
 		case MEMORY_RANGE::EWRAM:
-			return 0x00;
+			return m_wram[addr_low];
 
 		case MEMORY_RANGE::IWRAM:
-			return 0x00;
+			return m_iwram[addr_low];
 
 		case MEMORY_RANGE::IO:
 			return 0x00;
