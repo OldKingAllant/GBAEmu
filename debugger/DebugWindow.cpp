@@ -29,8 +29,27 @@ namespace GBA::debugger {
 		m_sdl_window(nullptr), m_sdl_renderer(nullptr),
 		m_disassembler_address{}, m_follow_pc(true),
 		m_up_arrow(nullptr), m_down_arrow(nullptr),
-		m_emu_status{}
-	{}
+		m_emu_status{}, m_memory_view_addresses{}
+	{
+		/*
+		*	{ 0x00000000, 0x00003FFF },
+			{ 0x02000000, 0x0203FFFF },
+			{ 0x03000000, 0x03007FFF }, 
+			{ 0x05000000, 0x050003FF }, 
+			{ 0x06000000, 0x06017FFF },
+			{ 0x07000000, 0x070003FF },
+			{ 0x08000000, 0x09FFFFFF },
+			{ 0x0E000000, 0x0E00FFFF }
+		*/
+		m_memory_view_addresses[0] = 0x00000000;
+		m_memory_view_addresses[1] = 0x02000000;
+		m_memory_view_addresses[2] = 0x03000000;
+		m_memory_view_addresses[3] = 0x05000000;
+		m_memory_view_addresses[4] = 0x06000000;
+		m_memory_view_addresses[5] = 0x07000000;
+		m_memory_view_addresses[6] = 0x08000000;
+		m_memory_view_addresses[7] = 0x0E000000;
+	}
 
 	void DebugWindow::Init() {
 		m_sdl_window = SDL_CreateWindow("GBA Emulator",
@@ -71,6 +90,7 @@ namespace GBA::debugger {
 		DrawCpuControlWindow();
 		DrawDisassemblerWindow();
 		DrawControlWindow();
+		DrawMemoryWindow();
 
 		ImGui::Render();
 
@@ -411,6 +431,120 @@ namespace GBA::debugger {
 			std::string(BoolToString(m_emu_status.until_breakpoint));
 
 		ImGui::TextColored(gui_colors::YELLOW, run_till_break.c_str());
+
+		ImGui::End();
+	}
+
+	void DebugWindow::DrawMemoryRegion(unsigned id) {
+		constexpr const unsigned ranges[][2] = {
+			{ 0x00000000, 0x00003FFF },
+			{ 0x02000000, 0x0203FFFF },
+			{ 0x03000000, 0x03007FFF }, 
+			{ 0x05000000, 0x050003FF }, 
+			{ 0x06000000, 0x06017FFF },
+			{ 0x07000000, 0x070003FF },
+			{ 0x08000000, 0x09FFFFFF },
+			{ 0x0E000000, 0x0E00FFFF }
+		};
+
+		ImGui::InputScalar("Goto address", ImGuiDataType_U32, &m_memory_view_addresses[id],
+			nullptr, nullptr, "%x", ImGuiInputTextFlags_CharsHexadecimal);
+
+		ImGui::Spacing();
+
+		if (ImGui::ImageButton((void*)m_up_arrow, ImVec2(20, 20))) {
+			m_memory_view_addresses[id] += 0x10;
+		}
+
+		ImGui::SameLine();
+
+		if (ImGui::ImageButton((void*)m_down_arrow, ImVec2(20, 20))) {
+			m_memory_view_addresses[id] -= 0x10;
+		}
+
+		if (m_memory_view_addresses[id] > ranges[id][1] ||
+			m_memory_view_addresses[id] < ranges[id][0])
+			m_memory_view_addresses[id] = ranges[id][0];
+		
+		float y_space = ImGui::GetContentRegionAvail().y;
+		float text_sz_y = ImGui::GetTextLineHeightWithSpacing();
+
+		ImGui::BeginChild("#View");
+
+		u32 address = m_memory_view_addresses[id];
+		address -= address % 0x10;
+
+		std::ostringstream buf{};
+
+		while (y_space > 0 && address < ranges[id][1]) {
+			float x_space = ImGui::GetContentRegionAvail().x;
+
+			std::string addr_str = to_hex(address);
+
+			x_space -= ImGui::CalcTextSize(addr_str.c_str()).x;
+
+			ImGui::TextColored(gui_colors::BLUE, addr_str.c_str());
+			ImGui::SameLine();
+
+			u8 shown_values = 0;
+
+			while (x_space > 0 && shown_values < 16 && address < ranges[id][1]) {
+				buf.str("");
+
+				buf << std::setfill('0') 
+					<< std::setw(2) 
+					<< std::hex
+					<< (u16)m_bus->Read<u8>(address);
+
+				std::string text = buf.str();
+
+				float text_sz = ImGui::CalcTextSize(text.c_str()).x;
+
+				if (shown_values % 2) {
+					ImGui::TextColored(gui_colors::BROWN, text.c_str());
+				}
+				else {
+					ImGui::TextColored(gui_colors::WHITE, text.c_str());
+				}
+				
+				ImGui::SameLine();
+
+				x_space -= text_sz;
+
+				++address;
+				++shown_values;
+			}
+
+			ImGui::Spacing();
+
+			y_space -= text_sz_y;
+		}
+
+		ImGui::EndChild();
+	}
+
+	void DebugWindow::DrawMemoryWindow() {
+		ImGui::Begin("Memory visualizer");
+
+		ImGui::BeginTabBar("#Regions");
+
+		constexpr const char* mem_regions[] = {
+			"BIOS", "WRAM", "IWRAM", "Palette",
+			"VRAM", "OAM", "ROM", "SRAM"
+		};
+
+		unsigned id = 0;
+
+		for (const char* region : mem_regions) {
+			if (ImGui::BeginTabItem(region)) {
+				DrawMemoryRegion(id);
+				ImGui::EndTabItem();
+			}
+
+			id++;
+		}
+
+		ImGui::EndTabBar();
 
 		ImGui::End();
 	}

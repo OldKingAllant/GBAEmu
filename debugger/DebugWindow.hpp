@@ -41,6 +41,7 @@ namespace GBA::debugger {
 		void DrawCpuControlWindow();
 		void DrawDisassemblerWindow();
 		void DrawControlWindow();
+		void DrawMemoryWindow();
 
 		~DebugWindow();
 
@@ -55,6 +56,7 @@ namespace GBA::debugger {
 		void DrawCPSR(cpu::CPSR& cpsr);
 		void DrawSPSR();
 		void DrawRegisters();
+		void DrawMemoryRegion(unsigned id);
 
 		cpu::ARM7TDI* m_processor;
 		memory::Bus* m_bus;
@@ -74,5 +76,7 @@ namespace GBA::debugger {
 		SDL_Texture* m_down_arrow;
 
 		common::EmulatorStatus m_emu_status;
+
+		common::u32 m_memory_view_addresses[8];
 	};
 }
