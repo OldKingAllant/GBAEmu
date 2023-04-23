@@ -109,7 +109,7 @@ namespace GBA::cpu::arm{
 		}
 
 		void DataProcessingCommon(u8 dest, u8 first_op, u8 opcode, u32 value, bool s_bit, 
-			CPUContext& ctx, bool& branch) {
+			CPUContext& ctx, bool& branch, bool shift_carry) {
 			bool old_s_bit = s_bit;
 
 			if (dest == 15 && s_bit)
@@ -119,9 +119,13 @@ namespace GBA::cpu::arm{
 			{
 			case 0x00:
 				AND(dest, first_op, value, s_bit, ctx);
+				if(s_bit)
+					ctx.m_cpsr.carry = shift_carry;
 				break;
 			case 0x01:
 				EOR(dest, first_op, value, s_bit, ctx);
+				if (s_bit)
+					ctx.m_cpsr.carry = shift_carry;
 				break;
 			case 0x02:
 				SUB(dest, first_op, value, s_bit, ctx);
@@ -143,9 +147,13 @@ namespace GBA::cpu::arm{
 				break;
 			case 0x08:
 				TST(dest, first_op, value, s_bit, ctx);
+				if (s_bit)
+					ctx.m_cpsr.carry = shift_carry;
 				break;
 			case 0x09:
 				TEQ(dest, first_op, value, s_bit, ctx);
+				if (s_bit)
+					ctx.m_cpsr.carry = shift_carry;
 				break;
 			case 0x0A:
 				CMP(dest, first_op, value, s_bit, ctx);
@@ -155,15 +163,23 @@ namespace GBA::cpu::arm{
 				break;
 			case 0x0C:
 				ORR(dest, first_op, value, s_bit, ctx);
+				if (s_bit)
+					ctx.m_cpsr.carry = shift_carry;
 				break;
 			case 0x0D:
 				MOV(dest, first_op, value, s_bit, ctx);
+				if (s_bit)
+					ctx.m_cpsr.carry = shift_carry;
 				break;
 			case 0x0E:
 				BIC(dest, first_op, value, s_bit, ctx);
+				if (s_bit)
+					ctx.m_cpsr.carry = shift_carry;
 				break;
 			case 0x0F:
 				MVN(dest, first_op, value, s_bit, ctx);
+				if (s_bit)
+					ctx.m_cpsr.carry = shift_carry;
 				break;
 			default:
 				break;
@@ -226,6 +242,39 @@ namespace GBA::cpu::arm{
 			}
 
 			return base;
+		}
+
+		std::pair<u32, bool> LSL(u32 value, u8 amount) {
+			u8 bit_pos = (32 - amount);
+
+			return { value << amount, CHECK_BIT(value, bit_pos) * !!amount };
+		}
+
+		std::pair<u32, bool> LSR(u32 value, u8 amount) {
+			u8 bit_pos = (amount - 1) % 32;
+			
+			return { value >> amount, CHECK_BIT(value, bit_pos) };
+		}
+
+		std::pair<u32, bool> ASR(u32 value, u8 amount) {
+			amount %= 32;
+
+			u8 bit_pos = (amount - 1) % 32;
+			u32 sign = CHECK_BIT(value, 31);
+
+			value >>= amount;
+
+			for (u8 pos = 31; pos >= 32 - amount; pos--) {
+				value |= (sign << pos);
+			}
+
+			return { value, CHECK_BIT(value, bit_pos) };
+		}
+
+		std::pair<u32, bool> ROR(u32 value, u8 amount) {
+			u8 bit_pos = (amount - 1) % 32;
+
+			return { std::rotr(value, amount), CHECK_BIT(value, bit_pos) * !!amount };
 		}
 	}
 
@@ -523,19 +572,62 @@ namespace GBA::cpu::arm{
 		u32 value = instr.immediate_value;
 		u8 shift = instr.ror_shift * 2;
 
+		bool carry_shift = CHECK_BIT(value, (shift - 1) % 32) * !!shift;
+
 		value = std::rotr(value, shift);
 
-		detail::DataProcessingCommon(dest_reg, first_op_reg, real_opcode, value, instr.s_bit, ctx, branch);
+		detail::DataProcessingCommon(dest_reg, first_op_reg, real_opcode, value, instr.s_bit, ctx, branch, carry_shift);
 	}
 
 	template <>
 	void DataProcessing(ARM_ALURegisterReg instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
-
+		LOG_ERROR("ALU Shift by Register Not implemented");
+		error::DebugBreak();
 	}
 
 	template <>
 	void DataProcessing(ARM_ALURegisterImm instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+		u8 dest_reg = instr.destination_reg;
+		u8 first_op_reg = instr.first_operand_reg;
 
+		u8 real_opcode = (instr.opcode_hi << 3) | instr.opcode_low;
+
+		if (first_op_reg && (real_opcode == 0xD || real_opcode == 0xF)) {
+			LOG_ERROR("First operand register is != 0 with MOV/MVN");
+			error::DebugBreak();
+		}
+
+		u8 shift_amount = instr.shift_amount_lo | 
+			(instr.shift_amount_hi << 1);
+		u8 shift_type = instr.shift_type;
+		u32 second_op = ctx.m_regs.GetReg( instr.second_operand_reg );
+
+		std::pair<u32, bool> res{};
+
+		switch (shift_type)
+		{
+		case 0x00:
+			res = detail::LSL(second_op, shift_amount);
+			break;
+		case 0x01:
+			LOG_ERROR("LSR shift Not implemented");
+			error::DebugBreak();
+			break;
+		case 0x02:
+			LOG_ERROR("ASR shift Not implemented");
+			error::DebugBreak();
+			break;
+		case 0x03:
+			LOG_ERROR("ROR Transfer Not implemented");
+			error::DebugBreak();
+			break;
+		default:
+			break;
+		}
+
+		detail::DataProcessingCommon(dest_reg, first_op_reg,
+			real_opcode, res.first, instr.s_bit, ctx,
+			branch, res.second);
 	}
 
 	void PsrTransfer(ARMInstruction instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {

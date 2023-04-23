@@ -112,7 +112,7 @@ namespace GBA::cpu::arm {
 			u8 shift_type : 2;
 			bool reserved : 1;
 			u8 shift_reg : 4;
-			u8 destionation_reg : 4;
+			u8 destination_reg : 4;
 			u8 first_operand_reg : 4;
 			bool s_bit : 1;
 			u8 opcode_low : 3;
@@ -132,8 +132,10 @@ namespace GBA::cpu::arm {
 			u8 second_operand_reg : 4;
 			bool shift_by : 1;
 			u8 shift_type : 2;
-			u8 shift_amount : 5;
-			u8 destionation_reg : 4;
+			u8 shift_amount_lo : 1;
+			u8 : 0;
+			u8 shift_amount_hi : 4;
+			u8 destination_reg : 4;
 			u8 first_operand_reg : 4;
 			bool s_bit : 1;
 			u8 opcode_low : 3;
