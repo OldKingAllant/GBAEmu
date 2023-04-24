@@ -289,9 +289,24 @@ namespace GBA::cpu::arm{
 	}
 
 	ARMInstructionType DecodeArm(u32 opcode) {
+		//First check if instruction is BX/BLX
+
+		u32 masked = 0;
+		
+		constexpr const u32 BRANCH_EXCHANGE_MASK =
+			0b00001111111111111111111111000000;
+
+		constexpr const u32 BRANCH_EXCHANGE_VALUE =
+			0b00000001001011111111111100000000;
+
+		masked = opcode & BRANCH_EXCHANGE_MASK;
+
+		if (masked == BRANCH_EXCHANGE_VALUE)
+			return ARMInstructionType::BRANCH_EXCHANGE;
+
 		//Get bits [27,20] and bits [7,4]
 		u16 bits = (((opcode >> 20) & 0xFF) << 4) | ((opcode >> 4) & 0xF);
-		u32 masked = bits & ARMInstructionMask::BRANCH;
+		masked = bits & ARMInstructionMask::BRANCH;
 
 		if (masked == ARMInstructionCode::BRANCH)
 			return ARMInstructionType::BRANCH;
@@ -344,6 +359,16 @@ namespace GBA::cpu::arm{
 			if ((opcode >> 5) & 0b11)
 				return ARMInstructionType::SINGLE_HDS_TRANSFER;
 		}
+
+		masked = bits & ARMInstructionMask::SOFT_INTERRUPT;
+
+		if (masked == ARMInstructionCode::SOFT_INTERRUPT)
+			return ARMInstructionType::SOFT_INTERRUPT;
+
+		masked = bits & ARMInstructionMask::SINGLE_DATA_SWAP;
+
+		if (masked == ARMInstructionCode::SINGLE_DATA_SWAP)
+			return ARMInstructionType::SINGLE_DATA_SWAP;
 
 		return ARMInstructionType::UNDEFINED;
 	}
@@ -661,6 +686,21 @@ namespace GBA::cpu::arm{
 			ctx.m_regs.SetReg(instr.base_reg, base);
 	}
 
+	void BranchExchange(ARMInstruction instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+		LOG_ERROR("Branch exchange not implemented");
+		error::DebugBreak();
+	}
+
+	void SoftwareInterrupt(ARMInstruction instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+		LOG_ERROR("Software interrupt not implemented");
+		error::DebugBreak();
+	}
+
+	void SingleDataSwap(ARMInstruction instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+		LOG_ERROR("Single data wap not implemented");
+		error::DebugBreak();
+	}
+
 	void ExecuteArm(ARMInstruction instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
 		if (!ctx.m_cpsr.CheckCondition(instr.condition))
 			return;
@@ -673,6 +713,7 @@ namespace GBA::cpu::arm{
 			Branch(instr, ctx, bus, branch);
 			break;
 		case ARMInstructionType::BRANCH_EXCHANGE:
+			BranchExchange(instr, ctx, bus, branch);
 			break;
 		case ARMInstructionType::BLOCK_DATA_TRANSFER:
 			BlockDataTransfer(instr, ctx, bus, branch);
@@ -691,6 +732,12 @@ namespace GBA::cpu::arm{
 			break;
 		case ARMInstructionType::SINGLE_HDS_TRANSFER:
 			SingleHDSTransfer(instr, ctx, bus, branch);
+			break;
+		case ARMInstructionType::SOFT_INTERRUPT:
+			SoftwareInterrupt(instr, ctx, bus, branch);
+			break;
+		case ARMInstructionType::SINGLE_DATA_SWAP:
+			SingleDataSwap(instr, ctx, bus, branch);
 			break;
 		case ARMInstructionType::UNDEFINED:
 			break;

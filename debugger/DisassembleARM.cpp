@@ -75,7 +75,7 @@ namespace GBA::debugger {
 	}
 
 	Disasm DisassembleARMBranchExchange(arm::ARMInstruction, cpu::CPUContext& ctx) {
-		return "";
+		return "BX/BLX";
 	}
 
 	Disasm DisassembleARMBlockTransfer(arm::ARMBlockTransfer transfer, cpu::CPUContext& ctx) {
@@ -322,6 +322,14 @@ namespace GBA::debugger {
 		return buffer.str();
 	}
 
+	Disasm DisassembleARMSWI(arm::ARMInstruction opcode, cpu::CPUContext& ctx) {
+		return "SWI";
+	}
+
+	Disasm DisassembleARMDataSwap(arm::ARMInstruction opcode, cpu::CPUContext& ctx) {
+		return "SWP";
+	}
+
 	Disasm DisassembleARM(u32 opcode, cpu::CPUContext& ctx) {
 		arm::ARMInstructionType type = arm::DecodeArm(opcode);
 
@@ -347,6 +355,12 @@ namespace GBA::debugger {
 
 		case arm::ARMInstructionType::SINGLE_HDS_TRANSFER:
 			return DisassembleARMSingleHDSTransfer(instruction, ctx);
+
+		case arm::ARMInstructionType::SOFT_INTERRUPT:
+			return DisassembleARMSWI(instruction, ctx);
+
+		case arm::ARMInstructionType::SINGLE_DATA_SWAP:
+			return DisassembleARMDataSwap(instruction, ctx);
 		}
 
 		return "UNDEFINED";

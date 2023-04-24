@@ -20,6 +20,8 @@ namespace GBA::cpu::arm {
 		DATA_PROCESSING_REGISTER_IMM,
 		PSR_TRANSFER,
 		SINGLE_HDS_TRANSFER,
+		SOFT_INTERRUPT,
+		SINGLE_DATA_SWAP,
 		UNDEFINED
 	};
 
@@ -33,6 +35,8 @@ namespace GBA::cpu::arm {
 		static constexpr u32 MULTIPLY =                    0b111100001111;
 		static constexpr u32 MULTIPLY_HALF =               0b111110011001;
 		static constexpr u32 SINGLE_HDS_TRANSFER =		   0b111000001001;
+		static constexpr u32 SOFT_INTERRUPT =			   0b111100000000;
+		static constexpr u32 SINGLE_DATA_SWAP =			   0b111110111111;
 	};
 
 	struct ARMInstructionCode {
@@ -45,6 +49,8 @@ namespace GBA::cpu::arm {
 		static constexpr u32 MULTIPLY =                 0b000000001001;
 		static constexpr u32 MULTIPLY_HALF =            0b000100001000;
 		static constexpr u32 SINGLE_HDS_TRANSFER =		0b000000001001;
+		static constexpr u32 SOFT_INTERRUPT =           0b111100000000;
+		static constexpr u32 SINGLE_DATA_SWAP =			0b000100001001;
 	};
 
 #pragma pack(push, 1)
