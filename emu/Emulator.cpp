@@ -16,20 +16,4 @@ namespace GBA::emulation {
 			m_ctx.processor.Step();
 		}
 	}
-
-	void Emulator::RunEmulation(EmulatorStatus& status) {
-		if (status.stopped)
-			return;
-
-		if (status.single_step) {
-			EmulateFor(1);
-			status.stopped = true;
-			status.single_step = false;
-			return;
-		}
-
-
-		status.stopped = true;
-		//Do nothing
-	}
 }

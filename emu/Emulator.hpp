@@ -23,8 +23,6 @@ namespace GBA::emulation {
 			return m_ctx;
 		}
 
-		void RunEmulation(common::EmulatorStatus& status);
-
 		void EmulateFor(common::u32 num_instructions);
 
 	private :

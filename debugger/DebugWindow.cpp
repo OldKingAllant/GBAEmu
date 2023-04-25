@@ -18,9 +18,11 @@
 
 #include "../common/DebugCommon.hpp"
 #include "DisassembleARM.hpp"
+#include "Debugger.hpp"
 
 namespace GBA::debugger {
-	DebugWindow::DebugWindow() : 
+	DebugWindow::DebugWindow(Debugger& debug) : 
+		m_debugger(debug),
 		m_processor(nullptr), 
 		m_bus(nullptr),
 		m_pack(nullptr),
@@ -29,7 +31,8 @@ namespace GBA::debugger {
 		m_sdl_window(nullptr), m_sdl_renderer(nullptr),
 		m_disassembler_address{}, m_follow_pc(true),
 		m_up_arrow(nullptr), m_down_arrow(nullptr),
-		m_emu_status{}, m_memory_view_addresses{}
+		m_emu_status{}, m_memory_view_addresses{},
+		m_break_address{}
 	{
 		/*
 		*	{ 0x00000000, 0x00003FFF },
@@ -49,6 +52,8 @@ namespace GBA::debugger {
 		m_memory_view_addresses[5] = 0x07000000;
 		m_memory_view_addresses[6] = 0x08000000;
 		m_memory_view_addresses[7] = 0x0E000000;
+
+		m_emu_status.stopped = true;
 	}
 
 	void DebugWindow::Init() {
@@ -396,19 +401,46 @@ namespace GBA::debugger {
 		ImGui::End();
 	}
 
-	void  DebugWindow::DrawControlWindow() {
+	void DebugWindow::DrawControlWindow() {
 		ImGui::Begin("Control");
 
 		if (ImGui::CollapsingHeader("Breakpoints")) {
-			ImGui::Text("WORK IN PROGRESS");
+			//ImGui::BeginChild("#Breakpoints");
+			ImGui::Checkbox("Allow UI update", &m_emu_status.update_ui);
+
+			ImGui::InputScalar("Address", ImGuiDataType_U32, &m_break_address, nullptr,
+				nullptr, "%x", ImGuiInputTextFlags_CharsHexadecimal);
+
+			ImGui::Spacing();
+
+			if (ImGui::Button("Add", ImVec2(40, 30))) {
+				m_debugger.AddBreakpoint(m_break_address);
+			}
+
+			for (Breakpoint& br : m_debugger.GetBreakpoints()) {
+				float old_font_scale = ImGui::GetFont()->Scale;
+				ImGui::TextColored(gui_colors::BLUE, "0x%x", br.address);
+
+				ImGui::SameLine();
+				ImGui::Checkbox("Enable", &br.enabled);
+				ImGui::SameLine();
+				
+				if (ImGui::Button("Remove", ImVec2(60, 20))) {
+					m_debugger.RemoveBreakpoint(br.address);
+				}
+			}
+
+			//ImGui::EndChild();
 		}
 
 		ImGui::Spacing();
 		ImGui::Spacing();
 
 		if (ImGui::Button("Step", ImVec2(50, 30))) {
-			m_emu_status = {};
+			//m_emu_status = {};
 			m_emu_status.single_step = true;
+			m_emu_status.stopped = false;
+			m_emu_status.until_breakpoint = false;
 		}
 
 		ImGui::SameLine();
@@ -416,11 +448,20 @@ namespace GBA::debugger {
 		ImGui::SameLine();
 
 		if (ImGui::Button("Continue", ImVec2(80, 30))) {
-			m_emu_status = {};
+			m_emu_status.single_step = false;
+			m_emu_status.stopped = false;
 			m_emu_status.until_breakpoint = true;
 		}
 
+		ImGui::SameLine();
 		ImGui::Spacing();
+		ImGui::SameLine();
+
+		if (ImGui::Button("Stop", ImVec2(80, 30))) {
+			m_emu_status.single_step = false;
+			m_emu_status.stopped = true;
+			m_emu_status.until_breakpoint = false;
+		}
 
 		std::string text_stopped = std::string("Stopped : ") + 
 			std::string(BoolToString(m_emu_status.stopped));

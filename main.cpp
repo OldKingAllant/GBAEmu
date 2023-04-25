@@ -6,6 +6,7 @@
 #include <SDL2/SDL_image.h>
 
 #include "debugger/DebugWindow.hpp"
+#include "debugger/Debugger.hpp"
 
 #ifdef main
 #undef main
@@ -35,32 +36,34 @@ int main(int argc, char* argv[]) {
 
 	auto& ctx = emu.GetContext();
 
-	GBA::debugger::DebugWindow debugger{};
+	GBA::debugger::Debugger debugger{ emu };
 
-	debugger.SetProcessor(&ctx.processor);
-	debugger.SetBus(&ctx.bus);
-	debugger.SetGamePack(&ctx.pack);
+	GBA::debugger::DebugWindow debug_window{ debugger };
 
-	debugger.Init();
+	debug_window.SetProcessor(&ctx.processor);
+	debug_window.SetBus(&ctx.bus);
+	debug_window.SetGamePack(&ctx.pack);
 
-	if (!debugger.IsRunning()) {
+	debug_window.Init();
+
+	if (!debug_window.IsRunning()) {
 		std::cerr << "SDL Init failed : " << SDL_GetError() << std::endl;
 		std::exit(0);
 	}
 
-	while (!debugger.StopRequested()) {
+	while (!debug_window.StopRequested()) {
 		SDL_Event ev;
 
 		while (SDL_PollEvent(&ev)) {
-			if (debugger.ConfirmEventTarget(&ev))
-				debugger.ProcessEvent(&ev);
+			if (debug_window.ConfirmEventTarget(&ev))
+				debug_window.ProcessEvent(&ev);
 		}
 
-		if (!debugger.StopRequested()) {
-			debugger.Update();
+		if (!debug_window.StopRequested()) {
+			debug_window.Update();
 		}
 
-		emu.RunEmulation(debugger.GetEmulatorStatus());
+		debugger.Run(debug_window.GetEmulatorStatus());
 	}
 
 

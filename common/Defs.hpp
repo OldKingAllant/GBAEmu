@@ -10,10 +10,4 @@ namespace GBA::common {
 	using u32 = uint32_t;
 	using u16 = uint16_t;
 	using u8  = uint8_t;
-
-	struct EmulatorStatus {
-		bool stopped;
-		bool single_step;
-		bool until_breakpoint;
-	};
 }

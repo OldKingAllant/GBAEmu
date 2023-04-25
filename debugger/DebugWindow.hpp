@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../common/Defs.hpp"
+#include "DebugStructures.hpp"
 
 namespace GBA {
 	namespace cpu {
@@ -23,9 +24,11 @@ struct SDL_Texture;
 union SDL_Event;
 
 namespace GBA::debugger {
+	class Debugger;
+
 	class DebugWindow {
 	public :
-		DebugWindow();
+		DebugWindow(Debugger& debugger);
 
 		void SetProcessor(cpu::ARM7TDI* processor);
 		void SetBus(memory::Bus* bus);
@@ -48,7 +51,7 @@ namespace GBA::debugger {
 		bool IsRunning();
 		bool StopRequested();
 
-		common::EmulatorStatus& GetEmulatorStatus() {
+		EmulatorStatus& GetEmulatorStatus() {
 			return m_emu_status;
 		}
 
@@ -57,6 +60,8 @@ namespace GBA::debugger {
 		void DrawSPSR();
 		void DrawRegisters();
 		void DrawMemoryRegion(unsigned id);
+
+		Debugger& m_debugger;
 
 		cpu::ARM7TDI* m_processor;
 		memory::Bus* m_bus;
@@ -75,8 +80,10 @@ namespace GBA::debugger {
 		SDL_Texture* m_up_arrow;
 		SDL_Texture* m_down_arrow;
 
-		common::EmulatorStatus m_emu_status;
+		EmulatorStatus m_emu_status;
 
 		common::u32 m_memory_view_addresses[8];
+
+		common::u32 m_break_address;
 	};
 }
