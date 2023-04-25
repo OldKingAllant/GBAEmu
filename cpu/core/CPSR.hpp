@@ -74,6 +74,15 @@ namespace GBA::cpu {
 				break;
 			}
 		}
+
+		operator u32() {
+			return *reinterpret_cast<u32*>(this);
+		}
+
+		CPSR& operator=(u32 value) {
+			*reinterpret_cast<u32*>(this) = value;
+			return *this;
+		}
 	};
 #pragma pack(pop)
 }

@@ -276,6 +276,56 @@ namespace GBA::cpu::arm{
 
 			return { std::rotr(value, amount), CHECK_BIT(value, bit_pos) * !!amount };
 		}
+
+		void MrsTransfer(ARMPsrTransferMRS instr, CPUContext& ctx) {
+			if (instr.psr)
+				ctx.m_regs.SetReg(instr.dest_reg,
+					ctx.m_spsr[GetModeFromID(ctx.m_cpsr.mode)]);
+			else
+				ctx.m_regs.SetReg(instr.dest_reg,
+					ctx.m_cpsr);
+		}
+
+		void MsrTransfer(ARMPsrTransferMSR instr, CPUContext& ctx) {
+			u32 value = 0;
+
+			if (instr.immediate) {
+				value = instr.data & 0xFF;
+				u8 shift = (instr.data >> 8) & 0xF;
+				shift *= 2;
+
+				value = std::rotr(value, shift);
+			}
+			else
+				value = ctx.m_regs.GetReg(instr.data & 0xF);
+
+			u32 mask = 0;
+
+			u8 flags = instr.flags;
+			u8 pos = 0;
+
+			while (flags) {
+				mask |= ((flags & 1) * 0xFF) << pos;
+				flags >>= 1;
+				pos += 8;
+			}
+
+			value &= mask;
+
+			if (instr.psr) {
+				u8 mode_id = GetModeFromID(ctx.m_cpsr.mode);
+				u32 psr = ctx.m_spsr[mode_id];
+				psr &= ~mask;
+				psr |= value;
+				ctx.m_spsr[mode_id] = psr;
+			}
+			else {
+				u32 psr = ctx.m_cpsr;
+				psr &= ~mask;
+				psr |= value;
+				ctx.m_cpsr = psr;
+			}
+		}
 	}
 
 	bool IsPsrTransfer(u32 opcode) {
@@ -656,8 +706,10 @@ namespace GBA::cpu::arm{
 	}
 
 	void PsrTransfer(ARMInstruction instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
-		LOG_ERROR("PSR Transfer Not implemented");
-		error::DebugBreak();
+		if (CHECK_BIT(instr.data, 21))
+			detail::MsrTransfer(instr, ctx);
+		else
+			detail::MrsTransfer(instr, ctx);
 	}
 
 	void SingleHDSTransfer(ARM_SingleHDSTransfer instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {

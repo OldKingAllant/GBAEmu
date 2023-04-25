@@ -176,6 +176,49 @@ namespace GBA::cpu::arm {
 
 		u32 data;
 	};
+
+	union ARMPsrTransferMRS {
+		ARMPsrTransferMRS(ARMInstruction instr) :
+			data{ instr.data } {}
+
+		struct {
+			u8 : 8;
+			u8 : 4;
+			u8 dest_reg : 4;
+			u8 : 0;
+			u8 : 4;
+			bool : 1;
+			bool : 1;
+			bool psr : 1;
+			u8 : 1;
+			u8 : 0;
+			u8 : 1;
+			bool immediate : 1;
+		};
+
+		u32 data;
+	};
+
+	union ARMPsrTransferMSR {
+		ARMPsrTransferMSR(ARMInstruction instr) :
+			data{ instr.data } {}
+
+		struct {
+			u8 : 8;
+			u8 : 4;
+			u8 : 4;
+			u8 : 0;
+			u8 flags : 4;
+			bool : 1;
+			bool : 1;
+			bool psr : 1;
+			u8 : 1;
+			u8 : 1;
+			bool immediate : 1;
+		};
+
+		u32 data;
+	};
 #pragma pack(pop)
 
 	ARMInstructionType DecodeArm(u32 opcode);
