@@ -18,6 +18,7 @@
 
 #include "../common/DebugCommon.hpp"
 #include "DisassembleARM.hpp"
+#include "DisassembleTHUMB.hpp"
 #include "Debugger.hpp"
 
 namespace GBA::debugger {
@@ -54,6 +55,7 @@ namespace GBA::debugger {
 		m_memory_view_addresses[7] = 0x0E000000;
 
 		m_emu_status.stopped = true;
+		m_emu_status.update_ui = true;
 	}
 
 	void DebugWindow::Init() {
@@ -349,51 +351,56 @@ namespace GBA::debugger {
 		if (m_follow_pc)
 			m_disassembler_address = ctx.m_regs.GetReg(15);
 
+		u8 increment = 4;
+
+		if (ctx.m_cpsr.instr_state == cpu::InstructionMode::THUMB)
+			increment = 2;
+
 		if (ctx.m_cpsr.instr_state == cpu::InstructionMode::ARM)
 			m_disassembler_address &= ~3;
 		else
 			m_disassembler_address &= ~1;
 
 		if (ImGui::ImageButton("#UP", (ImTextureID)m_up_arrow, ImVec2(20, 20))) {
-			m_disassembler_address += 4;
+			m_disassembler_address += increment;
 		}
 
 		ImGui::SameLine();
 
 		if (ImGui::ImageButton("#DOWN", (ImTextureID)m_down_arrow, ImVec2(20, 20))) {
-			m_disassembler_address -= 4;
+			m_disassembler_address -= increment;
 		}
 
 		ImGui::BeginChild("#Disassembly", ImVec2(0, 0), true);
 
-		if (ctx.m_cpsr.instr_state == cpu::InstructionMode::THUMB) {
-			ImGui::Text("THUMB State not supported");
-		}
-		else {
-			float available_height = ImGui::GetContentRegionAvail().y;
-			float text_sz = ImGui::GetTextLineHeightWithSpacing();
+		float available_height = ImGui::GetContentRegionAvail().y;
+		float text_sz = ImGui::GetTextLineHeightWithSpacing();
 
-			u32 current_address = m_disassembler_address;
+		u32 current_address = m_disassembler_address;
 
-			while (available_height - text_sz >= 0) {
-				ImGui::TextColored(gui_colors::BLUE, to_hex(current_address).c_str());
-				ImGui::SameLine();
+		while (available_height - text_sz >= 0) {
+			ImGui::TextColored(gui_colors::BLUE, to_hex(current_address).c_str());
+			ImGui::SameLine();
 
-				std::string text = " " + DisassembleARM(m_bus->Read<u32>(current_address), ctx);
+			std::string text = " ";
 
-				if (current_address == ctx.m_regs.GetReg(15))
-					ImGui::TextColored(gui_colors::YELLOW, text.c_str());
-				else
-					ImGui::Text(text.c_str());
+			if (ctx.m_cpsr.instr_state == cpu::InstructionMode::ARM)
+				text += DisassembleARM(m_bus->Read<u32>(current_address), ctx);
+			else
+				text += DisassembleTHUMB(m_bus->Read<u16>(current_address), ctx);
 
-				ImGui::Spacing();
-				available_height -= text_sz;
+			if (current_address == ctx.m_regs.GetReg(15))
+				ImGui::TextColored(gui_colors::YELLOW, text.c_str());
+			else
+				ImGui::Text(text.c_str());
 
-				if (ctx.m_cpsr.instr_state == cpu::InstructionMode::ARM)
-					current_address += 4;
-				else
-					current_address += 2;
-			}
+			ImGui::Spacing();
+			available_height -= text_sz;
+
+			if (ctx.m_cpsr.instr_state == cpu::InstructionMode::ARM)
+				current_address += 4;
+			else
+				current_address += 2;
 		}
 
 		ImGui::EndChild();

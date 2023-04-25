@@ -1,5 +1,6 @@
 #include "../../../cpu/core/ARM7TDI.hpp"
-#include "../../../cpu/arm/ARM_Implementation.h"
+#include "../../../cpu/arm/ARM_Implementation.hpp"
+#include "../../../cpu/thumb/THUMB_Implementation.hpp"
 
 #include <cassert>
 
@@ -15,6 +16,8 @@ namespace GBA::cpu {
 		m_ctx.m_regs.SetReg(Mode::User, 13, 0x03007F00);
 
 		m_ctx.m_pipeline.Bubble<InstructionMode::ARM>(0x00);
+
+		thumb::InitThumbJumpTable();
 	}
 
 	void ARM7TDI::AttachBus(memory::Bus* bus) {
@@ -153,7 +156,7 @@ namespace GBA::cpu {
 
 			m_ctx.m_pipeline.Fetch<InstructionMode::THUMB>();
 
-			//Execute thumb instr.
+			thumb::ExecuteThumb(opcode, m_bus, m_ctx, branch);
 		}
 
 		if (branch) {

@@ -1,6 +1,6 @@
 #include "DisassembleARM.hpp"
 
-#include "../cpu/arm/ARM_Implementation.h"
+#include "../cpu/arm/ARM_Implementation.hpp"
 #include "../common/DebugCommon.hpp"
 #include "../cpu/core/CPUContext.hpp"
 
@@ -74,8 +74,17 @@ namespace GBA::debugger {
 		return buffer.str();
 	}
 
-	Disasm DisassembleARMBranchExchange(arm::ARMInstruction, cpu::CPUContext& ctx) {
-		return "BX/BLX";
+	Disasm DisassembleARMBranchExchange(arm::ARMBranchExchange instr, cpu::CPUContext& ctx) {
+		std::ostringstream buffer{ "" };
+
+		if (instr.opcode == 0x2)
+			buffer << "BLX ";
+		else
+			buffer << "BX ";
+
+		buffer << "r" << (u32)(instr.operand_reg);
+
+		return buffer.str();
 	}
 
 	Disasm DisassembleARMBlockTransfer(arm::ARMBlockTransfer transfer, cpu::CPUContext& ctx) {
