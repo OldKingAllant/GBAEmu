@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../../common/Defs.hpp"
-#include "../ProcessorDefs.h"
+#include "../ProcessorDefs.hpp"
 
 namespace GBA::cpu {
 	using namespace common;
