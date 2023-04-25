@@ -12,103 +12,109 @@ namespace GBA::cpu::arm{
 	LOG_CONTEXT(ARM_Interpreter);
 
 	namespace detail {
-		void AND(u8 dest, u8 first_op, u32 value, bool s_bit, CPUContext& ctx) {
+		void AND(u8 dest, u32 first_op, u32 value, bool s_bit, CPUContext& ctx) {
 			const char* err = __FUNCTION__ " Not implemented";
 			LOG_ERROR(err);
 			error::DebugBreak();
 		}
-		void EOR(u8 dest, u8 first_op, u32 value, bool s_bit, CPUContext& ctx) {
+		void EOR(u8 dest, u32 first_op, u32 value, bool s_bit, CPUContext& ctx) {
 			const char* err = __FUNCTION__ " Not implemented";
 			LOG_ERROR(err);
 			error::DebugBreak();
 		}
-		void SUB(u8 dest, u8 first_op, u32 value, bool s_bit, CPUContext& ctx) {
+		void SUB(u8 dest, u32 first_op, u32 value, bool s_bit, CPUContext& ctx) {
 			const char* err = __FUNCTION__ " Not implemented";
 			LOG_ERROR(err);
 			error::DebugBreak();
 		}
-		void RSB(u8 dest, u8 first_op, u32 value, bool s_bit, CPUContext& ctx) {
-			const char* err = __FUNCTION__ " Not implemented";
-			LOG_ERROR(err);
-			error::DebugBreak();
-		}
-		void ADD(u8 dest, u8 first_op, u32 value, bool s_bit, CPUContext& ctx) {
-			const char* err = __FUNCTION__ " Not implemented";
-			LOG_ERROR(err);
-			error::DebugBreak();
-		}
-		void ADC(u8 dest, u8 first_op, u32 value, bool s_bit, CPUContext& ctx) {
-			const char* err = __FUNCTION__ " Not implemented";
-			LOG_ERROR(err);
-			error::DebugBreak();
-		}
-		void SBC(u8 dest, u8 first_op, u32 value, bool s_bit, CPUContext& ctx) {
-			const char* err = __FUNCTION__ " Not implemented";
-			LOG_ERROR(err);
-			error::DebugBreak();
-		}
-		void RSC(u8 dest, u8 first_op, u32 value, bool s_bit, CPUContext& ctx) {
-			const char* err = __FUNCTION__ " Not implemented";
-			LOG_ERROR(err);
-			error::DebugBreak();
-		}
-		void TST(u8 dest, u8 first_op, u32 value, bool s_bit, CPUContext& ctx) {
-			const char* err = __FUNCTION__ " Not implemented";
-			LOG_ERROR(err);
-			error::DebugBreak();
-		}
-		void TEQ(u8 dest, u8 first_op, u32 value, bool s_bit, CPUContext& ctx) {
-			const char* err = __FUNCTION__ " Not implemented";
-			LOG_ERROR(err);
-			error::DebugBreak();
-		}
-		void CMP(u8 dest, u8 first_op, u32 value, bool s_bit, CPUContext& ctx) {
-			const char* err = __FUNCTION__ " Not implemented";
-			LOG_ERROR(err);
-			error::DebugBreak();
-		}
-		void CMN(u8 dest, u8 first_op, u32 value, bool s_bit, CPUContext& ctx) {
+		void RSB(u8 dest, u32 first_op, u32 value, bool s_bit, CPUContext& ctx) {
 			const char* err = __FUNCTION__ " Not implemented";
 			LOG_ERROR(err);
 			error::DebugBreak();
 		}
 
-		void ORR(u8 dest, u8 first_op, u32 value, bool s_bit, CPUContext& ctx) {
-			u32 first_reg = ctx.m_regs.GetReg(first_op);
-
-			u32 res = first_reg | value;
+		void ADD(u8 dest, u32 first_op, u32 value, bool s_bit, CPUContext& ctx) {
+			u32 res = first_op + value;
 
 			ctx.m_regs.SetReg(dest, res);
 
 			if (s_bit) {
-				ctx.m_cpsr.zero = !!res;
+				ctx.m_cpsr.zero = !res;
+				ctx.m_cpsr.sign = CHECK_BIT(res, 31);
+				ctx.m_cpsr.CarryAdd(first_op, value);
+			}
+		}
+
+		void ADC(u8 dest, u32 first_op, u32 value, bool s_bit, CPUContext& ctx) {
+			const char* err = __FUNCTION__ " Not implemented";
+			LOG_ERROR(err);
+			error::DebugBreak();
+		}
+		void SBC(u8 dest, u32 first_op, u32 value, bool s_bit, CPUContext& ctx) {
+			const char* err = __FUNCTION__ " Not implemented";
+			LOG_ERROR(err);
+			error::DebugBreak();
+		}
+		void RSC(u8 dest, u32 first_op, u32 value, bool s_bit, CPUContext& ctx) {
+			const char* err = __FUNCTION__ " Not implemented";
+			LOG_ERROR(err);
+			error::DebugBreak();
+		}
+		void TST(u8 dest, u32 first_op, u32 value, bool s_bit, CPUContext& ctx) {
+			const char* err = __FUNCTION__ " Not implemented";
+			LOG_ERROR(err);
+			error::DebugBreak();
+		}
+		void TEQ(u8 dest, u32 first_op, u32 value, bool s_bit, CPUContext& ctx) {
+			const char* err = __FUNCTION__ " Not implemented";
+			LOG_ERROR(err);
+			error::DebugBreak();
+		}
+		void CMP(u8 dest, u32 first_op, u32 value, bool s_bit, CPUContext& ctx) {
+			const char* err = __FUNCTION__ " Not implemented";
+			LOG_ERROR(err);
+			error::DebugBreak();
+		}
+		void CMN(u8 dest, u32 first_op, u32 value, bool s_bit, CPUContext& ctx) {
+			const char* err = __FUNCTION__ " Not implemented";
+			LOG_ERROR(err);
+			error::DebugBreak();
+		}
+
+		void ORR(u8 dest, u32 first_op, u32 value, bool s_bit, CPUContext& ctx) {
+			u32 res = first_op | value;
+
+			ctx.m_regs.SetReg(dest, res);
+
+			if (s_bit) {
+				ctx.m_cpsr.zero = !res;
 				ctx.m_cpsr.sign = CHECK_BIT(value, 31);
 			}
 		}
 
-		void MOV(u8 dest, u8 first_op, u32 value, bool s_bit, CPUContext& ctx) {
+		void MOV(u8 dest, u32 first_op, u32 value, bool s_bit, CPUContext& ctx) {
 			(void)first_op;
 
 			ctx.m_regs.SetReg(dest, value);
 
 			if (s_bit) {
-				ctx.m_cpsr.zero = !!value;
+				ctx.m_cpsr.zero = !value;
 				ctx.m_cpsr.sign = CHECK_BIT(value, 31);
 			}
 		}
 
-		void BIC(u8 dest, u8 first_op, u32 value, bool s_bit, CPUContext& ctx) {
+		void BIC(u8 dest, u32 first_op, u32 value, bool s_bit, CPUContext& ctx) {
 			const char* err = __FUNCTION__ " Not implemented";
 			LOG_ERROR(err);
 			error::DebugBreak();
 		}
-		void MVN(u8 dest, u8 first_op, u32 value, bool s_bit, CPUContext& ctx) {
+		void MVN(u8 dest, u32 first_op, u32 value, bool s_bit, CPUContext& ctx) {
 			const char* err = __FUNCTION__ " Not implemented";
 			LOG_ERROR(err);
 			error::DebugBreak();
 		}
 
-		void DataProcessingCommon(u8 dest, u8 first_op, u8 opcode, u32 value, bool s_bit, 
+		void DataProcessingCommon(u8 dest, u32 first_op, u8 opcode, u32 value, bool s_bit,
 			CPUContext& ctx, bool& branch, bool shift_carry) {
 			bool old_s_bit = s_bit;
 
@@ -651,7 +657,9 @@ namespace GBA::cpu::arm{
 
 		value = std::rotr(value, shift);
 
-		detail::DataProcessingCommon(dest_reg, first_op_reg, real_opcode, value, instr.s_bit, ctx, branch, carry_shift);
+		u32 first_op = ctx.m_regs.GetReg(first_op_reg) + 8 * (first_op_reg == 15);
+
+		detail::DataProcessingCommon(dest_reg, first_op, real_opcode, value, instr.s_bit, ctx, branch, carry_shift);
 	}
 
 	template <>
@@ -693,14 +701,16 @@ namespace GBA::cpu::arm{
 			error::DebugBreak();
 			break;
 		case 0x03:
-			LOG_ERROR("ROR Transfer Not implemented");
+			LOG_ERROR("ROR shift Not implemented");
 			error::DebugBreak();
 			break;
 		default:
 			break;
 		}
 
-		detail::DataProcessingCommon(dest_reg, first_op_reg,
+		u32 first_op = ctx.m_regs.GetReg(first_op_reg) + 8 * (first_op_reg == 15);
+
+		detail::DataProcessingCommon(dest_reg, first_op,
 			real_opcode, res.first, instr.s_bit, ctx,
 			branch, res.second);
 	}
@@ -738,9 +748,21 @@ namespace GBA::cpu::arm{
 			ctx.m_regs.SetReg(instr.base_reg, base);
 	}
 
-	void BranchExchange(ARMInstruction instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
-		LOG_ERROR("Branch exchange not implemented");
-		error::DebugBreak();
+	void BranchExchange(ARMBranchExchange instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+		u32 dest = ctx.m_regs.GetReg(instr.operand_reg);
+
+		if (instr.opcode == 0x2)
+			ctx.m_regs.SetReg(14, ctx.m_regs.GetReg(15) + 0x4);
+
+		if (!(dest & 1))
+			return;
+
+		//Switch to thumb
+		ctx.m_cpsr.instr_state = InstructionMode::THUMB;
+
+		ctx.m_regs.SetReg(15, dest - 1);
+
+		branch = true;
 	}
 
 	void SoftwareInterrupt(ARMInstruction instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {

@@ -219,6 +219,18 @@ namespace GBA::cpu::arm {
 
 		u32 data;
 	};
+
+	union ARMBranchExchange {
+		ARMBranchExchange(ARMInstruction instr) :
+			data{ instr.data } {}
+
+		struct {
+			u8 operand_reg : 4;
+			u8 opcode : 4;
+		};
+
+		u32 data;
+	};
 #pragma pack(pop)
 
 	ARMInstructionType DecodeArm(u32 opcode);

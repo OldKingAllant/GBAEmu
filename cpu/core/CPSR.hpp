@@ -83,6 +83,12 @@ namespace GBA::cpu {
 			*reinterpret_cast<u32*>(this) = value;
 			return *this;
 		}
+
+		void CarryAdd(unsigned long long first, 
+			unsigned long long second) {
+			carry = (first + second) >
+				0xFFFFFFFF;
+		}
 	};
 #pragma pack(pop)
 }

@@ -133,13 +133,6 @@ namespace GBA::cpu {
 		m_regs.SetReg(15, old_pc);
 
 		m_cpsr = m_spsr[curr_mode_id - 1];
-
-		/*if (m_cpsr.instr_state == InstructionMode::ARM) {
-			m_pipeline.Bubble<InstructionMode::ARM>(old_pc);
-		}
-		else {
-			m_pipeline.Bubble<InstructionMode::THUMB>(old_pc);
-		}*/
 	}
 
 	u8 ARM7TDI::Step() {
@@ -164,10 +157,18 @@ namespace GBA::cpu {
 		}
 
 		if (branch) {
-			if (m_ctx.m_cpsr.instr_state == InstructionMode::ARM)
-				m_ctx.m_pipeline.Bubble<InstructionMode::ARM>(m_ctx.m_regs.GetReg(15));
-			else
-				m_ctx.m_pipeline.Bubble<InstructionMode::THUMB>(m_ctx.m_regs.GetReg(15));
+			u32 pc = m_ctx.m_regs.GetReg(15);
+
+			if (m_ctx.m_cpsr.instr_state == InstructionMode::ARM) {
+				pc &= ~3;
+				m_ctx.m_pipeline.Bubble<InstructionMode::ARM>(pc);
+			}
+			else {
+				pc &= ~1;
+				m_ctx.m_pipeline.Bubble<InstructionMode::THUMB>(pc);
+			}
+
+			m_ctx.m_regs.SetReg(15, pc);
 		}
 		else {
 			if (m_ctx.m_cpsr.instr_state == InstructionMode::ARM)
