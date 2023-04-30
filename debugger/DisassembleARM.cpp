@@ -270,7 +270,7 @@ namespace GBA::debugger {
 			buffer << "0x" << std::hex << value;
 		}
 		else {
-			u8 source_reg = instr.data & 0xF;
+			u32 source_reg = instr.data & 0xF;
 
 			buffer << "r" << source_reg;
 		}
@@ -287,16 +287,18 @@ namespace GBA::debugger {
 		u8 opcode = (instr.data >> 5) & 3;
 
 		constexpr const char* strings[] = {
-			"STR", "LDR", "STR",
-			"LDR", "LDR", "LDR"
+			"", "STR", "LDR", "STR",
+			"", "LDR", "LDR", "LDR"
 		};
 
 		constexpr const char* suffix[] = {
-			"H", "D", "D",
-			"H", "SB", "SH"
+			"", "H", "D", "D",
+			"", "H", "SB", "SH"
 		};
 
-		u8 pos = (load << 2) | (opcode  - 1);
+		//0b110
+
+		u8 pos = (load << 2) | opcode;
 
 		buffer << strings[pos] << cond << suffix[pos];
 
@@ -307,12 +309,15 @@ namespace GBA::debugger {
 
 		buffer << "r" << (u32)dest_reg;
 
-		if (!CHECK_BIT(instr.data, 24) ||
-			CHECK_BIT(instr.data, 21)) {
-			buffer << "!";
-		}
+		buffer << ", [r" << (u32)base_reg;
 
-		buffer << ", [r" << (u32)base_reg << ", ";
+		if (!CHECK_BIT(instr.data, 24))
+			buffer << "]";
+
+		buffer << ", ";
+
+		if (!CHECK_BIT(instr.data, 23))
+			buffer << "-";
 
 		if (CHECK_BIT(instr.data, 22)) {
 			u32 immediate = instr.data & 0xF;
@@ -326,7 +331,13 @@ namespace GBA::debugger {
 			buffer << "r" << reg;
 		}
 
-		buffer << "]";
+		if (CHECK_BIT(instr.data, 24))
+			buffer << "]";
+
+		if (CHECK_BIT(instr.data, 24) &&
+			CHECK_BIT(instr.data, 21)) {
+			buffer << "!";
+		}
 
 		return buffer.str();
 	}
@@ -336,7 +347,146 @@ namespace GBA::debugger {
 	}
 
 	Disasm DisassembleARMDataSwap(arm::ARMInstruction opcode, cpu::CPUContext& ctx) {
-		return "SWP";
+		std::ostringstream buffer{ "" };
+
+		buffer << "SWP" << DisassembleARMCondition(opcode.condition);
+
+		if (CHECK_BIT(opcode.data, 22))
+			buffer << "B";
+
+		u32 base_reg = (opcode.data >> 16) & 0xF;
+		u32 dest_reg = (opcode.data >> 12) & 0xF;
+		u32 source_reg = opcode.data & 0xF;
+
+		buffer << " "
+			<< "r" << dest_reg
+			<< ", r" << source_reg
+			<< ", [r" << base_reg << "]";
+
+		return buffer.str();
+	}
+
+	Disasm DisassembleARMMultiply(arm::ARMInstruction opcode, cpu::CPUContext& ctx) {
+		constexpr const char* strings[] = {
+			"MUL", "MLA", 
+			"INVALID", "INVALID",
+			"UMULL", "UMLAL",
+			"SMULL", "SMLAL"
+		};
+
+		std::ostringstream buffer{ "" };
+
+		u8 opcode_type = (opcode.data >> 21) & 0xF;
+
+		buffer << strings[(opcode.data >> 21) & 0xF];
+		buffer << DisassembleARMCondition(opcode.condition);
+
+		if (CHECK_BIT(opcode.data, 20))
+			buffer << "S";
+
+		buffer << " ";
+
+		u32 rd = ((opcode.data >> 16) & 0xF);
+		u32 rn = ((opcode.data >> 12) & 0xF);
+
+		u32 rs = (opcode.data >> 8) & 0xF;
+		u32 rm = opcode.data & 0xF;
+
+		switch (opcode_type)
+		{
+		case 0x0:
+			buffer << "r" << rd << ", ";
+			buffer << "r" << rm << ", ";
+			buffer << "r" << rs;
+			break;
+		case 0x1:
+			buffer << "r" << rd << ", ";
+			buffer << "r" << rm << ", ";
+			buffer << "r" << rs;
+
+			if(rn)
+				buffer << ", r" << rn;
+			break;
+		default:
+			if (rn)
+				buffer << "r" << rn << ", ";
+
+			buffer << "r" << rd << ", ";
+			buffer << "r" << rm << ", ";
+			buffer << "r" << rs;
+			break;
+		}
+
+		return buffer.str();
+	}
+
+	Disasm DisassembleARMMultiplyHalf(arm::ARMInstruction opcode, cpu::CPUContext& ctx) {
+		return "MUL HALF";
+	}
+
+	Disasm DisassembleARMSingleDataTransfer(arm::ARMInstruction opcode, cpu::CPUContext& ctx) {
+		std::ostringstream buffer{ "" };
+
+		if (CHECK_BIT(opcode.data, 20))
+			buffer << "LDR";
+		else
+			buffer << "STR";
+
+		buffer << DisassembleARMCondition(opcode.condition);
+
+		if (CHECK_BIT(opcode.data, 22))
+			buffer << "B";
+
+		if (!CHECK_BIT(opcode.data, 24) && CHECK_BIT(opcode.data, 21))
+			buffer << "T";
+
+		u32 base_reg = (opcode.data >> 16) & 0xF;
+		u32 dest_reg = (opcode.data >> 12) & 0xF;
+
+		buffer << " r" << dest_reg;
+
+		buffer << ", [r" << (u32)base_reg;
+
+		if (!CHECK_BIT(opcode.data, 24))
+			buffer << "]";
+
+		buffer << ", ";
+
+		if (!CHECK_BIT(opcode.data, 23))
+			buffer << "-";
+
+		if (!CHECK_BIT(opcode.data, 25)) {
+			u16 offset = opcode.data & 0xFFF;
+
+			buffer << "0x"
+				<< std::hex
+				<< offset;
+		}
+		else {
+			constexpr const char* shifts[] = {
+				"LSL", "LSR", "ASR", "ROR"
+			};
+
+			u32 offset_reg = opcode.data & 0xF;
+
+			buffer << "r" << offset_reg << ", ";
+
+			u32 shift_amount = (opcode.data >> 7) & 0x1F;
+
+			u8 shift_type = (opcode.data >> 5) & 0x3;
+
+			buffer << shifts[shift_type] << " " << shift_amount;
+		}
+
+		if (CHECK_BIT(opcode.data, 24))
+			buffer << "]";
+
+		if (CHECK_BIT(opcode.data, 24) &&
+			CHECK_BIT(opcode.data, 21)) {
+			buffer << "!";
+		}
+
+		return buffer.str();
 	}
 
 	Disasm DisassembleARM(u32 opcode, cpu::CPUContext& ctx) {
@@ -370,6 +520,16 @@ namespace GBA::debugger {
 
 		case arm::ARMInstructionType::SINGLE_DATA_SWAP:
 			return DisassembleARMDataSwap(instruction, ctx);
+
+		case arm::ARMInstructionType::MULTIPLY:
+			return DisassembleARMMultiply(instruction, ctx);
+
+		case arm::ARMInstructionType::MULTIPLY_HALF:
+			return DisassembleARMMultiplyHalf(instruction, ctx);
+
+		case arm::ARMInstructionType::SINGLE_DATA_TRANSFER_IMM:
+		case arm::ARMInstructionType::SINGLE_DATA_TRANSFER:
+			return DisassembleARMSingleDataTransfer(instruction, ctx);
 		}
 
 		return "UNDEFINED";

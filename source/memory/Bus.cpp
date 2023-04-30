@@ -13,6 +13,9 @@ namespace GBA::memory {
 	{
 		m_wram = new u8[0x3FFFF];
 		m_iwram = new u8[0x7FFF];
+
+		std::fill_n(m_wram, 0x3FFFF, 0x00);
+		std::fill_n(m_iwram, 0x7FFF, 0x00);
 	}
 
 	void Bus::ConnectGamepack(gamepack::GamePack* pack) {
@@ -161,9 +164,6 @@ namespace GBA::memory {
 
 	template <>
 	void Bus::Write(u32 address, u8 value) {
-		LOG_ERROR("8 bit memory write not implemented");
-		error::DebugBreak();
-
 		MEMORY_RANGE region = (MEMORY_RANGE)(address >> 24);
 		u32 addr_low = address & 0x00FFFFFF;
 
@@ -178,9 +178,11 @@ namespace GBA::memory {
 			break;
 
 		case MEMORY_RANGE::EWRAM:
+			m_wram[addr_low] = value;
 			break;
 
 		case MEMORY_RANGE::IWRAM:
+			m_iwram[addr_low] = value;
 			break;
 
 		case MEMORY_RANGE::IO:

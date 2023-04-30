@@ -22,6 +22,10 @@ namespace GBA::cpu::arm {
 		SINGLE_HDS_TRANSFER,
 		SOFT_INTERRUPT,
 		SINGLE_DATA_SWAP,
+		MULTIPLY,
+		MULTIPLY_HALF,
+		SINGLE_DATA_TRANSFER_IMM,
+		SINGLE_DATA_TRANSFER,
 		UNDEFINED
 	};
 
@@ -37,6 +41,8 @@ namespace GBA::cpu::arm {
 		static constexpr u32 SINGLE_HDS_TRANSFER =		   0b111000001001;
 		static constexpr u32 SOFT_INTERRUPT =			   0b111100000000;
 		static constexpr u32 SINGLE_DATA_SWAP =			   0b111110111111;
+		static constexpr u32 SINGLE_DATA_TRANSFER_IMM =	   0b111000000000;
+		static constexpr u32 SINGLE_DATA_TRANSFER =        0b111000000001;
 	};
 
 	struct ARMInstructionCode {
@@ -51,6 +57,8 @@ namespace GBA::cpu::arm {
 		static constexpr u32 SINGLE_HDS_TRANSFER =		0b000000001001;
 		static constexpr u32 SOFT_INTERRUPT =           0b111100000000;
 		static constexpr u32 SINGLE_DATA_SWAP =			0b000100001001;
+		static constexpr u32 SINGLE_DATA_TRANSFER_IMM = 0b010000000000;
+		static constexpr u32 SINGLE_DATA_TRANSFER =     0b011000000000;
 	};
 
 #pragma pack(push, 1)
@@ -227,6 +235,62 @@ namespace GBA::cpu::arm {
 		struct {
 			u8 operand_reg : 4;
 			u8 opcode : 4;
+		};
+
+		u32 data;
+	};
+
+	union ARMMultiply {
+		ARMMultiply(ARMInstruction instr) : 
+			data{ instr.data } {}
+
+		struct {
+			u8 operand_reg1 : 4;
+			u8 : 4;
+			u8 operand_reg2 : 4;
+			u8 accumul_reg : 4;
+			u8 dest_reg : 4;
+			bool s_bit : 1;
+			u8 opcode : 3;
+		};
+
+		u32 data;
+	};
+
+	union ARMSingleDataTransfer {
+		ARMSingleDataTransfer(ARMInstruction instr) :
+			data{ instr.data } {}
+
+		struct {
+			u8 : 8;
+			u8 : 4;
+			u8 dest_reg : 4;
+
+			u8 base_reg : 4;
+			bool load : 1;
+			bool writeback_or_t : 1;
+			bool move_byte : 1;
+			bool increment : 1;
+			bool pre_incre : 1;
+		};
+
+		u32 data;
+	};
+
+	union ARMDataSwap {
+		ARMDataSwap(ARMInstruction instr) :
+			data{ instr.data } {}
+
+		struct {
+			u8 source_reg : 4;
+			u8 : 4;
+			u8 : 0;
+			u8 : 4;
+			u8 dest_reg : 4;
+			u8 : 0;
+			u8 base_reg : 4;
+			u8 : 2;
+			bool swap_byte : 1;
 		};
 
 		u32 data;

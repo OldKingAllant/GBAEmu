@@ -95,7 +95,14 @@ namespace GBA::cpu {
 		return static_cast<Mode>(-1);
 	}
 
-	void CPUContext::EnterException(ExceptionCode exc) {
+	void CPUContext::ChangeMode(Mode new_mode) {
+		m_regs.SwitchMode(new_mode);
+		u8 mode_id = GetModeFromID(new_mode);
+		m_spsr[mode_id - 1] = m_cpsr;
+		m_cpsr.mode = new_mode;
+	}
+
+	void CPUContext::EnterException(ExceptionCode exc, u8 pc_offset) {
 		Mode mode = ARM7TDI::GetModeFromExcept(exc);
 
 		m_regs.SwitchMode(mode);
@@ -113,10 +120,10 @@ namespace GBA::cpu {
 
 		u32 exc_vector = ARM7TDI::GetExceptVector(exc);
 
-		m_regs.SetReg(14, 0/*m_regs.GetReg(15)*/ /*Save ret. address*/);
+		m_regs.SetReg(14, m_regs.GetReg(15) + pc_offset);
 		m_regs.SetReg(15, exc_vector);
 
-		m_pipeline.Bubble<InstructionMode::ARM>(exc_vector);
+		//m_pipeline.Bubble<InstructionMode::ARM>(exc_vector);
 
 		m_cpsr.mode = mode;
 	}

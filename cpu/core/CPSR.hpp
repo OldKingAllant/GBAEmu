@@ -3,6 +3,8 @@
 #include "../../common/Defs.hpp"
 #include "../ProcessorDefs.hpp"
 
+#include <limits>
+
 namespace GBA::cpu {
 	using namespace common;
 
@@ -84,10 +86,35 @@ namespace GBA::cpu {
 			return *this;
 		}
 
-		void CarryAdd(unsigned long long first, 
-			unsigned long long second) {
+		void CarryAdd(uint64_t first, uint64_t second) {
 			carry = (first + second) >
 				0xFFFFFFFF;
+		}
+
+		void OverflowAdd(uint64_t first, uint64_t second) {
+			uint64_t res = (uint64_t)first + second;
+
+			constexpr uint32_t max_num = (uint32_t)(1 << 31) - 1;
+			constexpr int32_t min_num = -(1 << 31);
+
+			overflow = 
+				res >= max_num ||
+				(int64_t)res < min_num;
+		}
+
+		void CarrySubtract(uint64_t first, uint64_t second) {
+			carry = first >= second;
+		}
+
+		void OverflowSubtract(uint64_t first, uint64_t second) {
+			uint64_t res = (uint64_t)first - second;
+
+			constexpr uint32_t max_num = (uint32_t)(1 << 31) - 1;
+			constexpr int32_t min_num = -(1 << 31);
+
+			overflow =
+				res >= max_num ||
+				(int64_t)res < min_num;
 		}
 	};
 #pragma pack(pop)
