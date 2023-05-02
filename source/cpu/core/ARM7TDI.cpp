@@ -15,7 +15,7 @@ namespace GBA::cpu {
 		m_ctx.m_regs.SetReg(Mode::IRQ, 13, 0x03007FA0);
 		m_ctx.m_regs.SetReg(Mode::User, 13, 0x03007F00);
 
-		m_ctx.m_pipeline.Bubble<InstructionMode::ARM>(0x00);
+		//m_ctx.m_pipeline.Bubble<InstructionMode::ARM>(0x00);
 
 		thumb::InitThumbJumpTable();
 	}
@@ -151,6 +151,8 @@ namespace GBA::cpu {
 
 		bool branch = false;
 
+		m_bus->m_time.access = memory::Access::NonSeq;
+
 		if (m_ctx.m_cpsr.instr_state == InstructionMode::ARM) {
 			u32 opcode = m_ctx.m_pipeline.Pop<InstructionMode::ARM>();
 
@@ -179,6 +181,8 @@ namespace GBA::cpu {
 			}
 
 			m_ctx.m_regs.SetReg(15, pc);
+
+			m_bus->StopPrefetch();
 		}
 		else {
 			if (m_ctx.m_cpsr.instr_state == InstructionMode::ARM)

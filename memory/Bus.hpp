@@ -2,6 +2,8 @@
 
 #include "../common/Defs.hpp"
 
+#include "Timing.hpp"
+
 namespace GBA::gamepack {
 	class GamePack;
 }
@@ -26,20 +28,6 @@ namespace GBA::memory {
 
 	static constexpr u8 NUM_REGIONS = sizeof(REGIONS_LEN) / sizeof(u32);
 
-	enum class MEMORY_RANGE : u8 {
-		BIOS = 0x00,
-		EWRAM = 0x02,
-		IWRAM = 0x03,
-		IO = 0x04,
-		PAL = 0x05,
-		VRAM = 0x06,
-		OAM = 0x07,
-		ROM_REG_1 = 0x08,
-		ROM_REG_2 = 0x0A,
-		ROM_REG_3 = 0x0C,
-		SRAM = 0x0E
-	};
-
 	class Bus {
 	public :
 		Bus();
@@ -51,19 +39,44 @@ namespace GBA::memory {
 		* 1 word
 		*/
 		template <typename Type>
-		Type Read(u32 address) const;
+		Type Read(u32 address, bool code = false);
 
 		template <typename Type>
 		void Write(u32 address, Type value);
 
+		/*
+		* Read everything without
+		* changing cycle counts
+		*/
+		u32 DebuggerRead32(u32 address);
+		u16 DebuggerRead16(u32 address);
+
 		void ConnectGamepack(gamepack::GamePack* pack);
 
+		template <typename Type>
+		Type Prefetch(u32 address, bool code, MEMORY_RANGE region);
+		void StopPrefetch();
+		void StartPrefetch(u32 start_address, MEMORY_RANGE region);
+
+		void InternalCycles(u32 count);
+
 		~Bus();
+
+		TimeManager m_time;
 
 	private :
 		gamepack::GamePack* m_pack;
 
 		u8* m_wram;
 		u8* m_iwram;
+
+		struct Prefetch {
+			bool active;
+			u32 address;
+			u8 duty;
+			int current_cycles;
+		} m_prefetch;
+
+		bool m_enable_prefetch;
 	};
 }

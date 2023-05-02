@@ -8,6 +8,12 @@
 #include "debugger/DebugWindow.hpp"
 #include "debugger/Debugger.hpp"
 
+#include "cpu/arm/TableGen.hpp"
+
+#include <chrono>
+
+#include <limits>
+
 #ifdef main
 #undef main
 #endif // main

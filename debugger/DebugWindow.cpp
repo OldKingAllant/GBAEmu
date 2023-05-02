@@ -385,9 +385,9 @@ namespace GBA::debugger {
 			std::string text = " ";
 
 			if (ctx.m_cpsr.instr_state == cpu::InstructionMode::ARM)
-				text += DisassembleARM(m_bus->Read<u32>(current_address), ctx);
+				text += DisassembleARM(m_bus->DebuggerRead32(current_address), ctx);
 			else
-				text += DisassembleTHUMB(m_bus->Read<u16>(current_address), ctx);
+				text += DisassembleTHUMB(m_bus->DebuggerRead16(current_address), ctx);
 
 			if (current_address == ctx.m_regs.GetReg(15))
 				ImGui::TextColored(gui_colors::YELLOW, text.c_str());
@@ -539,10 +539,17 @@ namespace GBA::debugger {
 			while (x_space > 0 && shown_values < 16 && address < ranges[id][1]) {
 				buf.str("");
 
+				u16 value = m_bus->DebuggerRead16(address);
+
+				if (address % 2)
+					value = (value >> 8) & 0xFF;
+				else
+					value &= 0xFF;
+
 				buf << std::setfill('0') 
 					<< std::setw(2) 
 					<< std::hex
-					<< (u16)m_bus->Read<u8>(address);
+					<< value;
 
 				std::string text = buf.str();
 

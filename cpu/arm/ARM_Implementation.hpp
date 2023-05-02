@@ -31,7 +31,7 @@ namespace GBA::cpu::arm {
 
 	struct ARMInstructionMask {
 		static constexpr u32 BRANCH =                      0b111000000000;
-		static constexpr u32 BRANCH_EXCHANGE =             0b111111110000;
+		static constexpr u32 BRANCH_EXCHANGE =             0b111111111100;
 		static constexpr u32 BLOCK_TRANSFER =              0b111000000000;
 		static constexpr u32 ALU_REGISTER_REGISTER =	   0b111000001001;
 		static constexpr u32 ALU_REGISTER_IMMEDIATE =      0b111000000001;
@@ -300,8 +300,4 @@ namespace GBA::cpu::arm {
 	ARMInstructionType DecodeArm(u32 opcode);
 
 	void ExecuteArm(ARMInstruction instr, CPUContext& ctx,  memory::Bus* bus, bool& branch);
-
-	void Branch(ARMBranch instr, CPUContext& ctx, memory::Bus* bus, bool& branch);
-
-	void BlockDataTransfer(ARMBlockTransfer instr, CPUContext& ctx, memory::Bus* bus, bool& branch);
 }

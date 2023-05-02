@@ -4,8 +4,10 @@
 #include "./Register.hpp"
 #include "../../memory/Bus.hpp"
 
+
 namespace GBA::cpu {
 	using namespace common;
+	using memory::Access;
 
 	class Pipeline {
 	public :
@@ -23,7 +25,12 @@ namespace GBA::cpu {
 		void Bubble(u32 address) {
 			m_fetch_pc = address;
 
+			m_bus->m_time.access = Access::NonSeq;
+
 			Fetch<InstrSet>();
+
+			m_bus->m_time.access = Access::Seq;
+
 			Fetch<InstrSet>();
 		}
 
@@ -32,11 +39,11 @@ namespace GBA::cpu {
 			m_decoded = m_fetched;
 
 			if constexpr (InstrSet == InstructionMode::ARM) {
-				m_fetched = m_bus->Read<u32>(m_fetch_pc);
+				m_fetched = m_bus->Read<u32>(m_fetch_pc, true);
 				m_fetch_pc += 4;
 			}
 			else {
-				m_fetched = m_bus->Read<u16>(m_fetch_pc);
+				m_fetched = m_bus->Read<u16>(m_fetch_pc, true);
 				m_fetch_pc += 2;
 			}
 		}

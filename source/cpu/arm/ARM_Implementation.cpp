@@ -8,6 +8,8 @@
 #include "../../../common/Error.hpp"
 #include "../../../common/BitManip.hpp"
 
+#include "../../../cpu/arm/TableGen.hpp"
+
 namespace GBA::cpu::arm{
 	LOG_CONTEXT(ARM_Interpreter);
 
@@ -300,10 +302,12 @@ namespace GBA::cpu::arm{
 			case 0b010:
 				LOG_ERROR("LDRD not implemented");
 				error::DebugBreak();
+				break;
 
 			case 0b011:
 				LOG_ERROR("STRD not implemented");
 				error::DebugBreak();
+				break;
 
 			case 0b101: {
 				u32 value = bus->Read<u16>(base);
@@ -431,6 +435,7 @@ namespace GBA::cpu::arm{
 				amount %= 32;
 
 			if (!amount) {
+				res = value >> 1;
 				res |= (old_carry << 31);
 				bit_pos = 0;
 			}
@@ -689,7 +694,7 @@ namespace GBA::cpu::arm{
 		u8 first_reg_id = reg_id;
 
 		if (instr.s_bit) {
-			if (instr.writeback) {
+			if (instr.writeback) [[unlikely]] {
 				//Writeback with S bit set is not allowed
 				LOG_ERROR("Writeback with S bit is not allowed");
 				error::DebugBreak();
@@ -899,7 +904,7 @@ namespace GBA::cpu::arm{
 
 		u8 real_opcode = (instr.opcode_hi << 3) | instr.opcode_low;
 
-		if (first_op_reg && (real_opcode == 0xD || real_opcode == 0xF)) {
+		if (first_op_reg && (real_opcode == 0xD || real_opcode == 0xF)) [[unlikely]] {
 			LOG_ERROR("First operand register is != 0 with MOV/MVN");
 			error::DebugBreak();
 		}
@@ -923,7 +928,7 @@ namespace GBA::cpu::arm{
 
 		u8 real_opcode = (instr.opcode_hi << 3) | instr.opcode_low;
 
-		if (first_op_reg && (real_opcode == 0xD || real_opcode == 0xF)) {
+		if (first_op_reg && (real_opcode == 0xD || real_opcode == 0xF)) [[unlikely]] {
 			LOG_ERROR("First operand register is != 0 with MOV/MVN");
 			error::DebugBreak();
 		}
@@ -965,7 +970,7 @@ namespace GBA::cpu::arm{
 
 		u8 real_opcode = (instr.opcode_hi << 3) | instr.opcode_low;
 
-		if (first_op_reg && (real_opcode == 0xD || real_opcode == 0xF)) {
+		if (first_op_reg && (real_opcode == 0xD || real_opcode == 0xF)) [[unlikely]] {
 			LOG_ERROR("First operand register is != 0 with MOV/MVN");
 			error::DebugBreak();
 		}
@@ -1050,7 +1055,7 @@ namespace GBA::cpu::arm{
 	}
 
 	void BranchExchange(ARMBranchExchange instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
-		if (instr.operand_reg == 0xF) {
+		if (instr.operand_reg == 0xF) [[unlikely]] {
 			LOG_ERROR("Using r15 with BX!");
 			error::DebugBreak();
 		}
@@ -1276,7 +1281,11 @@ namespace GBA::cpu::arm{
 		if (!ctx.m_cpsr.CheckCondition(instr.condition))
 			return;
 
-		ARMInstructionType type = DecodeArm(instr.data);
+		ARMInstructionType type = detail::DecodeArmFast(instr.data);
+
+		/*if (type != detail::DecodeArmFast(instr.data)) {
+			error::DebugBreak();
+		}*/
 
 		switch (type)
 		{

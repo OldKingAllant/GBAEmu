@@ -5,8 +5,11 @@
 #include <algorithm>
 
 #include "../cpu/core/Register.hpp"
+#include "../common/Logger.hpp"
 
 namespace GBA::debugger {
+	LOG_CONTEXT(Debugger);
+
 	Debugger::Debugger(emulation::Emulator& emu) :
 		m_emu{emu} {}
 

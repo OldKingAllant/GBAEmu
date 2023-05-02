@@ -10,7 +10,7 @@
 #endif
 
 namespace GBA::error {
-	void Assert(bool value, const char* message) {
+	[[noreturn]] void Assert(bool value, const char* message) {
 		if (value)
 			return;
 
@@ -23,7 +23,7 @@ namespace GBA::error {
 		std::abort();
 	}
 
-	void DebugBreak() {
+	[[noreturn]] void DebugBreak() {
 #if defined(WIN32) || defined(__WIN32__) || defined(_WIN32)
 		__debugbreak();
 #else 
@@ -37,7 +37,7 @@ namespace GBA::error {
 #endif // DEBUG
 	}
 
-	void BailOut(bool bad) {
+	[[noreturn]] void BailOut(bool bad) {
 		if (bad)
 			std::abort();
 
