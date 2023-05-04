@@ -151,7 +151,9 @@ namespace GBA::cpu {
 
 		bool branch = false;
 
-		m_bus->m_time.access = memory::Access::NonSeq;
+		//Let the executed instruction decide if
+		//it should change the access to nonseq
+		//m_bus->m_time.access = memory::Access::NonSeq;
 
 		if (m_ctx.m_cpsr.instr_state == InstructionMode::ARM) {
 			u32 opcode = m_ctx.m_pipeline.Pop<InstructionMode::ARM>();

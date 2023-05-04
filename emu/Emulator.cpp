@@ -9,6 +9,7 @@ namespace GBA::emulation {
 		m_ctx.pack.LoadFrom(rom_location);
 		m_ctx.bus.ConnectGamepack(&m_ctx.pack);
 		m_ctx.processor.AttachBus(&m_ctx.bus);
+		m_ctx.bus.AttachProcessor(&m_ctx.processor);
 	}
 
 	void Emulator::EmulateFor(u32 num_instructions) {

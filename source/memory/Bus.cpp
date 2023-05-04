@@ -4,13 +4,16 @@
 #include "../../common/Logger.hpp"
 #include "../../common/Error.hpp"
 
+#include "../../cpu/core/ARM7TDI.hpp"
+
 namespace GBA::memory {
 	LOG_CONTEXT(Memory bus);
 
 	Bus::Bus() :
 		m_pack(nullptr), m_wram(nullptr),
 		m_iwram(nullptr), m_prefetch{}, 
-		m_time{}, m_enable_prefetch(false)
+		m_time{}, m_enable_prefetch(false), 
+		m_bios_latch{0x00}
 	{
 		m_wram = new u8[0x3FFFF];
 		m_iwram = new u8[0x7FFF];
@@ -23,7 +26,7 @@ namespace GBA::memory {
 		m_pack = pack;
 	}
 
-	template <>
+	/*template <>
 	u8 Bus::Read(u32 address, bool code) {
 		MEMORY_RANGE region = (MEMORY_RANGE)(address >> 24);
 		u32 addr_low = address & 0x00FFFFFF;
@@ -182,9 +185,9 @@ namespace GBA::memory {
 		}
 
 		return static_cast<u32>(~0);
-	}
+	}*/
 
-	template <>
+	/*template <>
 	void Bus::Write(u32 address, u8 value) {
 		MEMORY_RANGE region = (MEMORY_RANGE)(address >> 24);
 		u32 addr_low = address & 0x00FFFFFF;
@@ -378,7 +381,7 @@ namespace GBA::memory {
 			m_time.PushCycles<MEMORY_RANGE::SRAM, 4>();
 			break;
 		}
-	}
+	}*/
 
 	void Bus::InternalCycles(u32 count) {
 		if (m_prefetch.active) {
@@ -479,6 +482,19 @@ namespace GBA::memory {
 		}
 
 		return static_cast<u16>(~0);
+	}
+
+	u32 Bus::ReadOpenBus(u32 address) {
+		return 0;
+	}
+
+	u32 Bus::ReadBiosImpl(u32 address) {
+		if (m_processor->GetContext().m_regs.GetReg(15) > 0x3FFF)
+			return m_bios_latch;
+
+		m_bios_latch = 0x00; //Dummy value
+
+		return m_bios_latch;
 	}
 
 	Bus::~Bus() {

@@ -8,6 +8,10 @@ namespace GBA::gamepack {
 	class GamePack;
 }
 
+namespace GBA::cpu {
+	class ARM7TDI;
+}
+
 namespace GBA::memory {
 	using namespace common;
 
@@ -32,6 +36,9 @@ namespace GBA::memory {
 	public :
 		Bus();
 
+		template <typename Type>
+		Type Prefetch(u32 address, bool code, MEMORY_RANGE region);
+
 		/*
 		* Implementations are:
 		* 1 byte
@@ -39,10 +46,139 @@ namespace GBA::memory {
 		* 1 word
 		*/
 		template <typename Type>
-		Type Read(u32 address, bool code = false);
+		Type Read(u32 address, bool code = false) {
+			MEMORY_RANGE region = (MEMORY_RANGE)(address >> 24);
+			u32 addr_low = address & 0x00FFFFFF;
+
+			if constexpr (sizeof(Type) == 4)
+				addr_low &= ~3;
+			else if constexpr (sizeof(Type) == 2)
+				addr_low &= ~1;
+
+			if ((u8)region >= NUM_REGIONS)
+				return static_cast<Type>(~0);
+
+			if (addr_low & ~REGIONS_LEN[(u8)region])
+				return static_cast<Type>(~0);
+
+			constexpr const u8 type_size = sizeof(Type);
+
+			switch (region) {
+			case MEMORY_RANGE::BIOS:
+				m_time.PushCycles<MEMORY_RANGE::BIOS, type_size>();
+				return 0x00;
+
+			case MEMORY_RANGE::EWRAM:
+				m_time.PushCycles<MEMORY_RANGE::EWRAM, type_size>();
+				return reinterpret_cast<Type*>(m_wram)[addr_low / type_size];
+
+			case MEMORY_RANGE::IWRAM:
+				m_time.PushCycles<MEMORY_RANGE::IWRAM, type_size>();
+				return reinterpret_cast<Type*>(m_iwram)[addr_low / type_size];
+
+			case MEMORY_RANGE::IO:
+				m_time.PushCycles<MEMORY_RANGE::IO, type_size>();
+				return 0x00;
+
+			case MEMORY_RANGE::PAL:
+				m_time.PushCycles<MEMORY_RANGE::PAL, type_size>();
+				return 0x00;
+
+			case MEMORY_RANGE::VRAM:
+				m_time.PushCycles<MEMORY_RANGE::VRAM, type_size>();
+				return 0x00;
+
+			case MEMORY_RANGE::OAM:
+				m_time.PushCycles<MEMORY_RANGE::OAM, type_size>();
+				return 0x00;
+
+			case MEMORY_RANGE::ROM_REG_1:
+			case MEMORY_RANGE::ROM_REG_2:
+			case MEMORY_RANGE::ROM_REG_3: {
+				if constexpr (sizeof(Type) == 1)
+					return (Type)Prefetch<u16>(address, code, region);
+				else
+					return Prefetch<Type>(address, code, region);
+			}
+				
+
+			case MEMORY_RANGE::SRAM:
+				m_time.PushCycles<MEMORY_RANGE::SRAM, type_size>();
+				return 0x00;
+			}
+
+			return static_cast<Type>(~0);
+		}
 
 		template <typename Type>
-		void Write(u32 address, Type value);
+		void Write(u32 address, Type value) {
+			MEMORY_RANGE region = (MEMORY_RANGE)(address >> 24);
+			u32 addr_low = address & 0x00FFFFFF;
+
+			if constexpr (sizeof(Type) == 4)
+				addr_low &= ~3;
+			else if constexpr (sizeof(Type) == 2)
+				addr_low &= ~1;
+
+			if ((u8)region >= NUM_REGIONS)
+				return;
+
+			if (addr_low & ~REGIONS_LEN[(u8)region])
+				return;
+
+			constexpr const u8 type_size = sizeof(Type);
+
+			switch (region) {
+			case MEMORY_RANGE::BIOS:
+				m_time.PushCycles<MEMORY_RANGE::BIOS, type_size>();
+				break;
+
+			case MEMORY_RANGE::EWRAM:
+				m_time.PushCycles<MEMORY_RANGE::EWRAM, type_size>();
+				reinterpret_cast<Type*>(m_wram)[addr_low / type_size] = value;
+				break;
+
+			case MEMORY_RANGE::IWRAM:
+				m_time.PushCycles<MEMORY_RANGE::IWRAM, type_size>();
+				reinterpret_cast<Type*>(m_iwram)[addr_low / type_size] = value;
+				break;
+
+			case MEMORY_RANGE::IO:
+				m_time.PushCycles<MEMORY_RANGE::IO, type_size>();
+				break;
+
+			case MEMORY_RANGE::PAL:
+				m_time.PushCycles<MEMORY_RANGE::PAL, type_size>();
+				break;
+
+			case MEMORY_RANGE::VRAM:
+				m_time.PushCycles<MEMORY_RANGE::VRAM, type_size>();
+				break;
+
+			case MEMORY_RANGE::OAM:
+				m_time.PushCycles<MEMORY_RANGE::OAM, type_size>();
+				break;
+
+			case MEMORY_RANGE::ROM_REG_1:
+				m_time.PushCycles<MEMORY_RANGE::ROM_REG_1, type_size>();
+				StopPrefetch();
+				return;
+
+			case MEMORY_RANGE::ROM_REG_2:
+				m_time.PushCycles<MEMORY_RANGE::ROM_REG_2, type_size>();
+				StopPrefetch();
+				return;
+
+			case MEMORY_RANGE::ROM_REG_3:
+				m_time.PushCycles<MEMORY_RANGE::ROM_REG_3, type_size>();
+				StopPrefetch();
+				break;
+
+			case MEMORY_RANGE::SRAM:
+				m_time.PushCycles<MEMORY_RANGE::SRAM, type_size>();
+				break;
+			}
+		}
 
 		/*
 		* Read everything without
@@ -53,12 +189,33 @@ namespace GBA::memory {
 
 		void ConnectGamepack(gamepack::GamePack* pack);
 
-		template <typename Type>
-		Type Prefetch(u32 address, bool code, MEMORY_RANGE region);
+		
 		void StopPrefetch();
 		void StartPrefetch(u32 start_address, MEMORY_RANGE region);
 
 		void InternalCycles(u32 count);
+
+		u32 ReadBiosImpl(u32 address);
+
+		template <typename Type>
+		Type ReadBios(u32 address) {
+			u32 aligned = address & ~3;
+
+			u32 value = ReadBiosImpl(address);
+
+			if constexpr (sizeof(Type) == 2)
+				value >>= 8 * (address & 1);
+			else if constexpr (sizeof(Type) == 1)
+				value >>= 8 * (address & 3);
+
+			return (Type)value;
+		} 
+
+		u32 ReadOpenBus(u32 address);
+
+		void AttachProcessor(cpu::ARM7TDI* processor) {
+			m_processor = processor;
+		}
 
 		~Bus();
 
@@ -78,5 +235,12 @@ namespace GBA::memory {
 		} m_prefetch;
 
 		bool m_enable_prefetch;
+
+		u32 m_bios_latch;
+
+		//I do know that this thing is horrible,
+		//but it is necessary for emulating
+		//BIOS protection and the open bus
+		cpu::ARM7TDI* m_processor;
 	};
 }
