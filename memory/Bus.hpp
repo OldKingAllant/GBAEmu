@@ -55,59 +55,89 @@ namespace GBA::memory {
 			else if constexpr (sizeof(Type) == 2)
 				addr_low &= ~1;
 
-			if ((u8)region >= NUM_REGIONS)
-				return static_cast<Type>(~0);
-
-			if (addr_low & ~REGIONS_LEN[(u8)region])
-				return static_cast<Type>(~0);
-
 			constexpr const u8 type_size = sizeof(Type);
+
+			Type return_value = 0;
+
+			//Some memory regions are mirrored, others are not
 
 			switch (region) {
 			case MEMORY_RANGE::BIOS:
 				m_time.PushCycles<MEMORY_RANGE::BIOS, type_size>();
-				return 0x00;
+				
+				if (addr_low > REGIONS_LEN[0])
+					return_value = ReadOpenBus(address);
+				else
+					return_value = ReadBios<Type>(address);
+				break;
 
 			case MEMORY_RANGE::EWRAM:
 				m_time.PushCycles<MEMORY_RANGE::EWRAM, type_size>();
-				return reinterpret_cast<Type*>(m_wram)[addr_low / type_size];
+
+				addr_low &= REGIONS_LEN[(u8)MEMORY_RANGE::EWRAM];
+
+				return_value = reinterpret_cast<Type*>(m_wram)[addr_low / type_size];
+				break;
 
 			case MEMORY_RANGE::IWRAM:
 				m_time.PushCycles<MEMORY_RANGE::IWRAM, type_size>();
-				return reinterpret_cast<Type*>(m_iwram)[addr_low / type_size];
+
+				addr_low &= REGIONS_LEN[(u8)MEMORY_RANGE::IWRAM];
+
+				return_value = reinterpret_cast<Type*>(m_iwram)[addr_low / type_size];
+				break;
 
 			case MEMORY_RANGE::IO:
 				m_time.PushCycles<MEMORY_RANGE::IO, type_size>();
-				return 0x00;
+				return_value = 0x00;
+				break;
 
 			case MEMORY_RANGE::PAL:
 				m_time.PushCycles<MEMORY_RANGE::PAL, type_size>();
-				return 0x00;
+
+				addr_low &= REGIONS_LEN[(u8)MEMORY_RANGE::PAL];
+
+				return_value = 0x00;
+				break;
 
 			case MEMORY_RANGE::VRAM:
 				m_time.PushCycles<MEMORY_RANGE::VRAM, type_size>();
-				return 0x00;
+				return_value = 0x00;
+				break;
 
 			case MEMORY_RANGE::OAM:
 				m_time.PushCycles<MEMORY_RANGE::OAM, type_size>();
-				return 0x00;
+
+				addr_low &= REGIONS_LEN[(u8)MEMORY_RANGE::OAM];
+
+				return_value = 0x00;
+				break;
 
 			case MEMORY_RANGE::ROM_REG_1:
 			case MEMORY_RANGE::ROM_REG_2:
 			case MEMORY_RANGE::ROM_REG_3: {
 				if constexpr (sizeof(Type) == 1)
-					return (Type)Prefetch<u16>(address, code, region);
+					return_value = (Type)Prefetch<u16>(address, code, region);
 				else
-					return Prefetch<Type>(address, code, region);
+					return_value = Prefetch<Type>(address, code, region);
 			}
+			break;
 				
 
 			case MEMORY_RANGE::SRAM:
 				m_time.PushCycles<MEMORY_RANGE::SRAM, type_size>();
-				return 0x00;
+				return_value = 0x00;
+				break;
+
+			default:
+				return_value = ReadOpenBus(address);
+				break;
 			}
 
-			return static_cast<Type>(~0);
+			m_open_bus_value = return_value;
+			m_open_bus_address = address;
+
+			return return_value;
 		}
 
 		template <typename Type>
@@ -120,12 +150,6 @@ namespace GBA::memory {
 			else if constexpr (sizeof(Type) == 2)
 				addr_low &= ~1;
 
-			if ((u8)region >= NUM_REGIONS)
-				return;
-
-			if (addr_low & ~REGIONS_LEN[(u8)region])
-				return;
-
 			constexpr const u8 type_size = sizeof(Type);
 
 			switch (region) {
@@ -135,11 +159,13 @@ namespace GBA::memory {
 
 			case MEMORY_RANGE::EWRAM:
 				m_time.PushCycles<MEMORY_RANGE::EWRAM, type_size>();
+				addr_low &= REGIONS_LEN[(u8)MEMORY_RANGE::EWRAM];
 				reinterpret_cast<Type*>(m_wram)[addr_low / type_size] = value;
 				break;
 
 			case MEMORY_RANGE::IWRAM:
 				m_time.PushCycles<MEMORY_RANGE::IWRAM, type_size>();
+				addr_low &= REGIONS_LEN[(u8)MEMORY_RANGE::IWRAM];
 				reinterpret_cast<Type*>(m_iwram)[addr_low / type_size] = value;
 				break;
 
@@ -148,6 +174,7 @@ namespace GBA::memory {
 				break;
 
 			case MEMORY_RANGE::PAL:
+				addr_low &= REGIONS_LEN[(u8)MEMORY_RANGE::PAL];
 				m_time.PushCycles<MEMORY_RANGE::PAL, type_size>();
 				break;
 
@@ -156,6 +183,7 @@ namespace GBA::memory {
 				break;
 
 			case MEMORY_RANGE::OAM:
+				addr_low &= REGIONS_LEN[(u8)MEMORY_RANGE::OAM];
 				m_time.PushCycles<MEMORY_RANGE::OAM, type_size>();
 				break;
 
@@ -178,6 +206,9 @@ namespace GBA::memory {
 				m_time.PushCycles<MEMORY_RANGE::SRAM, type_size>();
 				break;
 			}
+
+			m_open_bus_value = value;
+			m_open_bus_address = address;
 		}
 
 		/*
@@ -242,5 +273,8 @@ namespace GBA::memory {
 		//but it is necessary for emulating
 		//BIOS protection and the open bus
 		cpu::ARM7TDI* m_processor;
+
+		u32 m_open_bus_value;
+		u32 m_open_bus_address;
 	};
 }

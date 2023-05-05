@@ -13,7 +13,8 @@ namespace GBA::memory {
 		m_pack(nullptr), m_wram(nullptr),
 		m_iwram(nullptr), m_prefetch{}, 
 		m_time{}, m_enable_prefetch(false), 
-		m_bios_latch{0x00}
+		m_bios_latch{0x00}, m_open_bus_value{0x00},
+		m_open_bus_address{0x00}
 	{
 		m_wram = new u8[0x3FFFF];
 		m_iwram = new u8[0x7FFF];
@@ -485,6 +486,14 @@ namespace GBA::memory {
 	}
 
 	u32 Bus::ReadOpenBus(u32 address) {
+		cpu::CPUContext& ctx = m_processor->GetContext();
+		if (ctx.m_cpsr.instr_state ==
+			cpu::InstructionMode::ARM) {
+			return m_open_bus_value;
+		}
+
+		LOG_INFO(" Open bus for THUMB mode not implemented");
+
 		return 0;
 	}
 
