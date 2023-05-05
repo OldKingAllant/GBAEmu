@@ -10,6 +10,8 @@
 
 #include "../../../cpu/arm/TableGen.hpp"
 
+#include <utility>
+
 namespace GBA::cpu::arm{
 	LOG_CONTEXT(ARM_Interpreter);
 
@@ -295,6 +297,7 @@ namespace GBA::cpu::arm{
 			case 0b001: {
 				u32 to_write = ctx.m_regs.GetReg(reg);
 				to_write += 12 * (reg == 15);
+				bus->m_time.access = Access::NonSeq;
 				bus->Write<u16>(base, to_write);
 			}
 			break;
@@ -310,22 +313,30 @@ namespace GBA::cpu::arm{
 				break;
 
 			case 0b101: {
+				bus->m_time.access = Access::NonSeq;
+
 				u32 value = bus->Read<u16>(base);
 
 				value = std::rotr(value, 8 * (base & 1));
 
 				ctx.m_regs.SetReg(reg, value);
+
+				bus->m_time.access = Access::Seq;
 			}
 			break;
 
 			case 0b110: {
+				bus->m_time.access = Access::NonSeq;
 				int32_t value = (int8_t)bus->Read<u8>(base);
 				ctx.m_regs.SetReg(reg, value);
+				bus->m_time.access = Access::Seq;
 			}
 			break;
 
 			case 0b111: {
 				int32_t value = 0;
+
+				bus->m_time.access = Access::NonSeq;
 
 				if (base & 1)
 					value = (int8_t)bus->Read<u8>(base);
@@ -333,6 +344,8 @@ namespace GBA::cpu::arm{
 					value = (int16_t)bus->Read<u16>(base);
 
 				ctx.m_regs.SetReg(reg, value);
+
+				bus->m_time.access = Access::Seq;
 			}
 			break;
 
@@ -624,6 +637,13 @@ namespace GBA::cpu::arm{
 	}
 
 	void Branch(ARMBranch instr, CPUContext& ctx,  memory::Bus* bus, bool& branch) {
+		/*
+		* This takes 2S + 1N waitstates:
+		* 1S -> Prefetch
+		* 1N + 1S -> Pipeline flush
+		* 
+		* Next access type set by pipeline
+		*/
 		branch = true;
 
 		if (instr.type) {
@@ -637,6 +657,8 @@ namespace GBA::cpu::arm{
 		offset *= 4;
 
 		ctx.m_regs.AddOffset(15, offset + 8);
+
+		bus->m_time.access = Access::NonSeq;
 	}
 
 	void inline StoreBlock(ARMBlockTransfer instr, CPUContext& ctx,  memory::Bus* bus, bool& branch, u32 base, u32 new_base) {
@@ -645,6 +667,8 @@ namespace GBA::cpu::arm{
 		u8 reg_id = 0;
 
 		u8 base_reg = instr.base_reg;
+
+		bus->m_time.access = Access::NonSeq;
 
 		if (list == 0) {
 			//Empty reglist
@@ -713,6 +737,8 @@ namespace GBA::cpu::arm{
 
 				list >>= 1;
 				reg_id++;
+
+				bus->m_time.access = Access::Seq;
 			}
 		}
 		else {
@@ -736,8 +762,12 @@ namespace GBA::cpu::arm{
 
 				list >>= 1;
 				reg_id++;
+
+				bus->m_time.access = Access::Seq;
 			}
 		}
+
+		bus->m_time.access = Access::NonSeq;
 	}
 
 	void inline LoadBlock(ARMBlockTransfer instr, CPUContext& ctx,  memory::Bus* bus, bool& branch, u32 base) {
@@ -746,6 +776,8 @@ namespace GBA::cpu::arm{
 		u8 reg_id = 0;
 
 		u8 base_reg = instr.base_reg;
+
+		bus->m_time.access = Access::NonSeq;
 
 		if (list == 0) {
 			i8 offset = 0;
@@ -796,6 +828,8 @@ namespace GBA::cpu::arm{
 
 				list >>= 1;
 				reg_id++;
+
+				bus->m_time.access = Access::Seq;
 			}
 		}
 		else {
@@ -810,6 +844,8 @@ namespace GBA::cpu::arm{
 
 				list >>= 1;
 				reg_id++;
+
+				bus->m_time.access = Access::Seq;
 			}
 		}
 
@@ -819,6 +855,10 @@ namespace GBA::cpu::arm{
 			if (instr.s_bit)
 				ctx.RestorePreviousMode(ctx.m_regs.GetReg(15));
 		}
+
+		bus->m_time.access = Access::Seq;
+
+		bus->InternalCycles(1);
 	}
 
 	void BlockDataTransfer(ARMBlockTransfer instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
@@ -869,19 +909,6 @@ namespace GBA::cpu::arm{
 			
 			if (instr.load)
 				instr.writeback = false;
-			/*else if (instr.writeback) {
-				//If it is the first in the list
-				//the value stays unchanged
-				bool is_first = !(instr.rlist &
-					((1 << instr.base_reg) - 1));
-
-				if (is_first) {
-					instr.writeback = false;
-				}
-
-				//Else, behaviour is not
-				//specified.
-			}*/
 		}
 		
 		if (!instr.writeback) {
@@ -891,6 +918,18 @@ namespace GBA::cpu::arm{
 		else if (instr.rlist)
 			ctx.m_regs.SetReg(instr.base_reg, new_base);
 	}
+
+	/*
+	* Data processing execution time:
+	* 1S -> Prefetch
+	* 
+	* The execution takes longer
+	* if a branch occurs (1N + 1S),
+	* thanks to the pipeline flush
+	* 
+	* Also, if shifting by register, 
+	* one internal cycle is added
+	*/
 
 	template <typename InstructionT>
 	void DataProcessing(InstructionT instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {}
@@ -919,6 +958,8 @@ namespace GBA::cpu::arm{
 		u32 first_op = ctx.m_regs.GetReg(first_op_reg) + 8 * (first_op_reg == 15);
 
 		detail::DataProcessingCommon(dest_reg, first_op, real_opcode, value, instr.s_bit, ctx, branch, carry_shift);
+
+		bus->m_time.access = Access::Seq;
 	}
 
 	template <>
@@ -958,9 +999,13 @@ namespace GBA::cpu::arm{
 
 		u32 first_op = ctx.m_regs.GetReg(first_op_reg) + 12 * (first_op_reg == 15);
 
+		bus->InternalCycles(1);
+
 		detail::DataProcessingCommon(dest_reg, first_op,
 			real_opcode, res.first, instr.s_bit, ctx,
 			branch, res.second);
+
+		bus->m_time.access = Access::Seq;
 	}
 
 	template <>
@@ -1005,13 +1050,21 @@ namespace GBA::cpu::arm{
 		detail::DataProcessingCommon(dest_reg, first_op,
 			real_opcode, res.first, instr.s_bit, ctx,
 			branch, res.second);
+
+		bus->m_time.access = Access::Seq;
 	}
 
 	void PsrTransfer(ARMInstruction instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+		/*
+		* Execution time :
+		* 1S -> Prefetch
+		*/
 		if (CHECK_BIT(instr.data, 21))
 			detail::MsrTransfer(instr, ctx);
 		else
 			detail::MrsTransfer(instr, ctx);
+
+		bus->m_time.access = Access::Seq;
 	}
 
 	void SingleHDSTransfer(ARM_SingleHDSTransfer instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
@@ -1075,11 +1128,25 @@ namespace GBA::cpu::arm{
 		}
 
 		branch = true;
+
+		bus->m_time.access = Access::NonSeq;
 	}
 
 	void SoftwareInterrupt(ARMInstruction instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
-		LOG_ERROR("Software interrupt not implemented");
-		error::DebugBreak();
+		/*
+		* Execution time 2S + 1N
+		* 1S -> Prefetch
+		* 1S + 1N -> Pipeline flush
+		*/
+		u32 argument = instr.data & 0xFFFFFF;
+
+		LOG_INFO("Software interrupt at 0x{:x} with argument 0x{:x}", ctx.m_regs.GetReg(15), argument);
+
+		ctx.EnterException(ExceptionCode::SOFTI, 4);
+
+		branch = true;
+
+		bus->m_time.access = Access::NonSeq;
 	}
 
 	void SingleDataSwap(ARMDataSwap instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
@@ -1088,6 +1155,8 @@ namespace GBA::cpu::arm{
 		u32 source_reg = instr.source_reg;
 
 		u32 reg_value = ctx.m_regs.GetReg(source_reg);
+
+		bus->m_time.access = Access::NonSeq;
 		
 		if (instr.swap_byte) {
 			u32 mem_value = bus->Read<u8>(base);
@@ -1103,34 +1172,117 @@ namespace GBA::cpu::arm{
 			ctx.m_regs.SetReg(dest_reg, mem_value);
 			bus->Write<u32>(base, reg_value);
 		}
+
+		bus->m_time.access = Access::Seq;
+
+		bus->InternalCycles(1);
+	}
+
+	inline u32 CountZeroOneBytes(u32 value) {
+		u32 copy = value >> 8;
+
+		if (!copy || copy == 0xFFFFFF)
+			return 1;
+
+		copy >>= 8;
+		
+		if (!copy || copy == 0xFFFF)
+			return 2;
+
+		copy >>= 8;
+
+		if (!copy || copy == 0xFF)
+			return 3;
+
+		return 4;
+	}
+
+	inline u32 CountZeroBytes(u32 value) {
+		u32 copy = value >> 8;
+
+		if (!copy)
+			return 1;
+
+		copy >>= 8;
+
+		if (!copy)
+			return 2;
+
+		copy >>= 8;
+
+		if (!copy)
+			return 3;
+
+		return 4;
 	}
 
 	void Multiply(ARMMultiply instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+		/*
+		* Execution times :
+		* 1S + (opcode dependent value)
+		* 
+		* MUL: 
+		* Add m internal cycles, where
+		* m is given by the number of
+		* bytes that are all zero
+		* or all one
+		* 
+		* MLA:
+		* Same as MUL but with one more I cycle
+		* 
+		* UMULL:
+		* Add m internal cycles for
+		* each byte that is all zeroes + 1I cycles
+		* 
+		* UMLAL
+		* Same as UMULL + 1I cycle
+		* cycles
+		* 
+		* SMULL:
+		* Add m internal cycles for
+		* each byte that is all zeroes or all one + 1I cycles
+		* 
+		* SMLAL:
+		* Same as SMULL + 1I cycle
+		* 
+		* The u32 value that must be checked
+		* for number of I cycles is the value
+		* in Rs
+		*/
+		bus->m_time.access = Access::Seq;
+
 		uint64_t res = 0;
+
+		u32 icycles = 0;
+
+		uint64_t rs = ctx.m_regs.GetReg(instr.operand_reg2);
+		uint64_t rm = ctx.m_regs.GetReg(instr.operand_reg1);
 
 		switch (instr.opcode)
 		{
 		case 0x0:
-			res = (uint64_t)ctx.m_regs.GetReg(instr.operand_reg1) *
-				ctx.m_regs.GetReg(instr.operand_reg2);
+			res = rm * rs;
+			icycles = CountZeroOneBytes((u32)rs);
 			break;
 
 		case 0x1:
-			res = (uint64_t)ctx.m_regs.GetReg(instr.operand_reg1) *
-				ctx.m_regs.GetReg(instr.operand_reg2);
+			res = rm * rs;
 
 			if (instr.accumul_reg)
 				res += (uint64_t)ctx.m_regs.GetReg(instr.accumul_reg);
+
+			icycles = CountZeroOneBytes((u32)rs) + 1;
 			break;
 
 		case 0x4:
-			res = (uint64_t)ctx.m_regs.GetReg(instr.operand_reg1) *
-				ctx.m_regs.GetReg(instr.operand_reg2);
+			res = rm * rs;
+			icycles = CountZeroBytes((u32)rs) + 1;
 			break;
 
 		case 0x5:
-			res = (uint64_t)ctx.m_regs.GetReg(instr.operand_reg1) *
-				ctx.m_regs.GetReg(instr.operand_reg2);
+			res = rm * rs;
+
+			icycles = CountZeroBytes((u32)rs) + 2;
 
 			if (instr.accumul_reg) {
 				uint64_t op1 = ctx.m_regs.GetReg(instr.dest_reg);
@@ -1145,6 +1297,8 @@ namespace GBA::cpu::arm{
 			int32_t op2 = ctx.m_regs.GetReg(instr.operand_reg2);
 			
 			res = (int64_t)op1 * op2;
+
+			icycles = CountZeroOneBytes(op2) + 1;
 		}
 		break;
 
@@ -1153,6 +1307,8 @@ namespace GBA::cpu::arm{
 			int32_t op2 = ctx.m_regs.GetReg(instr.operand_reg2);
 
 			res = (int64_t)op1 * op2;
+
+			icycles = CountZeroOneBytes(op2) + 2;
 
 			if (instr.accumul_reg) {
 				uint64_t op1 = ctx.m_regs.GetReg(instr.dest_reg);
@@ -1164,8 +1320,7 @@ namespace GBA::cpu::arm{
 		break;
 
 		default:
-			LOG_ERROR("Invalid multiply type");
-			error::DebugBreak();
+			error::Unreachable();
 		}
 
 		if (instr.s_bit) {
@@ -1182,6 +1337,8 @@ namespace GBA::cpu::arm{
 		}
 		else
 			ctx.m_regs.SetReg(instr.dest_reg, (u32)res);
+
+		bus->InternalCycles(icycles);
 	}
 
 	void MultiplyHalf(ARMInstruction instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
@@ -1237,6 +1394,8 @@ namespace GBA::cpu::arm{
 		if (instr.load) {
 			u32 value = 0;
 
+			bus->m_time.access = Access::NonSeq;
+
 			if (instr.move_byte)
 				value = bus->Read<u8>(base);
 			else 
@@ -1245,10 +1404,16 @@ namespace GBA::cpu::arm{
 			value = std::rotr(value, (base & 3) * 8);
 
 			ctx.m_regs.SetReg(instr.dest_reg, value);
+
+			bus->InternalCycles(1);
+
+			bus->m_time.access = Access::Seq;
 		}
 		else {
 			u32 value = ctx.m_regs.GetReg(instr.dest_reg) +
 				12 * (instr.dest_reg == 15);
+
+			bus->m_time.access = Access::NonSeq;
 
 			if (instr.move_byte)
 				bus->Write<u8>(base, value & 0xFF);
@@ -1272,20 +1437,31 @@ namespace GBA::cpu::arm{
 			branch = true;
 	}
 
-	void Undefined(ARMInstruction instr, CPUContext&, memory::Bus*, bool& branch) {
-		LOG_ERROR("Undefined instruction");
-		error::DebugBreak();
+	void Undefined(ARMInstruction instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+		/*
+		* Execution time 2S + 1N + 1I
+		* 1S -> Prefetch
+		* 1S + 1N -> Pipeline flush
+		* 1I -> IDK
+		* 
+		* Next access type set by pipeline
+		*/
+		LOG_INFO("Undefined instruction at 0x{:x} : 0x{:x}", ctx.m_regs.GetReg(15), instr.data);
+		
+		ctx.EnterException(ExceptionCode::UNDEF, 0x4);
+
+		branch = true;
+
+		bus->InternalCycles(1);
+
+		bus->m_time.access = Access::NonSeq;
 	}
 
 	void ExecuteArm(ARMInstruction instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
-		if (!ctx.m_cpsr.CheckCondition(instr.condition))
+		if (!ctx.m_cpsr.CheckCondition(instr.condition)) // The instruction takes one S cycle (caused by the fetch process)
 			return;
 
 		ARMInstructionType type = detail::DecodeArmFast(instr.data);
-
-		/*if (type != detail::DecodeArmFast(instr.data)) {
-			error::DebugBreak();
-		}*/
 
 		switch (type)
 		{
