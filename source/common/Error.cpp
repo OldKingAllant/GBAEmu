@@ -10,7 +10,7 @@
 #endif
 
 namespace GBA::error {
-	[[noreturn]] void Assert(bool value, const char* message) {
+	void Assert(bool value, const char* message) {
 		if (value)
 			return;
 
