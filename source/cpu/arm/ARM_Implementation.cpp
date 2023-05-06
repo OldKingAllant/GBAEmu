@@ -1459,7 +1459,12 @@ namespace GBA::cpu::arm{
 
 	void ExecuteArm(ARMInstruction instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
 		if (!ctx.m_cpsr.CheckCondition(instr.condition)) // The instruction takes one S cycle (caused by the fetch process)
+		{
+			bus->m_time.access = Access::Seq; //Set the access to sequential
+			//Since no memory address was read/written
+			//And no jump occurs
 			return;
+		}
 
 		ARMInstructionType type = detail::DecodeArmFast(instr.data);
 
