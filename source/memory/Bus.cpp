@@ -6,6 +6,8 @@
 
 #include "../../cpu/core/ARM7TDI.hpp"
 
+#include "../../ppu/PPU.hpp"
+
 namespace GBA::memory {
 	LOG_CONTEXT(Memory bus);
 
@@ -14,13 +16,17 @@ namespace GBA::memory {
 		m_iwram(nullptr), m_prefetch{}, 
 		m_time{}, m_enable_prefetch(false), 
 		m_bios_latch{0x00}, m_open_bus_value{0x00},
-		m_open_bus_address{0x00}
+		m_open_bus_address{0x00}, m_ppu(nullptr)
 	{
 		m_wram = new u8[0x3FFFF];
 		m_iwram = new u8[0x7FFF];
 
 		std::fill_n(m_wram, 0x3FFFF, 0x00);
 		std::fill_n(m_iwram, 0x7FFF, 0x00);
+
+		mmio = new MMIO();
+
+		m_ppu = new ppu::PPU(mmio);
 	}
 
 	void Bus::ConnectGamepack(gamepack::GamePack* pack) {

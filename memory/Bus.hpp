@@ -4,6 +4,8 @@
 
 #include "Timing.hpp"
 
+#include "MMIO.hpp"
+
 namespace GBA::gamepack {
 	class GamePack;
 }
@@ -12,7 +14,13 @@ namespace GBA::cpu {
 	class ARM7TDI;
 }
 
+namespace GBA::ppu {
+	class PPU;
+}
+
 namespace GBA::memory {
+	class MMIO;
+
 	using namespace common;
 
 	static constexpr u32 REGIONS_LEN[] = {
@@ -89,7 +97,12 @@ namespace GBA::memory {
 
 			case MEMORY_RANGE::IO:
 				m_time.PushCycles<MEMORY_RANGE::IO, type_size>();
-				return_value = 0x00;
+
+				if (addr_low < IO_SIZE && !UNUSED_REGISTERS_MAP[addr_low]) {
+					return_value = mmio->Read<Type>(addr_low);
+				}
+				else
+					return_value = ReadOpenBus(address);
 				break;
 
 			case MEMORY_RANGE::PAL:
@@ -171,6 +184,11 @@ namespace GBA::memory {
 
 			case MEMORY_RANGE::IO:
 				m_time.PushCycles<MEMORY_RANGE::IO, type_size>();
+
+				if (addr_low < IO_SIZE && !UNUSED_REGISTERS_MAP[addr_low]) {
+					mmio->Write<Type>(addr_low, value);
+				}
+
 				break;
 
 			case MEMORY_RANGE::PAL:
@@ -276,5 +294,9 @@ namespace GBA::memory {
 
 		u32 m_open_bus_value;
 		u32 m_open_bus_address;
+
+		MMIO* mmio;
+
+		ppu::PPU* m_ppu;
 	};
 }
