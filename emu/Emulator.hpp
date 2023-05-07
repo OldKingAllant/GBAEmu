@@ -7,12 +7,14 @@
 #include "../cpu/core/ARM7TDI.hpp"
 #include "../memory/Bus.hpp"
 #include "../gamepack/GamePack.hpp"
+#include "../ppu/PPU.hpp"
 
 namespace GBA::emulation {
 	struct EmulatorContext {
 		cpu::ARM7TDI processor;
 		memory::Bus bus;
 		gamepack::GamePack pack;
+		ppu::PPU ppu;
 	};
 
 	class Emulator {

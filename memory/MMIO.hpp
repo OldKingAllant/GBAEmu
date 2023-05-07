@@ -151,12 +151,10 @@ namespace GBA::memory {
 				m_write8[offset](value);
 			else if constexpr (sizeof(Type) == 2) {
 				offset /= 2;
-				offset &= ~1;
 				m_write16[offset](value);
 			}
 			else {
 				offset /= 4;
-				offset &= ~3;
 				m_write32[offset](value);
 			}
 		}

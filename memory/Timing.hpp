@@ -34,7 +34,7 @@ namespace GBA::memory {
 		u32 PopCycles() {
 			u32 temp = m_curr_cycles;
 			m_curr_cycles = 0;
-			return m_curr_cycles;
+			return temp;
 		}
 
 		u32 GetCycles() {

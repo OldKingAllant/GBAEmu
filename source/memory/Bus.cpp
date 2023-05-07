@@ -26,7 +26,7 @@ namespace GBA::memory {
 
 		mmio = new MMIO();
 
-		m_ppu = new ppu::PPU(mmio);
+		//m_ppu = new ppu::PPU(mmio);
 	}
 
 	void Bus::ConnectGamepack(gamepack::GamePack* pack) {
@@ -518,5 +518,8 @@ namespace GBA::memory {
 
 		if (m_wram)
 			delete[] m_wram;
+
+		if (mmio)
+			delete[] mmio;
 	}
 }

@@ -5,6 +5,7 @@
 #include "Timing.hpp"
 
 #include "MMIO.hpp"
+#include "../ppu/PPU.hpp"
 
 namespace GBA::gamepack {
 	class GamePack;
@@ -108,14 +109,22 @@ namespace GBA::memory {
 			case MEMORY_RANGE::PAL:
 				m_time.PushCycles<MEMORY_RANGE::PAL, type_size>();
 
+				if constexpr(sizeof(Type) == 4)
+					m_time.PushCycles<MEMORY_RANGE::PAL, type_size>();
+
 				addr_low &= REGIONS_LEN[(u8)MEMORY_RANGE::PAL];
 
-				return_value = 0x00;
+				return_value = m_ppu->ReadPalette<Type>(addr_low);
+
 				break;
 
 			case MEMORY_RANGE::VRAM:
 				m_time.PushCycles<MEMORY_RANGE::VRAM, type_size>();
-				return_value = 0x00;
+
+				if constexpr (sizeof(Type) == 4)
+					m_time.PushCycles<MEMORY_RANGE::PAL, type_size>();
+
+				return_value = m_ppu->ReadVRAM<Type>(addr_low);
 				break;
 
 			case MEMORY_RANGE::OAM:
@@ -193,11 +202,24 @@ namespace GBA::memory {
 
 			case MEMORY_RANGE::PAL:
 				addr_low &= REGIONS_LEN[(u8)MEMORY_RANGE::PAL];
+				
 				m_time.PushCycles<MEMORY_RANGE::PAL, type_size>();
+
+				if constexpr (sizeof(Type) == 4)
+					m_time.PushCycles<MEMORY_RANGE::PAL, type_size>();
+
+				m_ppu->WritePalette<Type>(addr_low, value);
+
 				break;
 
 			case MEMORY_RANGE::VRAM:
 				m_time.PushCycles<MEMORY_RANGE::VRAM, type_size>();
+
+				if constexpr (sizeof(Type) == 4)
+					m_time.PushCycles<MEMORY_RANGE::PAL, type_size>();
+
+				m_ppu->WriteVRAM<Type>(addr_low, value);
+
 				break;
 
 			case MEMORY_RANGE::OAM:
@@ -264,6 +286,14 @@ namespace GBA::memory {
 
 		void AttachProcessor(cpu::ARM7TDI* processor) {
 			m_processor = processor;
+		}
+
+		void SetPPU(ppu::PPU* ppu) {
+			m_ppu = ppu;
+		}
+
+		MMIO* GetMMIO() {
+			return mmio;
 		}
 
 		~Bus();

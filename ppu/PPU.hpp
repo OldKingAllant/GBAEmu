@@ -9,9 +9,15 @@ namespace GBA::memory {
 }
 
 namespace GBA::ppu {
+	enum class Mode {
+		NORMAL,
+		VBLANK,
+		HBLANK
+	};
+
 	class PPU {
 	public :
-		PPU(memory::MMIO* mmio);
+		PPU();
 
 		common::u32 ReadRegister32(common::u8 offset) const;
 		void WriteRegister32(common::u8 offset, common::u32 value);
@@ -22,21 +28,113 @@ namespace GBA::ppu {
 		common::u8 ReadRegister8(common::u8 offset) const;
 		void WriteRegister8(common::u8 offset, common::u8 value);
 
+		void WriteDisplayControl8(common::u8 offset, common::u8 value);
+		void WriteDisplayControl16(common::u16 value);
+
+		void WriteDisplayStatus8(common::u8 offset, common::u8 value);
+		void WriteDisplayStatus16(common::u16 value);
+
+		void ClockCycles(common::u32 num_cycles);
+
+		void Mode0();
+		void Mode1();
+		void Mode2();
+		void Mode3();
+		void Mode4();
+		void Mode5();
+
+		void VBlank();
+		void HBlank();
+		void Normal();
+
+		void SetMMIO(memory::MMIO* mmio) {
+			InitHandlers(mmio);
+		}
+
+		template <typename Type>
+		Type ReadPalette(common::u32 address) const {
+			address /= sizeof(Type);
+
+			return reinterpret_cast<Type const*>(m_palette_ram)[address];
+		}
+
+		//8 bit writes are not allowed
+		template <typename Type>
+		void WritePalette(common::u32 address, Type value) {
+			address /= sizeof(Type);
+
+			if constexpr (sizeof(Type) == 1) {
+				address &= ~1;
+				common::u16 new_val = value * 0x101;
+				reinterpret_cast<common::u16*>(m_palette_ram)[address] = new_val;
+			}
+			else {
+				reinterpret_cast<Type*>(m_palette_ram)[address] = value;
+			}
+		}
+
+		template <typename Type>
+		Type ReadVRAM(common::u32 address) const {
+			address /= sizeof(Type);
+
+			return reinterpret_cast<Type const*>(m_vram)[address];
+		}
+
+		//8 bit writes are not allowed
+		template <typename Type>
+		void WriteVRAM(common::u32 address, Type value) {
+			address /= sizeof(Type);
+
+			if constexpr (sizeof(Type) == 1) {
+				//Write effect should depend on the area in the 
+				//VRAM, but I'll just ignore it 
+			}
+			else {
+				reinterpret_cast<Type*>(m_vram)[address] = value;
+			}
+		}
+
+		~PPU();
 
 	private:
 		void InitHandlers(memory::MMIO* mmio);
 
 	private :
+#pragma pack(push, 1)
 		union PPUContext {
 			struct {
 				common::u16 m_control;
 				common::u16 m_green_swap;
 				common::u16 m_status;
+				common::u16 m_vcount;
 			};
 			
 			common::u8 array[0x58];
 		};
+#pragma pack(pop)
 		
 		PPUContext m_ctx;
+
+		common::u32 m_mode_cycles;
+		common::u32 m_curr_x;
+		Mode m_curr_mode;
+
+		common::u8* m_palette_ram;
+		common::u8* m_vram;
+
+		static constexpr common::u32 CYCLES_PER_PIXEL = 4;
+		static constexpr common::u32 CYCLES_PER_SCANLINE = 960;
+		static constexpr common::u32 CYCLES_BEFORE_HBLANK_FLAG = 46;
+		static constexpr common::u32 CYCLES_PER_HBLANK = 272;
+		static constexpr common::u32 TOTAL_CYCLES_PER_LINE =
+			CYCLES_PER_SCANLINE + CYCLES_PER_HBLANK;
+
+		static constexpr common::u32 VISIBLE_LINES = 160;
+		static constexpr common::u32 TOTAL_LINES = 228;
+
+		static constexpr common::u32 PALETTE_SIZE = 512;
+
+		static constexpr common::u32 BG_PALETTE_START = 0x0;
+		static constexpr common::u32 OBJ_PALETTE_START = 0x1FF;
 	};
 }
