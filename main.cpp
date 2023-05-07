@@ -8,11 +8,7 @@
 #include "debugger/DebugWindow.hpp"
 #include "debugger/Debugger.hpp"
 
-#include "cpu/arm/TableGen.hpp"
-
-#include <chrono>
-
-#include <limits>
+#include "video/renderers/OpenGL_Renderer.hpp"
 
 #ifdef main
 #undef main
@@ -57,16 +53,26 @@ int main(int argc, char* argv[]) {
 		std::exit(0);
 	}
 
-	while (!debug_window.StopRequested()) {
+	GBA::video::renderer::OpenGL opengl_rend{};
+
+	if (!opengl_rend.Init(1, 1)) {
+		std::exit(0);
+	}
+
+	while (!debug_window.StopRequested()
+		&& !opengl_rend.Stopped()) {
 		SDL_Event ev;
 
 		while (SDL_PollEvent(&ev)) {
 			if (debug_window.ConfirmEventTarget(&ev))
 				debug_window.ProcessEvent(&ev);
+			else if (opengl_rend.ConfirmEventTarget(&ev))
+				opengl_rend.ProcessEvent(&ev);
 		}
 
-		if (!debug_window.StopRequested()) {
+		if (!debug_window.StopRequested() && !opengl_rend.Stopped()) {
 			debug_window.Update();
+			opengl_rend.PresentFrame(nullptr);
 		}
 
 		debugger.Run(debug_window.GetEmulatorStatus());
