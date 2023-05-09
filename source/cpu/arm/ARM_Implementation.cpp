@@ -1268,8 +1268,7 @@ namespace GBA::cpu::arm{
 		case 0x1:
 			res = rm * rs;
 
-			if (instr.accumul_reg)
-				res += (uint64_t)ctx.m_regs.GetReg(instr.accumul_reg);
+			res += (uint64_t)ctx.m_regs.GetReg(instr.accumul_reg);
 
 			icycles = CountZeroOneBytes((u32)rs) + 1;
 			break;
@@ -1279,18 +1278,17 @@ namespace GBA::cpu::arm{
 			icycles = CountZeroBytes((u32)rs) + 1;
 			break;
 
-		case 0x5:
+		case 0x5: {
 			res = rm * rs;
 
 			icycles = CountZeroBytes((u32)rs) + 2;
 
-			if (instr.accumul_reg) {
-				uint64_t op1 = ctx.m_regs.GetReg(instr.dest_reg);
-				uint64_t op2 = ctx.m_regs.GetReg(instr.accumul_reg);
+			uint64_t op1 = ctx.m_regs.GetReg(instr.dest_reg);
+			uint64_t op2 = ctx.m_regs.GetReg(instr.accumul_reg);
 
-				res += op2 | (op1 << 32);
-			}
-			break;
+			res += op2 | (op1 << 32);
+		}
+		break;
 
 		case 0x6: {
 			int32_t op1 = ctx.m_regs.GetReg(instr.operand_reg1);
@@ -1310,12 +1308,10 @@ namespace GBA::cpu::arm{
 
 			icycles = CountZeroOneBytes(op2) + 2;
 
-			if (instr.accumul_reg) {
-				uint64_t op1 = ctx.m_regs.GetReg(instr.dest_reg);
-				uint64_t op2 = ctx.m_regs.GetReg(instr.accumul_reg);
+			uint64_t acc1 = ctx.m_regs.GetReg(instr.dest_reg);
+			uint64_t acc2 = ctx.m_regs.GetReg(instr.accumul_reg);
 
-				res = (int64_t)res + (int64_t)(op2 | (op1 << 32));
-			}
+			res = (int64_t)res + (int64_t)(acc2 | (acc1 << 32));
 		}
 		break;
 

@@ -343,7 +343,20 @@ namespace GBA::debugger {
 	}
 
 	Disasm DisassembleARMSWI(arm::ARMInstruction opcode, cpu::CPUContext& ctx) {
-		return "SWI";
+		std::ostringstream buffer{ "" };
+
+		buffer << "SWI";
+
+		buffer << DisassembleARMCondition(opcode.condition);
+
+		u32 comment = (opcode.data & 0xFFFFFF);
+
+		buffer
+			<< " 0x"
+			<< std::hex
+			<< comment;
+
+		return buffer.str();
 	}
 
 	Disasm DisassembleARMDataSwap(arm::ARMInstruction opcode, cpu::CPUContext& ctx) {
@@ -403,14 +416,10 @@ namespace GBA::debugger {
 			buffer << "r" << rd << ", ";
 			buffer << "r" << rm << ", ";
 			buffer << "r" << rs;
-
-			if(rn)
-				buffer << ", r" << rn;
+			buffer << ", r" << rn;
 			break;
 		default:
-			if (rn)
-				buffer << "r" << rn << ", ";
-
+			buffer << "r" << rn << ", ";
 			buffer << "r" << rd << ", ";
 			buffer << "r" << rm << ", ";
 			buffer << "r" << rs;

@@ -94,10 +94,23 @@ namespace GBA::ppu {
 			}
 		}
 
+		bool HasFrame() {
+			return m_frame_ok;
+		}
+
+		float* GetFrame() {
+			m_frame_ok = false;
+			return m_framebuffer;
+		}
+
 		~PPU();
 
 	private:
 		void InitHandlers(memory::MMIO* mmio);
+
+		void ResetFrameData();
+
+#include "ModeUtils.inl"
 
 	private :
 #pragma pack(push, 1)
@@ -107,6 +120,10 @@ namespace GBA::ppu {
 				common::u16 m_green_swap;
 				common::u16 m_status;
 				common::u16 m_vcount;
+				common::u16 m_bg0_cnt;
+				common::u16 m_bg1_cnt;
+				common::u16 m_bg2_cnt;
+				common::u16 m_bg3_cnt;
 			};
 			
 			common::u8 array[0x58];
@@ -116,11 +133,20 @@ namespace GBA::ppu {
 		PPUContext m_ctx;
 
 		common::u32 m_mode_cycles;
-		common::u32 m_curr_x;
+		
 		Mode m_curr_mode;
 
 		common::u8* m_palette_ram;
 		common::u8* m_vram;
+
+		float* m_framebuffer;
+
+		common::u32 m_internal_reference_x_bg0;
+		common::u32 m_internal_reference_x_bg1;
+		common::u32 m_internal_reference_y_bg0;
+		common::u32 m_internal_reference_y_bg1;
+
+		bool m_frame_ok;
 
 		static constexpr common::u32 CYCLES_PER_PIXEL = 4;
 		static constexpr common::u32 CYCLES_PER_SCANLINE = 960;

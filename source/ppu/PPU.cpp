@@ -11,12 +11,18 @@ namespace GBA::ppu {
 	LOG_CONTEXT(PPU);
 
 	PPU::PPU() : 
-		m_ctx{}, m_mode_cycles{}, m_curr_x{},
+		m_ctx{}, m_mode_cycles{},
 		m_curr_mode{}, m_palette_ram(nullptr),
-		m_vram(nullptr)
+		m_vram(nullptr), m_framebuffer(nullptr),
+		m_internal_reference_x_bg0{}, 
+		m_internal_reference_x_bg1{},
+		m_internal_reference_y_bg0{},
+		m_internal_reference_y_bg1{},
+		m_frame_ok{false}
 	{
 		m_palette_ram = new u8[0x400];
 		m_vram = new u8[0x17FFF];
+		m_framebuffer = new float[240 * 160 * 3];
 
 		std::fill_n(m_palette_ram, 0x400, 0x0);
 		std::fill_n(m_vram, 0x17FFF, 0x0);
@@ -92,6 +98,89 @@ namespace GBA::ppu {
 		mmio->RegisterWrite<u8>([](u8) {}, 0x6);
 		mmio->RegisterWrite<u8>([](u8) {}, 0x7);
 		mmio->RegisterWrite<u16>([](u16) {}, 0x6);
+
+		mmio->RegisterWrite<u8>([this](u8 value) {
+			m_ctx.array[0x28] = value;
+			m_internal_reference_x_bg0 = ReadRegister32(0x28 / 4);
+		}, 0x28);
+
+		mmio->RegisterWrite<u8>([this](u8 value) {
+			m_ctx.array[0x29] = value;
+			m_internal_reference_x_bg0 = ReadRegister32(0x28 / 4);
+		}, 0x29);
+
+		mmio->RegisterWrite<u8>([this](u8 value) {
+			m_ctx.array[0x2A] = value;
+			m_internal_reference_x_bg0 = ReadRegister32(0x28 / 4);
+		}, 0x2A);
+
+		mmio->RegisterWrite<u8>([this](u8 value) {
+			m_ctx.array[0x2B] = value;
+			m_internal_reference_x_bg0 = ReadRegister32(0x28 / 4);
+		}, 0x2B);
+
+		/////////////////
+
+		mmio->RegisterWrite<u8>([this](u8 value) {
+			m_ctx.array[0x2C] = value;
+			m_internal_reference_y_bg0 = ReadRegister32(0x2C / 4);
+			}, 0x2C);
+
+		mmio->RegisterWrite<u8>([this](u8 value) {
+			m_ctx.array[0x2D] = value;
+			m_internal_reference_y_bg0 = ReadRegister32(0x2C / 4);
+			}, 0x2D);
+
+		mmio->RegisterWrite<u8>([this](u8 value) {
+			m_ctx.array[0x2E] = value;
+			m_internal_reference_y_bg0 = ReadRegister32(0x2C / 4);
+			}, 0x2E);
+
+		mmio->RegisterWrite<u8>([this](u8 value) {
+			m_ctx.array[0x2F] = value;
+			m_internal_reference_y_bg0 = ReadRegister32(0x2C / 4);
+			}, 0x2F);
+
+		////////////////
+
+		mmio->RegisterWrite<u16>([this](u16 value) {
+			WriteRegister16(0x28, value);
+			m_internal_reference_x_bg0 = ReadRegister32(0x28 / 4);
+			}, 0x28);
+
+		mmio->RegisterWrite<u16>([this](u16 value) {
+			WriteRegister16(0x2A, value);
+			m_internal_reference_x_bg0 = ReadRegister32(0x28 / 4);
+			}, 0x2A);
+
+		mmio->RegisterWrite<u16>([this](u16 value) {
+			WriteRegister16(0x2C, value);
+			m_internal_reference_y_bg0 = ReadRegister32(0x2C / 4);
+			}, 0x2C);
+
+		mmio->RegisterWrite<u16>([this](u16 value) {
+			WriteRegister16(0x2E, value);
+			m_internal_reference_y_bg0 = ReadRegister32(0x2C / 4);
+			}, 0x2E);
+
+		///////////
+
+		mmio->RegisterWrite<u32>([this](u32 value) {
+			WriteRegister32(0x28, value);
+			m_internal_reference_x_bg0 = value;
+			}, 0x28);
+
+		mmio->RegisterWrite<u32>([this](u32 value) {
+			WriteRegister32(0x2C, value);
+			m_internal_reference_y_bg0 = value;
+			}, 0x2C);
+	}
+
+	void PPU::ResetFrameData() {
+		m_internal_reference_x_bg0 = ReadRegister32(0x28 / 4);
+		//m_internal_reference_x_bg1{},
+		m_internal_reference_y_bg0 = ReadRegister32(0x2C / 4);
+		//m_internal_reference_y_bg1{}
 	}
 
 	void PPU::WriteDisplayControl8(common::u8 offset, common::u8 value) {
@@ -160,6 +249,8 @@ namespace GBA::ppu {
 			m_ctx.m_status &= ~1;
 
 			m_curr_mode = Mode::NORMAL;
+
+			ResetFrameData();
 		}
 
 		u8 lyc = (m_ctx.m_status >> 8) & 0xFF;
@@ -183,6 +274,7 @@ namespace GBA::ppu {
 			if (m_ctx.m_vcount >= 160) {
 				m_curr_mode = Mode::VBLANK;
 				m_ctx.m_status |= 1;
+				m_frame_ok = true;
 			}
 			else {
 				m_curr_mode = Mode::NORMAL;
@@ -264,6 +356,7 @@ namespace GBA::ppu {
 	PPU::~PPU() {
 		delete[] m_palette_ram;
 		delete[] m_vram;
+		delete[] m_framebuffer;
 	}
 
 	void PPU::Mode0() {}

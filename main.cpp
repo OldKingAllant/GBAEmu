@@ -55,7 +55,7 @@ int main(int argc, char* argv[]) {
 
 	GBA::video::renderer::OpenGL opengl_rend{};
 
-	if (!opengl_rend.Init(1, 1)) {
+	if (!opengl_rend.Init(3, 3)) {
 		std::exit(0);
 	}
 
@@ -72,10 +72,14 @@ int main(int argc, char* argv[]) {
 
 		if (!debug_window.StopRequested() && !opengl_rend.Stopped()) {
 			debug_window.Update();
-			opengl_rend.PresentFrame(nullptr);
+			opengl_rend.PresentFrame();
 		}
 
 		debugger.Run(debug_window.GetEmulatorStatus());
+
+		if (ctx.ppu.HasFrame()) {
+			opengl_rend.SetFrame(ctx.ppu.GetFrame());
+		}
 	}
 
 

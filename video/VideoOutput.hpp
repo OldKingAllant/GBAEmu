@@ -21,7 +21,8 @@ namespace GBA::video {
 		virtual bool ConfirmEventTarget(SDL_Event* ev) = 0;
 		virtual void ProcessEvent(SDL_Event* ev) = 0;
 
-		virtual void PresentFrame(common::u8* frame) = 0;
+		virtual void PresentFrame() = 0;
+		virtual void SetFrame(float* buffer) = 0;
 
 		bool Stopped() const {
 			return m_stop;

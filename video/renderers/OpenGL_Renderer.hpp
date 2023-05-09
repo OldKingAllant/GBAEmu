@@ -17,17 +17,26 @@ namespace GBA::video::renderer {
 		bool ConfirmEventTarget(SDL_Event* ev) override;
 		void ProcessEvent(SDL_Event* ev) override;
 
-		void PresentFrame(common::u8* frame) override;
+		void PresentFrame() override;
+
+		void SetFrame(float* buffer) override;
 
 		~OpenGL() override;
 
 	private :
 		void LoadOpengl();
+		void CheckForErrors();
 
 	private :
 		SDL_Window* m_window;
 		void* m_gl_context;
 		OpenglFunctions* m_functions;
 		shared_object::SharedObject m_opengl;
+		shared_object::SharedObject m_glu;
+		
+		struct {
+			uint32_t texture_id;
+			float* placeholder_data;
+		} m_gl_data;
 	};
 }

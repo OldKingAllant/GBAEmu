@@ -76,6 +76,7 @@ namespace GBA::debugger {
 
 		bool did_hit_breakpoint = false;
 
+		auto& ppu = m_emu.GetContext().ppu;
 		auto& ctx = m_emu.GetContext().processor.GetContext();
 
 		while (!did_hit_breakpoint) {
@@ -83,7 +84,7 @@ namespace GBA::debugger {
 
 			did_hit_breakpoint = breakpoint_hit(ctx.m_regs.GetReg(15));
 
-			if (status.update_ui)
+			if (status.update_ui || ppu.HasFrame())
 				break;
 		}
 
