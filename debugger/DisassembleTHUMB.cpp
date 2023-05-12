@@ -37,7 +37,7 @@ namespace GBA::debugger {
 
 		buffer << opcodes[(instr >> 8) & 0x3] << " ";
 
-		u32 source_reg = (instr >> 3) & 0x7;
+		u32 source_reg = (instr >> 3) & 0xF;
 		u32 dest_reg = (instr & 0x7) | ((instr >> 4) &
 			0b1000);
 
@@ -71,19 +71,153 @@ namespace GBA::debugger {
 		return buffer.str();
 	}
 
+	Disasm DisassembleFormat16(u16 opcode, cpu::CPUContext& ctx) {
+		std::ostringstream buffer{ "" };
+
+		u8 type = (opcode >> 8) & 0xF;
+
+		constexpr const char* types[] = {
+			"EQ", "NE", "CS", "CC", "MI", 
+			"PL", "VS", "VC", "HI", "LS",
+			"GE", "LT", "GT", "LE", ""
+		};
+
+		buffer << "B" << types[type] << " $";
+
+		i16 offset = opcode & 0xFF;
+
+		offset <<= 8;
+		offset >>= 8;
+
+		offset *= 2;
+		offset += 4;
+
+		if (offset < 0)
+			buffer << "-";
+		else
+			buffer << "+";
+
+		buffer << "0x"
+			<< std::hex
+			<< offset;
+
+		return buffer.str();
+	}
+
+	Disasm DisassembleFormat18(u16 opcode, cpu::CPUContext& ctx) {
+		std::ostringstream buffer{ "" };
+
+		buffer << "B $";
+
+		i16 offset = opcode & 0b11111111111;
+
+		offset <<= 5;
+		offset >>= 5;
+
+		offset *= 2;
+		offset += 4;
+
+		if (offset < 0)
+			buffer << "-";
+		else
+			buffer << "+";
+
+		buffer << "0x"
+			<< std::hex
+			<< offset;
+
+		return buffer.str();
+	}
+
+	Disasm DisassembleFormat1(u16 opcode, cpu::CPUContext& ctx) {
+		u8 type = (opcode >> 11) & 0x3;
+
+		u32 shift = (opcode >> 6) & 0x1F;
+		u32 source = (opcode >> 3) & 0x7;
+		u32 dest = opcode & 0x7;
+
+		std::ostringstream buffer{ "" };
+
+		constexpr const char* types[] = {
+			"LSL", "LSR", "ASR", "INVALID SHIFT"
+		};
+
+		buffer << types[type] << " ";
+
+		buffer << "r" << dest << ", ";
+		buffer << "r" << source << ", ";
+		buffer << "#" << shift;
+
+		return buffer.str();
+	}
+
+	Disasm DisassembleFormat2(u16 opcode, cpu::CPUContext& ctx) {
+		u8 type = (opcode >> 9) & 0x3;
+
+		u32 reg_or_imm = (opcode >> 6) & 0x3;
+		u32 source = (opcode >> 3) & 0x7;
+		u32 dest = opcode & 0x7;
+
+		std::ostringstream buffer{ "" };
+
+		constexpr const char* types[] = {
+			"ADD", "SUB", "ADD", "SUB"
+		};
+
+		buffer << types[type] << " ";
+
+		buffer << "r" << dest << ", ";
+		buffer << "r" << source << ", ";
+
+		if (type > 0x1) {
+			buffer << "# 0x" 
+				<< std::hex
+				<< reg_or_imm;
+		}
+		else
+			buffer << "r" << reg_or_imm;
+
+		return buffer.str();
+	}
+
+	Disasm DisassembleFormat4(u16 opcode, cpu::CPUContext& ctx) {
+		u8 type = (opcode >> 6) & 0xF;
+
+		u32 source_reg = (opcode >> 3) & 0x7;
+		u32 dest_reg = opcode & 0x7;
+
+		constexpr const char* types[] = {
+			"AND", "EOR", "LSL", "LSR", 
+			"ASR", "ADC", "SBC", "ROR",
+			"TST", "NEG", "CMP", "CMN",
+			"ORR", "MUL", "BIC", "MVN"
+		};
+
+		std::ostringstream buffer{ "" };
+
+		buffer << types[type] << " ";
+		buffer << "r" << dest_reg << ", ";
+		buffer << "r" << source_reg;
+
+		return buffer.str();
+	}
+
 	Disasm DisassembleTHUMB(u16 opcode, cpu::CPUContext& ctx) {
 		thumb::THUMBInstructionType type = thumb::DecodeThumb(opcode);
 
 		switch (type)
 		{
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_01:
+			return DisassembleFormat1(opcode, ctx);
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_02:
+			return DisassembleFormat2(opcode, ctx);
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_03:
 			return DisassembleFormat3(opcode, ctx);
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_04:
+			return DisassembleFormat4(opcode, ctx);
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_05:
 			return DisassembleFormat5(opcode, ctx);
@@ -110,10 +244,12 @@ namespace GBA::debugger {
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_15:
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_16:
+			return DisassembleFormat16(opcode, ctx);
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_17:
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_18:
+			return DisassembleFormat18(opcode, ctx);
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_19:
 			break;

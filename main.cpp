@@ -16,7 +16,7 @@
 
 
 int main(int argc, char* argv[]) {
-	std::string rom = "./testRoms/arm/arm.gba";
+	std::string rom = "./testRoms/thumb/thumb.gba";
 
 	GBA::emulation::Emulator emu{rom};
 

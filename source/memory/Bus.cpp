@@ -520,6 +520,6 @@ namespace GBA::memory {
 			delete[] m_wram;
 
 		if (mmio)
-			delete[] mmio;
+			delete mmio;
 	}
 }

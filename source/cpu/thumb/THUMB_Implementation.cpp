@@ -1,11 +1,258 @@
 #include "../../../cpu/thumb/THUMB_Implementation.hpp"
 
 #include "../../../common/Logger.hpp"
-#include "../../../common/Error.hpp"
 #include "../../../common/BitManip.hpp"
+#include "../../../common/Error.hpp"
 
 namespace GBA::cpu::thumb{
 	LOG_CONTEXT(THUMB_Interpreter);
+
+	namespace detail {
+		template <bool Imm>
+		std::pair<u32, bool> LSL(u32 value, u8 amount, u8 old_carry) {
+			if constexpr (!Imm) {
+				if (!amount)
+					return { value, old_carry };
+			}
+
+			u8 bit_pos = (32 - amount);
+
+			u32 res = 0;
+
+			if (amount >= 32) {
+				u8 bit = CHECK_BIT(value, 31);
+
+				for (u8 i = 0; i < 32; i++)
+					res |= (bit << i);
+			}
+			else
+				res = value << amount;
+
+			return { res, CHECK_BIT(value, bit_pos) * (amount < 33
+				&& amount) };
+		}
+
+		template <bool Imm>
+		std::pair<u32, bool> LSR(u32 value, u8 amount, u8 old_carry) {
+			if constexpr (Imm) {
+				if (!amount)
+					amount = 32;
+			}
+			else {
+				if (!amount)
+					return { value, old_carry };
+			}
+
+			u8 bit_pos = (amount - 1) * !!amount;
+
+			u32 res = 0;
+
+			if (amount < 32) {
+				res = value >> amount;
+			}
+
+			return { res, CHECK_BIT(value, bit_pos) * (amount < 33) };
+		}
+
+		template <bool Imm>
+		std::pair<u32, bool> ASR(u32 value, u8 amount, u8 old_carry) {
+			if constexpr (!Imm) {
+				if (!amount)
+					return { value, old_carry };
+			}
+			else {
+				if (!amount || amount >= 32)
+					amount = 32;
+			}
+
+			u8 bit_pos = (amount - 1);
+			u32 sign = CHECK_BIT(value, 31);
+
+			i32 res = 0;
+
+			if (amount < 32)
+				res = (i32)value >> amount;
+			else {
+				for (int8_t pos = 31; pos >= (int8_t)(32 - amount); pos--)
+					res |= (sign << pos);
+			}
+
+			return { (u32)res, CHECK_BIT(value, bit_pos) };
+		}
+
+		template <bool Imm>
+		std::pair<u32, bool> ROR(u32 value, u8 amount, u8 old_carry) {
+			if constexpr (!Imm) {
+				if (!amount)
+					return { value, old_carry };
+			}
+
+
+			u8 bit_pos = (amount - 1) % 32;
+
+			u32 res = 0;
+
+			if (amount > 32)
+				amount %= 32;
+
+			if (!amount) {
+				res = value >> 1;
+				res |= (old_carry << 31);
+				bit_pos = 0;
+			}
+			else
+				res = std::rotr(value, amount);
+
+			return { res, CHECK_BIT(value, bit_pos) };
+		}
+
+		void AND(u8 dest_reg, u32 source, CPUContext& ctx) {
+			u32 reg_value = ctx.m_regs.GetReg(dest_reg);
+
+			reg_value &= source;
+
+			ctx.m_regs.SetReg(dest_reg, reg_value);
+
+			ctx.m_cpsr.zero = !reg_value;
+			ctx.m_cpsr.sign = CHECK_BIT(reg_value, 31);
+		}
+
+		void EOR(u8 dest_reg, u32 source, CPUContext& ctx) {
+			u32 reg_value = ctx.m_regs.GetReg(dest_reg);
+
+			reg_value ^= source;
+
+			ctx.m_regs.SetReg(dest_reg, reg_value);
+
+			ctx.m_cpsr.zero = !reg_value;
+			ctx.m_cpsr.sign = CHECK_BIT(reg_value, 31);
+		}
+
+		void ADC(u8 dest_reg, u32 source, CPUContext& ctx) {
+			u32 reg_value = ctx.m_regs.GetReg(dest_reg);
+			u32 original = reg_value;
+
+			u8 carry = ctx.m_cpsr.carry;
+
+			reg_value += source + carry;
+
+			ctx.m_regs.SetReg(dest_reg, reg_value);
+
+			ctx.m_cpsr.zero = !reg_value;
+			ctx.m_cpsr.sign = CHECK_BIT(reg_value, 31);
+			ctx.m_cpsr.CarryAdd(original, (uint64_t)source + carry);
+			ctx.m_cpsr.OverflowAdd(original, (uint64_t)source + carry);
+		}
+
+		void SBC(u8 dest_reg, u32 source, CPUContext& ctx) {
+			u32 reg_value = ctx.m_regs.GetReg(dest_reg);
+			u32 original = reg_value;
+
+			u8 carry = ctx.m_cpsr.carry;
+
+			reg_value = reg_value - source - !carry;
+
+			ctx.m_regs.SetReg(dest_reg, reg_value);
+
+			ctx.m_cpsr.zero = !reg_value;
+			ctx.m_cpsr.sign = CHECK_BIT(reg_value, 31);
+			ctx.m_cpsr.CarrySubtract(original, (uint64_t)source + !carry);
+			ctx.m_cpsr.OverflowSubtract(original, (uint64_t)source + !carry);
+		}
+
+		void TST(u8 dest_reg, u32 source, CPUContext& ctx) {
+			u32 reg_value = ctx.m_regs.GetReg(dest_reg);
+
+			reg_value &= source;
+
+			ctx.m_cpsr.zero = !reg_value;
+			ctx.m_cpsr.sign = CHECK_BIT(reg_value, 31);
+		}
+
+		void NEG(u8 dest_reg, u32 source, CPUContext& ctx) {
+			u32 reg_value = ctx.m_regs.GetReg(dest_reg);
+			u32 original = reg_value;
+
+			reg_value = 0 - source;
+
+			ctx.m_regs.SetReg(dest_reg, reg_value);
+
+			ctx.m_cpsr.zero = !reg_value;
+			ctx.m_cpsr.sign = CHECK_BIT(reg_value, 31);
+
+			ctx.m_cpsr.CarrySubtract(0, original);
+			ctx.m_cpsr.OverflowSubtract(0, original);
+		}
+
+		void CMP(u8 dest_reg, u32 source, CPUContext& ctx) {
+			u32 reg_value = ctx.m_regs.GetReg(dest_reg);
+			u32 original = reg_value;
+
+			reg_value = reg_value - source;
+
+			ctx.m_cpsr.zero = !reg_value;
+			ctx.m_cpsr.sign = CHECK_BIT(reg_value, 31);
+			ctx.m_cpsr.CarrySubtract(original, source);
+			ctx.m_cpsr.OverflowSubtract(original, source);
+		}
+
+		void CMN(u8 dest_reg, u32 source, CPUContext& ctx) {
+			u32 reg_value = ctx.m_regs.GetReg(dest_reg);
+			u32 original = reg_value;
+
+			reg_value = reg_value + source;
+
+			ctx.m_cpsr.zero = !reg_value;
+			ctx.m_cpsr.sign = CHECK_BIT(reg_value, 31);
+			ctx.m_cpsr.CarrySubtract(original, source);
+			ctx.m_cpsr.OverflowSubtract(original, source);
+		}
+
+		void ORR(u8 dest_reg, u32 source, CPUContext& ctx) {
+			u32 reg_value = ctx.m_regs.GetReg(dest_reg);
+
+			reg_value |= source;
+
+			ctx.m_regs.SetReg(dest_reg, reg_value);
+
+			ctx.m_cpsr.zero = !reg_value;
+			ctx.m_cpsr.sign = CHECK_BIT(reg_value, 31);
+		}
+
+		void MUL(u8 dest_reg, u32 source, CPUContext& ctx) {
+			u32 reg_value = ctx.m_regs.GetReg(dest_reg);
+
+			reg_value *= source;
+
+			ctx.m_regs.SetReg(dest_reg, reg_value);
+
+			ctx.m_cpsr.zero = !reg_value;
+			ctx.m_cpsr.sign = CHECK_BIT(reg_value, 31);
+			ctx.m_cpsr.carry = false;
+		}
+
+		void BIC(u8 dest_reg, u32 source, CPUContext& ctx) {
+			u32 reg_value = ctx.m_regs.GetReg(dest_reg);
+
+			reg_value = reg_value & ~source;
+
+			ctx.m_regs.SetReg(dest_reg, reg_value);
+
+			ctx.m_cpsr.zero = !reg_value;
+			ctx.m_cpsr.sign = CHECK_BIT(reg_value, 31);
+		}
+
+		void MVN(u8 dest_reg, u32 source, CPUContext& ctx) {
+			u32 reg_value = ctx.m_regs.GetReg(dest_reg);
+
+			reg_value = ~source;
+
+			ctx.m_regs.SetReg(dest_reg, reg_value);
+
+			ctx.m_cpsr.zero = !reg_value;
+			ctx.m_cpsr.sign = CHECK_BIT(reg_value, 31);
+		}
+	}
 
 	ThumbFunc THUMB_JUMP_TABLE[20] = {};
 
@@ -64,7 +311,7 @@ namespace GBA::cpu::thumb{
 	}
 
 	void ThumbFormat5(THUMBInstruction instr, memory::Bus*, CPUContext& ctx, bool& branch) {
-		u8 source_reg = (instr >> 3) & 0x7;
+		u8 source_reg = (instr >> 3) & 0xF;
 		u8 dest_reg = (instr & 0x7) | ((instr >> 4) &
 			0b1000);
 
@@ -114,6 +361,9 @@ namespace GBA::cpu::thumb{
 		default:
 			break;
 		}
+
+		if (dest_reg == 15)
+			branch = true;
 	}
 
 	void ThumbFormat12(THUMBInstruction instr, memory::Bus*, CPUContext& ctx, bool& branch) {
@@ -130,21 +380,273 @@ namespace GBA::cpu::thumb{
 		ctx.m_regs.SetReg(dest_reg, source + offset);
 	}
 
+	void ThumbFormat16(THUMBInstruction instr, memory::Bus*, CPUContext& ctx, bool& branch) {
+		u8 opcode = (instr >> 8) & 0xF;
+
+		if (!ctx.m_cpsr.CheckCondition(opcode))
+			return;
+
+		i16 offset = instr & 0xFF;
+
+		offset <<= 8;
+		offset >>= 8;
+
+		offset *= 2;
+
+		ctx.m_regs.AddOffset(15, 4 + offset);
+
+		branch = true;
+	}
+
+	void ThumbFormat18(THUMBInstruction instr, memory::Bus*, CPUContext& ctx, bool& branch) {
+		i16 offset = instr & 0b11111111111;
+
+		offset <<= 5;
+		offset >>= 5;
+
+		offset *= 2;
+
+		ctx.m_regs.AddOffset(15, 4 + offset);
+
+		branch = true;
+	}
+
+	void ThumbFormat1(THUMBInstruction instr, memory::Bus*, CPUContext& ctx, bool& branch) {
+		u8 opcode = (instr >> 11) & 0x3;
+
+		u8 shift = (instr >> 6) & 0x1F;
+		u8 source = (instr >> 3) & 0x7;
+		u8 dest = instr & 0x7;
+
+		bool carry = ctx.m_cpsr.carry;
+
+		std::pair<u32, bool> res{};
+
+		u32 source_val = ctx.m_regs.GetReg(source);
+
+		switch (opcode)
+		{
+		case 0x0:
+			res = detail::LSL<true>(source_val, shift, carry);
+			break;
+
+		case 0x1:
+			res = detail::LSR<true>(source_val, shift, carry);
+			break;
+
+		case 0x2:
+			res = detail::ASR<true>(source_val, shift, carry);
+			break;
+
+		default:
+			error::Unreachable();
+			break;
+		}
+
+		ctx.m_regs.SetReg(dest, res.first);
+
+		ctx.m_cpsr.zero = !res.first;
+		ctx.m_cpsr.sign = CHECK_BIT(res.first, 31);
+		ctx.m_cpsr.carry = res.second;
+	}
+
+	void ThumbFormat2(THUMBInstruction instr, memory::Bus*, CPUContext& ctx, bool& branch) {
+		u8 opcode = (instr >> 9) & 0x3;
+
+		u8 reg_or_imm = (instr >> 6) & 0x7;
+
+		u8 source_reg = (instr >> 3) & 0x7;
+		u8 dest_reg = instr & 0x7;
+
+		u32 res = 0;
+
+		u32 source = ctx.m_regs.GetReg(source_reg);
+
+		switch (opcode)
+		{
+		case 0x0: {
+			u32 operand = ctx.m_regs.GetReg(reg_or_imm);
+			res = source + operand;
+			ctx.m_cpsr.CarryAdd(source, operand);
+			ctx.m_cpsr.OverflowAdd(source, operand);
+		}
+		break;
+
+		case 0x1: {
+			u32 operand = ctx.m_regs.GetReg(reg_or_imm);
+			res = source - operand;
+			ctx.m_cpsr.CarrySubtract(source, operand);
+			ctx.m_cpsr.OverflowSubtract(source, operand);
+		}
+		break;
+
+		case 0x2: {
+			u32 operand = reg_or_imm;
+			res = source + operand;
+			ctx.m_cpsr.CarryAdd(source, operand);
+			ctx.m_cpsr.OverflowAdd(source, operand);
+		}
+		break;
+
+		case 0x3: {
+			u32 operand = reg_or_imm;
+			res = source - operand;
+			ctx.m_cpsr.CarrySubtract(source, operand);
+			ctx.m_cpsr.OverflowSubtract(source, operand);
+		}
+		break;
+
+		default:
+			error::Unreachable();
+			break;
+		}
+
+		ctx.m_cpsr.zero = !res;
+		ctx.m_cpsr.sign = CHECK_BIT(res, 31);
+
+		ctx.m_regs.SetReg(dest_reg, res);
+	}
+
+	void ThumbFormat4(THUMBInstruction instr, memory::Bus*, CPUContext& ctx, bool& branch) {
+		u8 opcode = (instr >> 6) & 0xF;
+
+		u8 source_reg = (instr >> 3) & 0x7;
+		u8 dest_reg = instr & 0x7;
+
+		u32 source_val = ctx.m_regs.GetReg(source_reg);
+
+		u8 shift = source_val & 0xFF;
+
+		std::pair<u32, bool> shift_res{};
+
+		bool carry = ctx.m_cpsr.carry;
+
+		u32 dest_val = ctx.m_regs.GetReg(dest_reg);
+
+		switch (opcode)
+		{
+		case 0x0:
+			detail::AND(dest_reg, source_val, ctx);
+			break;
+
+		case 0x1:
+			detail::EOR(dest_reg, source_val, ctx);
+			break;
+
+		case 0x2: {
+			shift_res = detail::LSL<false>(dest_val, shift, carry);
+
+			ctx.m_regs.SetReg(dest_reg, shift_res.first);
+
+			ctx.m_cpsr.carry = shift_res.second;
+			ctx.m_cpsr.zero = !shift_res.first;
+			ctx.m_cpsr.sign = CHECK_BIT(shift_res.first, 31);
+		}
+		break;
+
+		case 0x3: {
+			shift_res = detail::LSR<false>(dest_val, shift, carry);
+
+			ctx.m_regs.SetReg(dest_reg, shift_res.first);
+
+			ctx.m_cpsr.carry = shift_res.second;
+			ctx.m_cpsr.zero = !shift_res.first;
+			ctx.m_cpsr.sign = CHECK_BIT(shift_res.first, 31);
+		}
+		break;
+
+		case 0x4: {
+			shift_res = detail::ASR<false>(dest_val, shift, carry);
+
+			ctx.m_regs.SetReg(dest_reg, shift_res.first);
+
+			ctx.m_cpsr.carry = shift_res.second;
+			ctx.m_cpsr.zero = !shift_res.first;
+			ctx.m_cpsr.sign = CHECK_BIT(shift_res.first, 31);
+		}
+		break;
+
+		case 0x5:
+			detail::ADC(dest_reg, source_val, ctx);
+			break;
+
+		case 0x6:
+			detail::SBC(dest_reg, source_val, ctx);
+			break;
+
+		case 0x7: {
+			shift_res = detail::ROR<false>(dest_val, shift, carry);
+
+			ctx.m_regs.SetReg(dest_reg, shift_res.first);
+
+			ctx.m_cpsr.carry = shift_res.second;
+			ctx.m_cpsr.zero = !shift_res.first;
+			ctx.m_cpsr.sign = CHECK_BIT(shift_res.first, 31);
+		}
+		break;
+
+		case 0x8:
+			detail::TST(dest_reg, source_val, ctx);
+			break;
+
+		case 0x9:
+			detail::NEG(dest_reg, source_val, ctx);
+			break;
+
+		case 0xA:
+			detail::CMP(dest_reg, source_val, ctx);
+			break;
+
+		case 0xB:
+			detail::CMN(dest_reg, source_val, ctx);
+			break;
+
+		case 0xC:
+			detail::ORR(dest_reg, source_val, ctx);
+			break;
+
+		case 0xD:
+			detail::MUL(dest_reg, source_val, ctx);
+			break;
+
+		case 0xE:
+			detail::BIC(dest_reg, source_val, ctx);
+			break;
+
+		case 0xF:
+			detail::MVN(dest_reg, source_val, ctx);
+			break;
+
+		default:
+			error::Unreachable();
+			break;
+		}
+	}
+
 	void InitThumbJumpTable() {
 		for (u8 index = 0; index < 20; index++)
 			THUMB_JUMP_TABLE[index] = ThumbUndefined;
 
+		THUMB_JUMP_TABLE[0] = ThumbFormat1;
+		THUMB_JUMP_TABLE[1] = ThumbFormat2;
 		THUMB_JUMP_TABLE[2] = ThumbFormat3;
+		THUMB_JUMP_TABLE[3] = ThumbFormat4;
 		THUMB_JUMP_TABLE[4] = ThumbFormat5;
 		THUMB_JUMP_TABLE[11] = ThumbFormat12;
+		THUMB_JUMP_TABLE[15] = ThumbFormat16;
+		THUMB_JUMP_TABLE[17] = ThumbFormat18;
 	}
 
 	THUMBInstructionType DecodeThumb(u16 opcode) {
 		for (u8 i = 0; i < 19; i++) {
 			u16 masked = opcode & THUMB_MASKS[i];
 
-			if (masked == THUMB_VALUES[i])
+			if (masked == THUMB_VALUES[i]) {
+				if (i == 0 && ((opcode >> 11) & 0x3) == 0x3)
+					return THUMBInstructionType::FORMAT_02;
+
 				return (THUMBInstructionType)i;
+			}
 		}
 
 		return THUMBInstructionType::UNDEFINED;

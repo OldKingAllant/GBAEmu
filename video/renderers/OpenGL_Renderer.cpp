@@ -7,6 +7,8 @@
 
 #include "../../common/Logger.hpp"
 
+#include "../../shared_obj/ProcedureWrapper.hpp"
+
 namespace GBA::video::renderer {
 	LOG_CONTEXT(OpenGLRenderer);
 
@@ -33,7 +35,8 @@ namespace GBA::video::renderer {
 		typedef void (APIENTRY * GLENABLE)(GLenum cap);
 		typedef void (APIENTRY * GLPIXELSTOREI)(GLenum pname, GLint param);
 
-		GLCLEAR glClear;
+		//GLCLEAR glClear;
+		shared_object::FunctionWrapper* glClear;
 		GLCLEARCOLOR glClearColor;
 		GLGENTEXTURES glGenTextures;
 		GLDELTEXTURES glDeleteTextures;
@@ -87,7 +90,8 @@ namespace GBA::video::renderer {
 
 		m_functions = new OpenglFunctions{};
 
-		m_functions->glClear = (OpenglFunctions::GLCLEAR)m_opengl.GetProcAddress("glClear");
+		m_functions->glClear = new shared_object::FunctionWrapperImpl<void(*)(GLbitfield mask), 
+			shared_object::CallConvetion::STCALL>(m_opengl.GetProcAddress("glClear"));
 		m_functions->glClearColor = (OpenglFunctions::GLCLEARCOLOR)m_opengl.GetProcAddress("glClearColor");
 		m_functions->glGenTextures = (OpenglFunctions::GLGENTEXTURES)m_opengl.GetProcAddress("glGenTextures");
 		m_functions->glDeleteTextures = (OpenglFunctions::GLDELTEXTURES)m_opengl.GetProcAddress("glDeleteTextures");
@@ -175,7 +179,7 @@ namespace GBA::video::renderer {
 
 	void OpenGL::PresentFrame() {
 		m_functions->glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-		m_functions->glClear(GL_COLOR_BUFFER_BIT);
+		m_functions->glClear->call<void>((unsigned)GL_COLOR_BUFFER_BIT);
 
 		m_functions->glEnable(GL_TEXTURE_2D);
 
