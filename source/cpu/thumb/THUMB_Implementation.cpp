@@ -672,6 +672,180 @@ namespace GBA::cpu::thumb{
 		branch = true;
 	}
 
+	void ThumbFormat6(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
+		u8 dest_reg = (instr >> 8) & 0x7;
+
+		u16 offset = (instr & 0xFF) * 4;
+
+		u32 pc = (ctx.m_regs.GetReg(15) + 4) & ~2;
+
+		u32 address = pc + offset;
+
+		u32 value = bus->Read<u32>(address);
+
+		value = std::rotr(value, (address & 3) * 8);
+
+		ctx.m_regs.SetReg(dest_reg, value);
+	}
+
+	void ThumbFormat7(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
+		u8 type = (instr >> 10) & 0x3;
+
+		u8 offset_reg = (instr >> 6) & 0x7;
+		u8 base_reg = (instr >> 3) & 0x7;
+		u8 rd = instr & 0x7;
+
+		u32 address = ctx.m_regs.GetReg(base_reg)
+			+ ctx.m_regs.GetReg(offset_reg);
+
+		switch (type)
+		{
+		case 0x0: {
+			u32 value = ctx.m_regs.GetReg(rd);
+			bus->Write<u32>(address, value);
+		}
+		break;
+
+		case 0x1: {
+			u32 value = ctx.m_regs.GetReg(rd);
+			bus->Write<u8>(address, (u8)value);
+		}
+		break;
+
+		case 0x2: {
+			u32 value = bus->Read<u32>(address);
+			value = std::rotr(value, (address & 3) * 8);
+			ctx.m_regs.SetReg(rd, value);
+		}
+		break;
+
+		case 0x3: {
+			u32 value = bus->Read<u8>(address);
+			ctx.m_regs.SetReg(rd, value);
+		}
+		break;
+
+		default:
+			error::DebugBreak();
+			break;
+		}
+	}
+
+	void ThumbFormat8(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
+		u8 type = (instr >> 10) & 0x3;
+
+		u8 offset_reg = (instr >> 6) & 0x7;
+		u8 base_reg = (instr >> 3) & 0x7;
+		u8 rd = instr & 0x7;
+
+		u32 address = ctx.m_regs.GetReg(base_reg)
+			+ ctx.m_regs.GetReg(offset_reg);
+
+		switch (type)
+		{
+		case 0x0: {
+			u32 value = ctx.m_regs.GetReg(rd);
+			bus->Write<u16>(address, (u16)value);
+		}
+		break;
+
+		case 0x1: {
+			i32 value = (i8)bus->Read<u8>(address);
+			ctx.m_regs.SetReg(rd, value);
+		}
+		break;
+
+		case 0x2: {
+			u32 value = bus->Read<u16>(address);
+			value = std::rotr(value, (address & 1) * 8);
+			ctx.m_regs.SetReg(rd, value);
+		}
+		break;
+
+		case 0x3: {
+			i32 value = 0;
+
+			if (address & 1)
+				value = (i8)bus->Read<u8>(address);
+			else
+				value = (i16)bus->Read<u16>(address);
+
+			ctx.m_regs.SetReg(rd, value);
+		}
+		break;
+
+		default:
+			error::DebugBreak();
+			break;
+		}
+	}
+
+	void ThumbFormat9(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
+		u8 type = (instr >> 11) & 0x3;
+
+		u8 offset = (instr >> 6) & 0x1F;
+		u8 base_reg = (instr >> 3) & 0x7;
+		u8 rd = instr & 0x7;
+
+		u32 address = ctx.m_regs.GetReg(base_reg);
+
+		switch (type)
+		{
+		case 0x0: {
+			address += offset * 4;
+			u32 value = ctx.m_regs.GetReg(rd);
+			bus->Write<u32>(address, value);
+		}
+		break;
+
+		case 0x1: {
+			address += offset * 4;
+			u32 value = bus->Read<u32>(address);
+			value = std::rotr(value, (address & 3) * 8);
+			ctx.m_regs.SetReg(rd, value);
+		}
+		break;
+
+		case 0x2: {
+			u32 value = ctx.m_regs.GetReg(rd);
+			bus->Write<u8>(address + offset, (u8)value);
+		}
+		break;
+
+		case 0x3: {
+			u8 value = bus->Read<u8>(address + offset);
+
+			ctx.m_regs.SetReg(rd, value);
+		}
+		break;
+
+		default:
+			error::DebugBreak();
+			break;
+		}
+	}
+
+	void ThumbFormat10(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
+		bool type = CHECK_BIT(instr, 11);
+
+		u32 offset = ((instr >> 6) & 0x1F) * 2;
+
+		u8 base_reg = (instr >> 3) & 0x7;
+		u8 rd = instr & 0x7;
+
+		u32 address = ctx.m_regs.GetReg(base_reg) + offset;
+
+		if (!type) {
+			bus->Write<u16>(address, (u16)ctx.m_regs.GetReg(rd));
+		}
+		else {
+			u32 value = bus->Read<u16>(address);
+			value = std::rotr(value, (address & 1) * 8);
+
+			ctx.m_regs.SetReg(rd, value);
+		}
+	}
+
 	void InitThumbJumpTable() {
 		for (u8 index = 0; index < 20; index++)
 			THUMB_JUMP_TABLE[index] = ThumbUndefined;
@@ -681,6 +855,11 @@ namespace GBA::cpu::thumb{
 		THUMB_JUMP_TABLE[2] = ThumbFormat3;
 		THUMB_JUMP_TABLE[3] = ThumbFormat4;
 		THUMB_JUMP_TABLE[4] = ThumbFormat5;
+		THUMB_JUMP_TABLE[5] = ThumbFormat6;
+		THUMB_JUMP_TABLE[6] = ThumbFormat7;
+		THUMB_JUMP_TABLE[7] = ThumbFormat8;
+		THUMB_JUMP_TABLE[8] = ThumbFormat9;
+		THUMB_JUMP_TABLE[9] = ThumbFormat10;
 		THUMB_JUMP_TABLE[11] = ThumbFormat12;
 		THUMB_JUMP_TABLE[12] = ThumbFormat13;
 		THUMB_JUMP_TABLE[15] = ThumbFormat16;

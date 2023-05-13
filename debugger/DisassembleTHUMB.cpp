@@ -241,6 +241,105 @@ namespace GBA::debugger {
 		return buffer.str();
 	}
 
+	Disasm DisassembleFormat6(u16 opcode, cpu::CPUContext& ctx) {
+		u32 dest_reg = (opcode >> 8) & 0x7;
+
+		u16 offset = (opcode & 0xFF) * 4;
+
+		std::ostringstream buffer{ "" };
+
+		buffer << "LDR r" << dest_reg << ", [PC, # 0x";
+		buffer << std::hex << offset << "]";
+
+		return buffer.str();
+	}
+
+	Disasm DisassembleFormat7(u16 opcode, cpu::CPUContext& ctx) {
+		u8 type = (opcode >> 10) & 0x3;
+
+		u32 offset_reg = (opcode >> 6) & 0x7;
+		u32 base_reg = (opcode >> 3) & 0x7;
+		u32 rd = opcode & 0x7;
+
+		constexpr const char* types[] = {
+			"STR", "STRB", "LDR", "LDRB"
+		};
+
+		std::ostringstream buffer{ "" };
+
+		buffer << types[type] << " r";
+		buffer << rd << ", [";
+		buffer << "r" << base_reg << ", ";
+		buffer << "r" << offset_reg << "]";
+
+		return buffer.str();
+	}
+
+	Disasm DisassembleFormat8(u16 opcode, cpu::CPUContext& ctx) {
+		u8 type = (opcode >> 10) & 0x3;
+
+		u32 offset_reg = (opcode >> 6) & 0x7;
+		u32 base_reg = (opcode >> 3) & 0x7;
+		u32 rd = opcode & 0x7;
+
+		constexpr const char* types[] = {
+			"STRH", "LDSB", "LDRH", "LDSH"
+		};
+
+		std::ostringstream buffer{ "" };
+
+		buffer << types[type] << " r" << rd << ", [";
+		buffer << "r" << base_reg << ", ";
+		buffer << "r" << offset_reg << "]";
+
+		return buffer.str();
+	}
+
+	Disasm DisassembleFormat9(u16 opcode, cpu::CPUContext& ctx) {
+		u8 type = (opcode >> 11) & 0x3;
+
+		u32 offset = (opcode >> 6) & 0x1F;
+		u32 base_reg = (opcode >> 3) & 0x7;
+		u32 rd = opcode & 0x7;
+
+		constexpr const char* types[] = {
+			"STR", "LDR", "STRB", "LDRB"
+		};
+
+		if (type < 2)
+			offset *= 4;
+
+		std::ostringstream buffer{ "" };
+
+		buffer << types[type] << " r" << rd << ", [";
+		buffer << "r" << base_reg << ", ";
+		buffer << "# 0x" << std::hex << offset << "]";
+
+		return buffer.str();
+	}
+
+	Disasm DisassembleFormat10(u16 opcode, cpu::CPUContext&) {
+		bool type = CHECK_BIT(opcode, 11);
+
+		u32 offset = ((opcode >> 6) & 0x1F) * 2;
+
+		u32 base_reg = (opcode >> 3) & 0x7;
+		u32 rd = opcode & 0x7;
+
+		std::ostringstream buffer{ "" };
+
+		if (type)
+			buffer << "LDRH ";
+		else
+			buffer << "STRH ";
+
+		buffer << "r" << rd << ", [";
+		buffer << "r" << base_reg << ", ";
+		buffer << "#0x" << std::hex << offset << "]";
+
+		return buffer.str();
+	}
+
 	Disasm DisassembleTHUMB(u16 opcode, cpu::CPUContext& ctx) {
 		thumb::THUMBInstructionType type = thumb::DecodeThumb(opcode);
 
@@ -262,14 +361,19 @@ namespace GBA::debugger {
 			return DisassembleFormat5(opcode, ctx);
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_06:
+			return DisassembleFormat6(opcode, ctx);
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_07:
+			return DisassembleFormat7(opcode, ctx);
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_08:
+			return DisassembleFormat8(opcode, ctx);
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_09:
+			return DisassembleFormat9(opcode, ctx);
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_10:
+			return DisassembleFormat10(opcode, ctx);
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_11:
 			break;
