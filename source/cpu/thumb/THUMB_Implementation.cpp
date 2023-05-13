@@ -204,8 +204,8 @@ namespace GBA::cpu::thumb{
 
 			ctx.m_cpsr.zero = !reg_value;
 			ctx.m_cpsr.sign = CHECK_BIT(reg_value, 31);
-			ctx.m_cpsr.CarrySubtract(original, source);
-			ctx.m_cpsr.OverflowSubtract(original, source);
+			ctx.m_cpsr.CarryAdd(original, source);
+			ctx.m_cpsr.OverflowAdd(original, source);
 		}
 
 		void ORR(u8 dest_reg, u32 source, CPUContext& ctx) {
@@ -323,13 +323,16 @@ namespace GBA::cpu::thumb{
 		switch (opcode)
 		{
 		case 0x00: {
-			u32 first_op = ctx.m_regs.GetReg(dest_reg);
+			u32 first_op = ctx.m_regs.GetReg(dest_reg) + 
+				4 * (dest_reg == 15);
 
 			ctx.m_regs.SetReg(dest_reg, first_op + source);
 		}
 			break;
 		case 0x01: {
-			u32 first_op = ctx.m_regs.GetReg(dest_reg);
+			u32 first_op = ctx.m_regs.GetReg(dest_reg) +
+				4 * (dest_reg == 15);
+
 			u32 res = first_op - source;
 
 			ctx.m_cpsr.sign = CHECK_BIT(res, 31);
@@ -623,6 +626,52 @@ namespace GBA::cpu::thumb{
 		}
 	}
 
+	void ThumbFormat13(THUMBInstruction instr, memory::Bus*, CPUContext& ctx, bool& branch) {
+		bool opcode = CHECK_BIT(instr, 7);
+
+		u16 offset = (instr & 0x7F) * 4;
+
+		if (opcode)
+			ctx.m_regs.AddOffset(13, offset);
+		else
+			ctx.m_regs.AddOffset(13, -offset);
+	}
+
+	void ThumbFormat19(THUMBInstruction instr, memory::Bus*, CPUContext& ctx, bool& branch) {
+		u32 curr_opcode = (instr >> 11) & 0x1F;
+
+		if (curr_opcode == 0x1E) {
+			i32 addr_upper = instr & 0b11111111111;
+
+			addr_upper <<= 21;
+			addr_upper >>= 21;
+
+			u32 pc = ctx.m_regs.GetReg(15);
+
+			addr_upper = pc + 0x4 + (addr_upper << 12);
+
+			ctx.m_regs.SetReg(14, addr_upper);
+
+			return;
+		}
+		
+		if (curr_opcode != 0x1F)
+			error::DebugBreak();
+
+		u32 addr_low = instr & 0b11111111111;
+
+		u32 new_pc = 0;
+
+		new_pc = ctx.m_regs.GetReg(14) + (addr_low << 1);
+
+		u32 new_lr = (ctx.m_regs.GetReg(15) + 2) | 1;
+
+		ctx.m_regs.SetReg(15, new_pc);
+		ctx.m_regs.SetReg(14, new_lr);
+
+		branch = true;
+	}
+
 	void InitThumbJumpTable() {
 		for (u8 index = 0; index < 20; index++)
 			THUMB_JUMP_TABLE[index] = ThumbUndefined;
@@ -633,8 +682,10 @@ namespace GBA::cpu::thumb{
 		THUMB_JUMP_TABLE[3] = ThumbFormat4;
 		THUMB_JUMP_TABLE[4] = ThumbFormat5;
 		THUMB_JUMP_TABLE[11] = ThumbFormat12;
+		THUMB_JUMP_TABLE[12] = ThumbFormat13;
 		THUMB_JUMP_TABLE[15] = ThumbFormat16;
 		THUMB_JUMP_TABLE[17] = ThumbFormat18;
+		THUMB_JUMP_TABLE[18] = ThumbFormat19;
 	}
 
 	THUMBInstructionType DecodeThumb(u16 opcode) {

@@ -93,13 +93,9 @@ namespace GBA::debugger {
 		offset += 4;
 
 		if (offset < 0)
-			buffer << "-";
+			buffer << "-0x" << std::hex << -offset;
 		else
-			buffer << "+";
-
-		buffer << "0x"
-			<< std::hex
-			<< offset;
+			buffer << "+0x" << std::hex << offset;
 
 		return buffer.str();
 	}
@@ -118,13 +114,9 @@ namespace GBA::debugger {
 		offset += 4;
 
 		if (offset < 0)
-			buffer << "-";
+			buffer << "-0x" << std::hex << -offset;
 		else
-			buffer << "+";
-
-		buffer << "0x"
-			<< std::hex
-			<< offset;
+			buffer << "+0x" << std::hex << offset;
 
 		return buffer.str();
 	}
@@ -202,6 +194,53 @@ namespace GBA::debugger {
 		return buffer.str();
 	}
 
+	Disasm DisassembleFormat13(u16 opcode, cpu::CPUContext&) {
+		bool type = CHECK_BIT(opcode, 7);
+
+		u16 offset = (opcode & 0x7F) * 4;
+
+		std::ostringstream buffer{ "" };
+
+		buffer << "ADD SP, # ";
+
+		if (type)
+			buffer << "0x" << std::hex << offset;
+		else
+			buffer << "-0x" << std::hex << offset;
+
+		return buffer.str();
+	}
+
+	Disasm DisassembleFormat19(u16 opcode, cpu::CPUContext&) {
+		u32 curr_opcode = (opcode >> 11) & 0x1F;
+
+		std::ostringstream buffer{ "" };
+
+		if (curr_opcode == 0x1E) {
+			i32 addr_upper = opcode & 0b11111111111;
+
+			addr_upper <<= 21;
+			addr_upper >>= 21;
+
+			buffer << "LR = $+4 + " 
+				<< std::hex
+				<< (addr_upper << 12);
+
+			return buffer.str();
+		}
+
+		if (curr_opcode != 0x1F)
+			return "INVALID BL";
+
+		u32 addr_low = opcode & 0b11111111111;
+
+		buffer << "PC = LR + " 
+			<< std::hex
+			<< (addr_low << 1);
+
+		return buffer.str();
+	}
+
 	Disasm DisassembleTHUMB(u16 opcode, cpu::CPUContext& ctx) {
 		thumb::THUMBInstructionType type = thumb::DecodeThumb(opcode);
 
@@ -238,6 +277,7 @@ namespace GBA::debugger {
 			return DisassembleFormat12(opcode, ctx);
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_13:
+			return DisassembleFormat13(opcode, ctx);
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_14:
 			break;
@@ -252,6 +292,7 @@ namespace GBA::debugger {
 			return DisassembleFormat18(opcode, ctx);
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_19:
+			return DisassembleFormat19(opcode, ctx);
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::UNDEFINED:
 			break;
