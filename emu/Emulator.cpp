@@ -3,8 +3,8 @@
 namespace GBA::emulation {
 	using namespace common;
 
-	Emulator::Emulator(std::string_view rom_location) :
-		m_ctx{}
+	Emulator::Emulator(std::string_view rom_location, std::optional<std::string_view> bios_location) :
+		m_ctx{}, m_bios_loc{std::nullopt}
 	{
 		m_ctx.pack.LoadFrom(rom_location);
 		m_ctx.bus.ConnectGamepack(&m_ctx.pack);
@@ -12,6 +12,11 @@ namespace GBA::emulation {
 		m_ctx.processor.AttachBus(&m_ctx.bus);
 		m_ctx.ppu.SetMMIO(m_ctx.bus.GetMMIO());
 		m_ctx.bus.SetPPU(&m_ctx.ppu);
+
+		if (bios_location.has_value())
+			UseBIOS(bios_location.value());
+		else
+			m_ctx.processor.SkipBios();
 	}
 
 	void Emulator::EmulateFor(u32 num_instructions) {
@@ -22,5 +27,18 @@ namespace GBA::emulation {
 
 			m_ctx.ppu.ClockCycles(cycles);
 		}
+	}
+
+	void Emulator::UseBIOS(std::string_view bios_loc) {
+		m_bios_loc = std::string(bios_loc);
+
+		m_ctx.bus.LoadBIOS(m_bios_loc.value());
+
+		m_ctx.processor.GetContext().m_pipeline.Bubble<cpu::InstructionMode::ARM>(0x0);
+	}
+
+	void Emulator::SkipBios() {
+		m_ctx.processor.SkipBios();
+		m_ctx.bus.LoadBiosResetOpcode();
 	}
 }

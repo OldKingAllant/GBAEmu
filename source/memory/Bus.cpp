@@ -8,6 +8,9 @@
 
 #include "../../ppu/PPU.hpp"
 
+#include <filesystem>
+#include <fstream>
+
 namespace GBA::memory {
 	LOG_CONTEXT(Memory bus);
 
@@ -16,7 +19,8 @@ namespace GBA::memory {
 		m_iwram(nullptr), m_prefetch{}, 
 		m_time{}, m_enable_prefetch(false), 
 		m_bios_latch{0x00}, m_open_bus_value{0x00},
-		m_open_bus_address{0x00}, m_ppu(nullptr)
+		m_open_bus_address{0x00}, m_ppu(nullptr), 
+		m_bios(nullptr)
 	{
 		m_wram = new u8[0x3FFFF];
 		m_iwram = new u8[0x7FFF];
@@ -26,7 +30,7 @@ namespace GBA::memory {
 
 		mmio = new MMIO();
 
-		//m_ppu = new ppu::PPU(mmio);
+		m_bios = new u8[16 * 1024];
 	}
 
 	void Bus::ConnectGamepack(gamepack::GamePack* pack) {
@@ -411,7 +415,7 @@ namespace GBA::memory {
 
 		switch (region) {
 		case MEMORY_RANGE::BIOS:
-			return 0x00;
+			return *reinterpret_cast<u32*>(m_bios + addr_low);
 
 		case MEMORY_RANGE::EWRAM:
 			return reinterpret_cast<u32*>(m_wram)[addr_low / 4];
@@ -459,7 +463,7 @@ namespace GBA::memory {
 
 		switch (region) {
 		case MEMORY_RANGE::BIOS:
-			return 0x00;
+			return *reinterpret_cast<u16*>(m_bios + addr_low);
 
 		case MEMORY_RANGE::EWRAM:
 			return reinterpret_cast<u16*>(m_wram)[addr_low / 2];
@@ -503,13 +507,47 @@ namespace GBA::memory {
 		return 0;
 	}
 
+
+	void Bus::LoadBIOS(std::string const& location) {
+		if (!std::filesystem::exists(location)) {
+			LOG_ERROR(" Could not load bios from path {}", location);
+			return;
+		}
+		
+		if (!std::filesystem::is_regular_file(location)) {
+			LOG_ERROR(" Could not load bios from path {}", location);
+			return;
+		}
+
+		constexpr std::size_t bios_size = (std::size_t)16 * 1024;
+
+		auto file_size = std::filesystem::file_size(location);
+
+		if (file_size != bios_size) {
+			LOG_ERROR(" Invalid bios file size, expected exactly 16 KB, got {} bytes", file_size);
+			return;
+		}
+
+		std::ifstream bios_file(location, std::ios::in | std::ios::binary);
+
+		bios_file.read(reinterpret_cast<char*>(m_bios), bios_size);
+
+		bios_file.close();
+
+		m_bios_latch = *reinterpret_cast<u32*>(m_bios + 0xDC + 8);
+	}
+
 	u32 Bus::ReadBiosImpl(u32 address) {
 		if (m_processor->GetContext().m_regs.GetReg(15) > 0x3FFF)
 			return m_bios_latch;
 
-		m_bios_latch = 0x00; //Dummy value
+		m_bios_latch = *reinterpret_cast<u32*>(m_bios + address);
 
 		return m_bios_latch;
+	}
+
+	void Bus::LoadBiosResetOpcode() {
+		m_bios_latch = *reinterpret_cast<u32*>(m_bios + 0xDC + 8);
 	}
 
 	Bus::~Bus() {
@@ -521,5 +559,8 @@ namespace GBA::memory {
 
 		if (mmio)
 			delete mmio;
+
+		if (m_bios)
+			delete[] m_bios;
 	}
 }

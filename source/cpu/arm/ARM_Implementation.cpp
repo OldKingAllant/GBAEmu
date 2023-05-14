@@ -469,7 +469,7 @@ namespace GBA::cpu::arm{
 				}
 
 				ctx.m_regs.SetReg(instr.dest_reg,
-					ctx.m_spsr[GetModeFromID(ctx.m_cpsr.mode)]);
+					ctx.m_spsr[GetModeFromID(ctx.m_cpsr.mode) - 1]);
 			}
 			else
 				ctx.m_regs.SetReg(instr.dest_reg,
@@ -1394,10 +1394,10 @@ namespace GBA::cpu::arm{
 
 			if (instr.move_byte)
 				value = bus->Read<u8>(base);
-			else 
+			else {
 				value = bus->Read<u32>(base);
-
-			value = std::rotr(value, (base & 3) * 8);
+				value = std::rotr(value, (base & 3) * 8);
+			}
 
 			ctx.m_regs.SetReg(instr.dest_reg, value);
 

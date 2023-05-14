@@ -16,11 +16,11 @@
 
 
 int main(int argc, char* argv[]) {
-	std::string rom = "./testRoms/thumb/thumb.gba";
+	std::string rom = "./testRoms/bios/bios.gba";
+	std::string bios_path = "./testRoms/gba_bios.bin";
 
-	GBA::emulation::Emulator emu{rom};
-
-	emu.GetContext().processor.SkipBios();
+	GBA::emulation::Emulator emu{rom, std::string_view(bios_path)};
+	emu.SkipBios();
 
 	if (SDL_Init(SDL_INIT_VIDEO)) {
 		std::cerr << SDL_GetError() << std::endl;

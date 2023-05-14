@@ -292,6 +292,9 @@ namespace GBA::memory {
 			m_ppu = ppu;
 		}
 
+		void LoadBIOS(std::string const& location);
+		void LoadBiosResetOpcode();
+
 		MMIO* GetMMIO() {
 			return mmio;
 		}
@@ -328,5 +331,7 @@ namespace GBA::memory {
 		MMIO* mmio;
 
 		ppu::PPU* m_ppu;
+
+		u8* m_bios;
 	};
 }
