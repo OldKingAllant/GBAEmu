@@ -252,6 +252,145 @@ namespace GBA::cpu::thumb{
 			ctx.m_cpsr.zero = !reg_value;
 			ctx.m_cpsr.sign = CHECK_BIT(reg_value, 31);
 		}
+
+		void Push(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool&) {
+			bool lr_pc = CHECK_BIT(instr, 8);
+			u8 rlist = instr & 0xFF;
+
+			u32 base = ctx.m_regs.GetReg(13);
+
+			base -= 4 * std::popcount(rlist);
+
+			if (lr_pc) {
+				base -= 4;
+			}
+
+			u32 new_base = base;
+			u8 reg_id = 0;
+
+			while (rlist) {
+				if (rlist & 1) {
+					bus->Write<u32>(base, ctx.m_regs.GetReg(reg_id));
+					base += 4;
+				}
+
+				reg_id++;
+				rlist >>= 1;
+			}
+
+			if (lr_pc) {
+				bus->Write<u32>(base, ctx.m_regs.GetReg(14));
+				base += 4;
+			}
+
+			ctx.m_regs.SetReg(13, new_base);
+		}
+
+		void Pop(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
+			bool lr_pc = CHECK_BIT(instr, 8);
+
+			u8 rlist = instr & 0xFF;
+			u32 base = ctx.m_regs.GetReg(13);
+			u8 reg_id = 0;
+
+			while (rlist) {
+				if (rlist & 1) {
+					u32 value = bus->Read<u32>(base);
+					ctx.m_regs.SetReg(reg_id, value);
+					base += 4;
+				}
+
+				reg_id++;
+				rlist >>= 1;
+			}
+
+			if (lr_pc) {
+				u32 value = bus->Read<u32>(base);
+				ctx.m_regs.SetReg(15, value);
+				base += 4;
+				branch = true;
+			}
+
+			ctx.m_regs.SetReg(13, base);
+		}
+
+		void StoreMultiple(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
+			u8 base_reg = (instr >> 8) & 0x7;
+
+			u8 rlist = instr & 0xFF;
+
+			u32 base = ctx.m_regs.GetReg(base_reg);
+			u32 orig_base = base;
+			u32 new_base = base + std::popcount(rlist) * 4;
+
+			if (!rlist) {
+				u32 value = ctx.m_regs.GetReg(15) + 6;
+				bus->Write<u32>(base, value);
+
+				ctx.m_regs.SetReg(base_reg, base + 0x40);
+				return;
+			}
+			
+			u8 reg_id = 0;
+
+			while (rlist) {
+				if (rlist & 1) {
+					if (reg_id == base_reg) {
+						if (base == orig_base)
+							bus->Write<u32>(base, orig_base);
+						else
+							bus->Write<u32>(base, new_base);
+					}
+					else
+						bus->Write<u32>(base, ctx.m_regs.GetReg(reg_id));
+
+					base += 4;
+				}
+
+				reg_id++;
+				rlist >>= 1;
+			}
+
+			ctx.m_regs.SetReg(base_reg, base);
+		}
+
+		void LoadMultiple(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
+			u8 base_reg = (instr >> 8) & 0x7;
+
+			u8 rlist = instr & 0xFF;
+
+			u32 base = ctx.m_regs.GetReg(base_reg);
+			u32 orig_base = base;
+			u32 new_base = base + std::popcount(rlist) * 4;
+
+			if (!rlist) {
+				u32 value = bus->Read<u32>(base);
+				ctx.m_regs.SetReg(15, value);
+				branch = true;
+				ctx.m_regs.SetReg(base_reg, base + 0x40);
+				return;
+			}
+
+			u8 reg_id = 0;
+
+			while (rlist) {
+				if (rlist & 1) {
+					u32 value = bus->Read<u32>(base);
+
+					ctx.m_regs.SetReg(reg_id, value);
+
+					base += 4;
+				}
+
+				reg_id++;
+				rlist >>= 1;
+			}
+
+			rlist = instr & 0xFF;
+
+			if(!CHECK_BIT(rlist, base_reg))
+				ctx.m_regs.SetReg(base_reg, base);
+		}
 	}
 
 	ThumbFunc THUMB_JUMP_TABLE[20] = {};
@@ -846,6 +985,45 @@ namespace GBA::cpu::thumb{
 		}
 	}
 
+	void ThumbFormat11(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
+		bool type = CHECK_BIT(instr, 11);
+
+		u8 rd = (instr >> 8) & 0x7;
+
+		u16 offset = (instr & 0xFF) * 4;
+
+		u32 address = ctx.m_regs.GetReg(13) + offset;
+
+		if (!type) {
+			u32 value = ctx.m_regs.GetReg(rd);
+			bus->Write<u32>(address, value);
+		}
+		else {
+			u32 value = bus->Read<u32>(address);
+			value = std::rotr(value, (address & 3) * 8);
+			ctx.m_regs.SetReg(rd, value);
+		}
+	}
+
+	void ThumbFormat14(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
+		bool type = CHECK_BIT(instr, 11);
+
+		if (type)
+			detail::Pop(instr, bus, ctx, branch);
+		else
+			detail::Push(instr, bus, ctx, branch);
+	}
+
+	void ThumbFormat15(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
+		bool type = CHECK_BIT(instr, 11);
+
+
+		if (type)
+			detail::LoadMultiple(instr, bus, ctx, branch);
+		else
+			detail::StoreMultiple(instr, bus, ctx, branch);
+	}
+
 	void InitThumbJumpTable() {
 		for (u8 index = 0; index < 20; index++)
 			THUMB_JUMP_TABLE[index] = ThumbUndefined;
@@ -860,8 +1038,11 @@ namespace GBA::cpu::thumb{
 		THUMB_JUMP_TABLE[7] = ThumbFormat8;
 		THUMB_JUMP_TABLE[8] = ThumbFormat9;
 		THUMB_JUMP_TABLE[9] = ThumbFormat10;
+		THUMB_JUMP_TABLE[10] = ThumbFormat11;
 		THUMB_JUMP_TABLE[11] = ThumbFormat12;
 		THUMB_JUMP_TABLE[12] = ThumbFormat13;
+		THUMB_JUMP_TABLE[13] = ThumbFormat14;
+		THUMB_JUMP_TABLE[14] = ThumbFormat15;
 		THUMB_JUMP_TABLE[15] = ThumbFormat16;
 		THUMB_JUMP_TABLE[17] = ThumbFormat18;
 		THUMB_JUMP_TABLE[18] = ThumbFormat19;

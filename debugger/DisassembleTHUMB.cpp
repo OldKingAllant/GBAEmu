@@ -340,6 +340,101 @@ namespace GBA::debugger {
 		return buffer.str();
 	}
 
+	Disasm DisassembleFormat11(u16 opcode, cpu::CPUContext&) {
+		bool type = CHECK_BIT(opcode, 11);
+
+		u32 rd = (opcode >> 8) & 0x7;
+
+		u32 offset = (opcode & 0xFF) * 4;
+
+		std::ostringstream buffer{ "" };
+
+		if (type)
+			buffer << "LDR ";
+		else
+			buffer << "STR ";
+
+		buffer << "r" << rd << ", [";
+		buffer << "SP, #0x" << std::hex << offset << "]";
+
+		return buffer.str();
+	}
+
+	Disasm DisassembleFormat14(u16 opcode, cpu::CPUContext&) {
+		bool lr_pc = CHECK_BIT(opcode, 8);
+		bool type = CHECK_BIT(opcode, 11);
+
+		u8 rlist = opcode & 0xFF;
+
+		std::ostringstream buffer{ "" };
+
+		if (type) {
+			buffer << "POP {";
+		}
+		else {
+			buffer << "PUSH {";
+		}
+
+		u32 reg = 0;
+
+		while (rlist) {
+			if (rlist & 1) {
+				buffer << "r" << reg;
+
+				if (rlist >> 1)
+					buffer << ", ";
+			}
+			
+			reg++;
+			rlist >>= 1;
+		}
+
+		if (lr_pc) {
+			if (type)
+				buffer << ", PC";
+			else
+				buffer << ", LR";
+		}
+
+		buffer << "}";
+
+		return buffer.str();
+	}
+
+	Disasm DisassembleFormat15(u16 opcode, cpu::CPUContext& ctx) {
+		bool type = CHECK_BIT(opcode, 11);
+		u32 base_reg = (opcode >> 8) & 0x7;
+
+		u8 rlist = opcode & 0xFF;
+
+		std::ostringstream buffer{ "" };
+
+		if (type)
+			buffer << "LDMIA ";
+		else
+			buffer << "STMIA ";
+
+		buffer << "r" << base_reg << "!, {";
+
+		u32 reg = 0;
+
+		while (rlist) {
+			if (rlist & 1) {
+				buffer << "r" << reg;
+
+				if (rlist >> 1)
+					buffer << ", ";
+			}
+
+			reg++;
+			rlist >>= 1;
+		}
+
+		buffer << "}";
+
+		return buffer.str();
+	}
+
 	Disasm DisassembleTHUMB(u16 opcode, cpu::CPUContext& ctx) {
 		thumb::THUMBInstructionType type = thumb::DecodeThumb(opcode);
 
@@ -376,6 +471,7 @@ namespace GBA::debugger {
 			return DisassembleFormat10(opcode, ctx);
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_11:
+			return DisassembleFormat11(opcode, ctx);
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_12:
 			return DisassembleFormat12(opcode, ctx);
@@ -384,8 +480,10 @@ namespace GBA::debugger {
 			return DisassembleFormat13(opcode, ctx);
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_14:
+			return DisassembleFormat14(opcode, ctx);
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_15:
+			return DisassembleFormat15(opcode, ctx);
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_16:
 			return DisassembleFormat16(opcode, ctx);
