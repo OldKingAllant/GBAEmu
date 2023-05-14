@@ -435,6 +435,19 @@ namespace GBA::debugger {
 		return buffer.str();
 	}
 
+	Disasm DisassembleFormat17(u16 opcode, cpu::CPUContext& ctx) {
+		u8 comment = opcode & 0xFF;
+
+		std::ostringstream buffer{ "" };
+
+		buffer << "SWI "
+			<< "0x"
+			<< std::hex
+			<< comment;
+
+		return buffer.str();
+	}
+
 	Disasm DisassembleTHUMB(u16 opcode, cpu::CPUContext& ctx) {
 		thumb::THUMBInstructionType type = thumb::DecodeThumb(opcode);
 
@@ -489,6 +502,7 @@ namespace GBA::debugger {
 			return DisassembleFormat16(opcode, ctx);
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_17:
+			return DisassembleFormat17(opcode, ctx);
 			break;
 		case GBA::cpu::thumb::THUMBInstructionType::FORMAT_18:
 			return DisassembleFormat18(opcode, ctx);

@@ -4,6 +4,8 @@
 #include "../../../common/BitManip.hpp"
 #include "../../../common/Error.hpp"
 
+#include "../../../cpu/thumb/TableGen2.hpp"
+
 namespace GBA::cpu::thumb{
 	LOG_CONTEXT(THUMB_Interpreter);
 
@@ -268,10 +270,13 @@ namespace GBA::cpu::thumb{
 			u32 new_base = base;
 			u8 reg_id = 0;
 
+			bus->m_time.access = Access::NonSeq;
+
 			while (rlist) {
 				if (rlist & 1) {
 					bus->Write<u32>(base, ctx.m_regs.GetReg(reg_id));
 					base += 4;
+					bus->m_time.access = Access::Seq;
 				}
 
 				reg_id++;
@@ -283,6 +288,8 @@ namespace GBA::cpu::thumb{
 				base += 4;
 			}
 
+			bus->m_time.access = Access::NonSeq;
+
 			ctx.m_regs.SetReg(13, new_base);
 		}
 
@@ -293,11 +300,14 @@ namespace GBA::cpu::thumb{
 			u32 base = ctx.m_regs.GetReg(13);
 			u8 reg_id = 0;
 
+			bus->m_time.access = Access::NonSeq;
+
 			while (rlist) {
 				if (rlist & 1) {
 					u32 value = bus->Read<u32>(base);
 					ctx.m_regs.SetReg(reg_id, value);
 					base += 4;
+					bus->m_time.access = Access::Seq;
 				}
 
 				reg_id++;
@@ -311,6 +321,10 @@ namespace GBA::cpu::thumb{
 				branch = true;
 			}
 
+			bus->m_time.access = Access::Seq;
+
+			bus->InternalCycles(1);
+
 			ctx.m_regs.SetReg(13, base);
 		}
 
@@ -322,6 +336,8 @@ namespace GBA::cpu::thumb{
 			u32 base = ctx.m_regs.GetReg(base_reg);
 			u32 orig_base = base;
 			u32 new_base = base + std::popcount(rlist) * 4;
+
+			bus->m_time.access = Access::NonSeq;
 
 			if (!rlist) {
 				u32 value = ctx.m_regs.GetReg(15) + 6;
@@ -345,11 +361,15 @@ namespace GBA::cpu::thumb{
 						bus->Write<u32>(base, ctx.m_regs.GetReg(reg_id));
 
 					base += 4;
+
+					bus->m_time.access = Access::Seq;
 				}
 
 				reg_id++;
 				rlist >>= 1;
 			}
+
+			bus->m_time.access = Access::NonSeq;
 
 			ctx.m_regs.SetReg(base_reg, base);
 		}
@@ -362,6 +382,8 @@ namespace GBA::cpu::thumb{
 			u32 base = ctx.m_regs.GetReg(base_reg);
 			u32 orig_base = base;
 			u32 new_base = base + std::popcount(rlist) * 4;
+
+			bus->m_time.access = Access::NonSeq;
 
 			if (!rlist) {
 				u32 value = bus->Read<u32>(base);
@@ -380,6 +402,8 @@ namespace GBA::cpu::thumb{
 					ctx.m_regs.SetReg(reg_id, value);
 
 					base += 4;
+
+					bus->m_time.access = Access::Seq;
 				}
 
 				reg_id++;
@@ -388,6 +412,10 @@ namespace GBA::cpu::thumb{
 
 			rlist = instr & 0xFF;
 
+			bus->m_time.access = Access::Seq;
+
+			bus->InternalCycles(1);
+
 			if(!CHECK_BIT(rlist, base_reg))
 				ctx.m_regs.SetReg(base_reg, base);
 		}
@@ -395,12 +423,16 @@ namespace GBA::cpu::thumb{
 
 	ThumbFunc THUMB_JUMP_TABLE[20] = {};
 
-	void ThumbUndefined(THUMBInstruction instr, memory::Bus*, CPUContext& ctx, bool&) {
-		LOG_ERROR(" Undefined THUMB instruction");
-		error::DebugBreak();
+	void ThumbUndefined(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
+		ctx.EnterException(ExceptionCode::UNDEF, 2);
+
+		branch = true;
+
+		bus->m_time.access = Access::NonSeq;
 	}
 
-	void ThumbFormat3(THUMBInstruction instr, memory::Bus*, CPUContext& ctx, bool&) {
+	void ThumbFormat3(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool&) {
+		//Execution time : 1S
 		u8 immediate = instr & 0xFF;
 		u8 dest_reg = (instr >> 8) & 0x7;
 
@@ -447,9 +479,14 @@ namespace GBA::cpu::thumb{
 		}
 			break;
 		}
+
+		bus->m_time.access = Access::Seq;
 	}
 
-	void ThumbFormat5(THUMBInstruction instr, memory::Bus*, CPUContext& ctx, bool& branch) {
+	void ThumbFormat5(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
+		//Execution time :
+		//1S for normal
+		//2S + 1N for branches
 		u8 source_reg = (instr >> 3) & 0xF;
 		u8 dest_reg = (instr & 0x7) | ((instr >> 4) &
 			0b1000);
@@ -498,17 +535,25 @@ namespace GBA::cpu::thumb{
 			}
 
 			branch = true;
+
+			bus->m_time.access = Access::NonSeq;
 		}
 			break;
 		default:
 			break;
 		}
 
-		if (dest_reg == 15)
+		if (dest_reg == 15) {
 			branch = true;
+			bus->m_time.access = Access::NonSeq;
+		}
+		else if (opcode != 0x3)
+			bus->m_time.access = Access::Seq;
+			
 	}
 
-	void ThumbFormat12(THUMBInstruction instr, memory::Bus*, CPUContext& ctx, bool& branch) {
+	void ThumbFormat12(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
+		//Execution time : 1S
 		u32 source = 0;
 
 		if (CHECK_BIT(instr, 11))
@@ -520,13 +565,20 @@ namespace GBA::cpu::thumb{
 		u8 offset = (instr & 0xFF) * 4;
 
 		ctx.m_regs.SetReg(dest_reg, source + offset);
+
+		bus->m_time.access = Access::Seq;
 	}
 
-	void ThumbFormat16(THUMBInstruction instr, memory::Bus*, CPUContext& ctx, bool& branch) {
+	void ThumbFormat16(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
+		//Execution time :
+		//1S if cond is false
+		//2S + 1N if cond is true
 		u8 opcode = (instr >> 8) & 0xF;
 
-		if (!ctx.m_cpsr.CheckCondition(opcode))
+		if (!ctx.m_cpsr.CheckCondition(opcode)) {
+			bus->m_time.access = Access::Seq;
 			return;
+		}
 
 		i16 offset = instr & 0xFF;
 
@@ -538,9 +590,12 @@ namespace GBA::cpu::thumb{
 		ctx.m_regs.AddOffset(15, 4 + offset);
 
 		branch = true;
+
+		bus->m_time.access = Access::NonSeq;
 	}
 
-	void ThumbFormat18(THUMBInstruction instr, memory::Bus*, CPUContext& ctx, bool& branch) {
+	void ThumbFormat18(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
+		//Execution time : 2S + 1N
 		i16 offset = instr & 0b11111111111;
 
 		offset <<= 5;
@@ -551,9 +606,12 @@ namespace GBA::cpu::thumb{
 		ctx.m_regs.AddOffset(15, 4 + offset);
 
 		branch = true;
+
+		bus->m_time.access = Access::NonSeq;
 	}
 
-	void ThumbFormat1(THUMBInstruction instr, memory::Bus*, CPUContext& ctx, bool& branch) {
+	void ThumbFormat1(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
+		//Execution time : 1S
 		u8 opcode = (instr >> 11) & 0x3;
 
 		u8 shift = (instr >> 6) & 0x1F;
@@ -590,9 +648,12 @@ namespace GBA::cpu::thumb{
 		ctx.m_cpsr.zero = !res.first;
 		ctx.m_cpsr.sign = CHECK_BIT(res.first, 31);
 		ctx.m_cpsr.carry = res.second;
+
+		bus->m_time.access = Access::Seq;
 	}
 
-	void ThumbFormat2(THUMBInstruction instr, memory::Bus*, CPUContext& ctx, bool& branch) {
+	void ThumbFormat2(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
+		//Execution time : 1S
 		u8 opcode = (instr >> 9) & 0x3;
 
 		u8 reg_or_imm = (instr >> 6) & 0x7;
@@ -647,9 +708,34 @@ namespace GBA::cpu::thumb{
 		ctx.m_cpsr.sign = CHECK_BIT(res, 31);
 
 		ctx.m_regs.SetReg(dest_reg, res);
+
+		bus->m_time.access = Access::Seq;
 	}
 
-	void ThumbFormat4(THUMBInstruction instr, memory::Bus*, CPUContext& ctx, bool& branch) {
+	inline u32 CountZeroOneBytes(u32 value) {
+		u32 copy = value >> 8;
+
+		if (!copy || copy == 0xFFFFFF)
+			return 1;
+
+		copy >>= 8;
+
+		if (!copy || copy == 0xFFFF)
+			return 2;
+
+		copy >>= 8;
+
+		if (!copy || copy == 0xFF)
+			return 3;
+
+		return 4;
+	}
+
+	void ThumbFormat4(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
+		//Execution time :
+		//1S +
+		//1I if shift
+		//mI if MUL
 		u8 opcode = (instr >> 6) & 0xF;
 
 		u8 source_reg = (instr >> 3) & 0x7;
@@ -683,6 +769,8 @@ namespace GBA::cpu::thumb{
 			ctx.m_cpsr.carry = shift_res.second;
 			ctx.m_cpsr.zero = !shift_res.first;
 			ctx.m_cpsr.sign = CHECK_BIT(shift_res.first, 31);
+
+			bus->InternalCycles(1);
 		}
 		break;
 
@@ -694,6 +782,8 @@ namespace GBA::cpu::thumb{
 			ctx.m_cpsr.carry = shift_res.second;
 			ctx.m_cpsr.zero = !shift_res.first;
 			ctx.m_cpsr.sign = CHECK_BIT(shift_res.first, 31);
+		
+			bus->InternalCycles(1);
 		}
 		break;
 
@@ -705,6 +795,8 @@ namespace GBA::cpu::thumb{
 			ctx.m_cpsr.carry = shift_res.second;
 			ctx.m_cpsr.zero = !shift_res.first;
 			ctx.m_cpsr.sign = CHECK_BIT(shift_res.first, 31);
+		
+			bus->InternalCycles(1);
 		}
 		break;
 
@@ -724,6 +816,8 @@ namespace GBA::cpu::thumb{
 			ctx.m_cpsr.carry = shift_res.second;
 			ctx.m_cpsr.zero = !shift_res.first;
 			ctx.m_cpsr.sign = CHECK_BIT(shift_res.first, 31);
+		
+			bus->InternalCycles(1);
 		}
 		break;
 
@@ -747,9 +841,16 @@ namespace GBA::cpu::thumb{
 			detail::ORR(dest_reg, source_val, ctx);
 			break;
 
-		case 0xD:
+		case 0xD: {
 			detail::MUL(dest_reg, source_val, ctx);
-			break;
+
+			u8 cycles = CountZeroOneBytes(
+				ctx.m_regs.GetReg(dest_reg)
+			);
+
+			bus->InternalCycles(cycles);
+		}
+		break;
 
 		case 0xE:
 			detail::BIC(dest_reg, source_val, ctx);
@@ -763,9 +864,11 @@ namespace GBA::cpu::thumb{
 			error::Unreachable();
 			break;
 		}
+
+		bus->m_time.access = Access::Seq;
 	}
 
-	void ThumbFormat13(THUMBInstruction instr, memory::Bus*, CPUContext& ctx, bool& branch) {
+	void ThumbFormat13(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
 		bool opcode = CHECK_BIT(instr, 7);
 
 		u16 offset = (instr & 0x7F) * 4;
@@ -774,9 +877,11 @@ namespace GBA::cpu::thumb{
 			ctx.m_regs.AddOffset(13, offset);
 		else
 			ctx.m_regs.AddOffset(13, -offset);
+
+		bus->m_time.access = Access::Seq;
 	}
 
-	void ThumbFormat19(THUMBInstruction instr, memory::Bus*, CPUContext& ctx, bool& branch) {
+	void ThumbFormat19(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
 		u32 curr_opcode = (instr >> 11) & 0x1F;
 
 		if (curr_opcode == 0x1E) {
@@ -790,6 +895,8 @@ namespace GBA::cpu::thumb{
 			addr_upper = pc + 0x4 + (addr_upper << 12);
 
 			ctx.m_regs.SetReg(14, addr_upper);
+
+			bus->m_time.access = Access::Seq;
 
 			return;
 		}
@@ -809,6 +916,8 @@ namespace GBA::cpu::thumb{
 		ctx.m_regs.SetReg(14, new_lr);
 
 		branch = true;
+
+		bus->m_time.access = Access::NonSeq;
 	}
 
 	void ThumbFormat6(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
@@ -820,11 +929,17 @@ namespace GBA::cpu::thumb{
 
 		u32 address = pc + offset;
 
+		bus->m_time.access = Access::NonSeq;
+
 		u32 value = bus->Read<u32>(address);
+
+		bus->m_time.access = Access::Seq;
 
 		value = std::rotr(value, (address & 3) * 8);
 
 		ctx.m_regs.SetReg(dest_reg, value);
+
+		bus->InternalCycles(1);
 	}
 
 	void ThumbFormat7(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
@@ -836,6 +951,8 @@ namespace GBA::cpu::thumb{
 
 		u32 address = ctx.m_regs.GetReg(base_reg)
 			+ ctx.m_regs.GetReg(offset_reg);
+
+		bus->m_time.access = Access::NonSeq;
 
 		switch (type)
 		{
@@ -855,12 +972,16 @@ namespace GBA::cpu::thumb{
 			u32 value = bus->Read<u32>(address);
 			value = std::rotr(value, (address & 3) * 8);
 			ctx.m_regs.SetReg(rd, value);
+			bus->m_time.access = Access::Seq;
+			bus->InternalCycles(1);
 		}
 		break;
 
 		case 0x3: {
 			u32 value = bus->Read<u8>(address);
 			ctx.m_regs.SetReg(rd, value);
+			bus->m_time.access = Access::Seq;
+			bus->InternalCycles(1);
 		}
 		break;
 
@@ -880,6 +1001,8 @@ namespace GBA::cpu::thumb{
 		u32 address = ctx.m_regs.GetReg(base_reg)
 			+ ctx.m_regs.GetReg(offset_reg);
 
+		bus->m_time.access = Access::NonSeq;
+
 		switch (type)
 		{
 		case 0x0: {
@@ -891,6 +1014,8 @@ namespace GBA::cpu::thumb{
 		case 0x1: {
 			i32 value = (i8)bus->Read<u8>(address);
 			ctx.m_regs.SetReg(rd, value);
+			bus->m_time.access = Access::Seq;
+			bus->InternalCycles(1);
 		}
 		break;
 
@@ -898,6 +1023,8 @@ namespace GBA::cpu::thumb{
 			u32 value = bus->Read<u16>(address);
 			value = std::rotr(value, (address & 1) * 8);
 			ctx.m_regs.SetReg(rd, value);
+			bus->m_time.access = Access::Seq;
+			bus->InternalCycles(1);
 		}
 		break;
 
@@ -910,6 +1037,8 @@ namespace GBA::cpu::thumb{
 				value = (i16)bus->Read<u16>(address);
 
 			ctx.m_regs.SetReg(rd, value);
+			bus->m_time.access = Access::Seq;
+			bus->InternalCycles(1);
 		}
 		break;
 
@@ -928,6 +1057,8 @@ namespace GBA::cpu::thumb{
 
 		u32 address = ctx.m_regs.GetReg(base_reg);
 
+		bus->m_time.access = Access::NonSeq;
+
 		switch (type)
 		{
 		case 0x0: {
@@ -942,6 +1073,8 @@ namespace GBA::cpu::thumb{
 			u32 value = bus->Read<u32>(address);
 			value = std::rotr(value, (address & 3) * 8);
 			ctx.m_regs.SetReg(rd, value);
+			bus->m_time.access = Access::Seq;
+			bus->InternalCycles(1);
 		}
 		break;
 
@@ -955,6 +1088,8 @@ namespace GBA::cpu::thumb{
 			u8 value = bus->Read<u8>(address + offset);
 
 			ctx.m_regs.SetReg(rd, value);
+			bus->m_time.access = Access::Seq;
+			bus->InternalCycles(1);
 		}
 		break;
 
@@ -974,6 +1109,8 @@ namespace GBA::cpu::thumb{
 
 		u32 address = ctx.m_regs.GetReg(base_reg) + offset;
 
+		bus->m_time.access = Access::NonSeq;
+
 		if (!type) {
 			bus->Write<u16>(address, (u16)ctx.m_regs.GetReg(rd));
 		}
@@ -982,6 +1119,9 @@ namespace GBA::cpu::thumb{
 			value = std::rotr(value, (address & 1) * 8);
 
 			ctx.m_regs.SetReg(rd, value);
+
+			bus->m_time.access = Access::Seq;
+			bus->InternalCycles(1);
 		}
 	}
 
@@ -994,6 +1134,8 @@ namespace GBA::cpu::thumb{
 
 		u32 address = ctx.m_regs.GetReg(13) + offset;
 
+		bus->m_time.access = Access::NonSeq;
+
 		if (!type) {
 			u32 value = ctx.m_regs.GetReg(rd);
 			bus->Write<u32>(address, value);
@@ -1002,6 +1144,9 @@ namespace GBA::cpu::thumb{
 			u32 value = bus->Read<u32>(address);
 			value = std::rotr(value, (address & 3) * 8);
 			ctx.m_regs.SetReg(rd, value);
+
+			bus->m_time.access = Access::Seq;
+			bus->InternalCycles(1);
 		}
 	}
 
@@ -1024,6 +1169,14 @@ namespace GBA::cpu::thumb{
 			detail::StoreMultiple(instr, bus, ctx, branch);
 	}
 
+	void ThumbFormat17(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
+		ctx.EnterException(ExceptionCode::SOFTI, 2);
+
+		branch = true;
+
+		bus->m_time.access = Access::NonSeq;
+	}
+
 	void InitThumbJumpTable() {
 		for (u8 index = 0; index < 20; index++)
 			THUMB_JUMP_TABLE[index] = ThumbUndefined;
@@ -1044,6 +1197,7 @@ namespace GBA::cpu::thumb{
 		THUMB_JUMP_TABLE[13] = ThumbFormat14;
 		THUMB_JUMP_TABLE[14] = ThumbFormat15;
 		THUMB_JUMP_TABLE[15] = ThumbFormat16;
+		THUMB_JUMP_TABLE[16] = ThumbFormat17;
 		THUMB_JUMP_TABLE[17] = ThumbFormat18;
 		THUMB_JUMP_TABLE[18] = ThumbFormat19;
 	}
@@ -1055,6 +1209,8 @@ namespace GBA::cpu::thumb{
 			if (masked == THUMB_VALUES[i]) {
 				if (i == 0 && ((opcode >> 11) & 0x3) == 0x3)
 					return THUMBInstructionType::FORMAT_02;
+				else if (i == 15 && ((opcode >> 8) & 0xF) == 0xF)
+					return THUMBInstructionType::FORMAT_17;
 
 				return (THUMBInstructionType)i;
 			}
@@ -1064,7 +1220,9 @@ namespace GBA::cpu::thumb{
 	}
 
 	void ExecuteThumb(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
-		THUMBInstructionType type = DecodeThumb(instr);
+		u16 hash = (instr >> 6) & 0b1111111111;
+
+		THUMBInstructionType type = detail::thumb_lookup_table[hash];
 
 		THUMB_JUMP_TABLE[(u8)type](instr, bus, ctx, branch);
 	}

@@ -733,12 +733,12 @@ namespace GBA::cpu::arm{
 					bus->Write<u32>(base, reg_value);
 
 					base += post_increment;
+
+					bus->m_time.access = Access::Seq;
 				}
 
 				list >>= 1;
 				reg_id++;
-
-				bus->m_time.access = Access::Seq;
 			}
 		}
 		else {
@@ -758,12 +758,12 @@ namespace GBA::cpu::arm{
 					bus->Write<u32>(base, reg_value);
 
 					base += post_increment;
+
+					bus->m_time.access = Access::Seq;
 				}
 
 				list >>= 1;
 				reg_id++;
-
-				bus->m_time.access = Access::Seq;
 			}
 		}
 
@@ -824,12 +824,12 @@ namespace GBA::cpu::arm{
 					ctx.m_regs.SetReg(Mode::User ,reg_id, bus->Read<u32>(base));
 
 					base += post_increment;
+
+					bus->m_time.access = Access::Seq;
 				}
 
 				list >>= 1;
 				reg_id++;
-
-				bus->m_time.access = Access::Seq;
 			}
 		}
 		else {
@@ -840,12 +840,12 @@ namespace GBA::cpu::arm{
 					ctx.m_regs.SetReg(reg_id, bus->Read<u32>(base));
 
 					base += post_increment;
+
+					bus->m_time.access = Access::Seq;
 				}
 
 				list >>= 1;
 				reg_id++;
-
-				bus->m_time.access = Access::Seq;
 			}
 		}
 

@@ -12,7 +12,7 @@ namespace GBA::memory {
 
 			Access acc = m_time.access;
 
-			if (addr_low < 0x20000)
+			if ((addr_low & 0x1ffff) == 0)
 				acc = Access::NonSeq;
 
 			if (region == MEMORY_RANGE::ROM_REG_1)
@@ -40,7 +40,7 @@ namespace GBA::memory {
 
 			Access acc = m_time.access;
 
-			if (addr_low < 0x20000)
+			if ((addr_low & 0x1ffff) == 0)
 				acc = Access::NonSeq;
 
 			if (region == MEMORY_RANGE::ROM_REG_1)
