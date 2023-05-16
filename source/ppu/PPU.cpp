@@ -1,6 +1,7 @@
 #include "../../ppu/PPU.hpp"
 
 #include "../../memory/MMIO.hpp"
+#include "../../memory/InterruptController.hpp"
 
 #include "../../common/Logger.hpp"
 #include "../../common/Error.hpp"
@@ -18,7 +19,7 @@ namespace GBA::ppu {
 		m_internal_reference_x_bg1{},
 		m_internal_reference_y_bg0{},
 		m_internal_reference_y_bg1{},
-		m_frame_ok{false}
+		m_frame_ok{false}, m_int_control(nullptr)
 	{
 		m_palette_ram = new u8[0x400];
 		m_vram = new u8[0x17FFF];
@@ -28,152 +29,14 @@ namespace GBA::ppu {
 		std::fill_n(m_vram, 0x17FFF, 0x0);
 	}
 
+	void PPU::SetInterruptController(memory::InterruptController* int_controller) {
+		m_int_control = int_controller;
+	}
+
 	void PPU::InitHandlers(memory::MMIO* mmio) {
-		for (unsigned i = 0; i < 0x58; i++) {
-			mmio->RegisterRead<u8>([this, i]() -> u8 {return this->ReadRegister8(i); }, i);
-			mmio->RegisterWrite<u8>([this, i](u8 value) {this->WriteRegister8(i, value); }, i);
-		}
-		
-		for (unsigned i = 0; i < 0x58; i += 2) {
-			mmio->RegisterRead<u16>([this, i]() -> u16 {return this->ReadRegister16(i / 2); }, i);
-			mmio->RegisterWrite<u16>([this, i](u16 value) {this->WriteRegister16(i / 2, value); }, i);
-		}
-
-		for (unsigned i = 0; i < 0x58; i += 4) {
-			mmio->RegisterRead<u32>([this, i]() -> u32 {return this->ReadRegister32(i / 4); }, i);
-			mmio->RegisterWrite<u32>([this, i](u32 value) {this->WriteRegister32(i / 4, value); }, i);
-		}
-
-		mmio->RegisterWrite<u8>(
-			[this](u8 value) {
-				WriteDisplayControl8(0, value);
-			}, 0x0
-		);
-
-		mmio->RegisterWrite<u8>(
-			[this](u8 value) {
-				WriteDisplayControl8(1, value);
-			}, 0x1
-		);
-
-		mmio->RegisterWrite<u16>(
-			[this](u16 value) {
-				WriteDisplayControl16(value);
-			}, 0x0
-		);
-
-		mmio->RegisterWrite<u32>(
-			[this](u32 value) {
-				WriteDisplayControl16((u16)value);
-				m_ctx.m_green_swap = (u16)(value >> 16);
-			}, 0x0
-		);
-
-		mmio->RegisterWrite<u8>(
-			[this](u8 value) {
-				WriteDisplayStatus8(value, 0);
-			}, 0x4
-		);
-
-		mmio->RegisterWrite<u8>(
-			[this](u8 value) {
-				WriteDisplayStatus8(value, 1);
-			}, 0x5
-		);
-
-		mmio->RegisterWrite<u16>(
-			[this](u16 value) {
-				WriteDisplayStatus16(value);
-			}, 0x4
-		);
-
-		mmio->RegisterWrite<u32>(
-			[this](u32 value) {
-				WriteDisplayStatus16((u16)value);
-				//Ignore writes to VCOUNT
-			}, 0x4
-		);
-
-		//Ignore writes to VCOUNT
-		mmio->RegisterWrite<u8>([](u8) {}, 0x6);
-		mmio->RegisterWrite<u8>([](u8) {}, 0x7);
-		mmio->RegisterWrite<u16>([](u16) {}, 0x6);
-
-		mmio->RegisterWrite<u8>([this](u8 value) {
-			m_ctx.array[0x28] = value;
-			m_internal_reference_x_bg0 = ReadRegister32(0x28 / 4);
-		}, 0x28);
-
-		mmio->RegisterWrite<u8>([this](u8 value) {
-			m_ctx.array[0x29] = value;
-			m_internal_reference_x_bg0 = ReadRegister32(0x28 / 4);
-		}, 0x29);
-
-		mmio->RegisterWrite<u8>([this](u8 value) {
-			m_ctx.array[0x2A] = value;
-			m_internal_reference_x_bg0 = ReadRegister32(0x28 / 4);
-		}, 0x2A);
-
-		mmio->RegisterWrite<u8>([this](u8 value) {
-			m_ctx.array[0x2B] = value;
-			m_internal_reference_x_bg0 = ReadRegister32(0x28 / 4);
-		}, 0x2B);
-
-		/////////////////
-
-		mmio->RegisterWrite<u8>([this](u8 value) {
-			m_ctx.array[0x2C] = value;
-			m_internal_reference_y_bg0 = ReadRegister32(0x2C / 4);
-			}, 0x2C);
-
-		mmio->RegisterWrite<u8>([this](u8 value) {
-			m_ctx.array[0x2D] = value;
-			m_internal_reference_y_bg0 = ReadRegister32(0x2C / 4);
-			}, 0x2D);
-
-		mmio->RegisterWrite<u8>([this](u8 value) {
-			m_ctx.array[0x2E] = value;
-			m_internal_reference_y_bg0 = ReadRegister32(0x2C / 4);
-			}, 0x2E);
-
-		mmio->RegisterWrite<u8>([this](u8 value) {
-			m_ctx.array[0x2F] = value;
-			m_internal_reference_y_bg0 = ReadRegister32(0x2C / 4);
-			}, 0x2F);
-
-		////////////////
-
-		mmio->RegisterWrite<u16>([this](u16 value) {
-			WriteRegister16(0x28, value);
-			m_internal_reference_x_bg0 = ReadRegister32(0x28 / 4);
-			}, 0x28);
-
-		mmio->RegisterWrite<u16>([this](u16 value) {
-			WriteRegister16(0x2A, value);
-			m_internal_reference_x_bg0 = ReadRegister32(0x28 / 4);
-			}, 0x2A);
-
-		mmio->RegisterWrite<u16>([this](u16 value) {
-			WriteRegister16(0x2C, value);
-			m_internal_reference_y_bg0 = ReadRegister32(0x2C / 4);
-			}, 0x2C);
-
-		mmio->RegisterWrite<u16>([this](u16 value) {
-			WriteRegister16(0x2E, value);
-			m_internal_reference_y_bg0 = ReadRegister32(0x2C / 4);
-			}, 0x2E);
-
-		///////////
-
-		mmio->RegisterWrite<u32>([this](u32 value) {
-			WriteRegister32(0x28, value);
-			m_internal_reference_x_bg0 = value;
-			}, 0x28);
-
-		mmio->RegisterWrite<u32>([this](u32 value) {
-			WriteRegister32(0x2C, value);
-			m_internal_reference_y_bg0 = value;
-			}, 0x2C);
+		mmio->AddRegister<u16>(0x0, true, true, &m_ctx.array[0x0], 0b1111111111110111);
+		mmio->AddRegister<u16>(0x4, true, true, &m_ctx.array[0x4], 0b1111111111111000);
+		mmio->AddRegister<u16>(0x6, true, false, &m_ctx.array[0x6], 0x0);
 	}
 
 	void PPU::ResetFrameData() {
@@ -193,7 +56,7 @@ namespace GBA::ppu {
 	void PPU::WriteDisplayControl16(common::u16 value) {
 		value &= ~(1 << 3);
 
-		reinterpret_cast<u16*>(m_ctx.array)[0] = value;
+		*reinterpret_cast<u16*>(m_ctx.array) = value;
 	}
 
 	void PPU::WriteDisplayStatus8(common::u8 offset, common::u8 value) {
@@ -209,7 +72,7 @@ namespace GBA::ppu {
 		value &= ~0b111;
 		value |= m_ctx.m_status & 0b111;
 
-		reinterpret_cast<u16*>(m_ctx.array)[0x4] = value;
+		*reinterpret_cast<u16*>(m_ctx.array + 0x4) = value;
 	}
 
 	common::u32 PPU::ReadRegister32(common::u8 offset) const {
@@ -256,8 +119,13 @@ namespace GBA::ppu {
 		u8 lyc = (m_ctx.m_status >> 8) & 0xFF;
 
 		if (lyc == m_ctx.m_vcount) {
-			//TODO Interrupt
-		}
+			//Set VCOUNT flag
+			m_ctx.m_status |= (1 << 2);
+
+			if (CHECK_BIT(m_ctx.m_status, 5))
+				m_int_control->RequestInterrupt(memory::InterruptType::VCOUNT);
+		} else 
+			m_ctx.m_status &= ~(1 << 2);
 	}
 
 	void PPU::HBlank() {
@@ -275,6 +143,10 @@ namespace GBA::ppu {
 				m_curr_mode = Mode::VBLANK;
 				m_ctx.m_status |= 1;
 				m_frame_ok = true;
+
+				if (CHECK_BIT(m_ctx.m_status, 3)) {
+					m_int_control->RequestInterrupt(memory::InterruptType::VBLANK);
+				}
 			}
 			else {
 				m_curr_mode = Mode::NORMAL;
@@ -283,8 +155,14 @@ namespace GBA::ppu {
 			u8 lyc = (m_ctx.m_status >> 8) & 0xFF;
 
 			if (lyc == m_ctx.m_vcount) {
-				//TODO Interrupt
+				//Set VCOUNT flag
+				m_ctx.m_status |= (1 << 2);
+
+				if (CHECK_BIT(m_ctx.m_status, 5))
+					m_int_control->RequestInterrupt(memory::InterruptType::VCOUNT);
 			}
+			else
+				m_ctx.m_status &= ~(1 << 2);
 		}
 	}
 
@@ -324,6 +202,10 @@ namespace GBA::ppu {
 				LOG_ERROR("Invalid display mode {0}!", (unsigned)mode);
 				error::DebugBreak();
 				break;
+			}
+
+			if (CHECK_BIT(m_ctx.m_status, 4)) {
+				m_int_control->RequestInterrupt(memory::InterruptType::HBLANK);
 			}
 
 			m_curr_mode = Mode::HBLANK;

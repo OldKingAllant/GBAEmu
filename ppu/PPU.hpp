@@ -6,6 +6,7 @@
 
 namespace GBA::memory {
 	class MMIO;
+	class InterruptController;
 }
 
 namespace GBA::ppu {
@@ -103,6 +104,8 @@ namespace GBA::ppu {
 			return m_framebuffer;
 		}
 
+		void SetInterruptController(memory::InterruptController* int_controller);
+
 		~PPU();
 
 	private:
@@ -147,6 +150,8 @@ namespace GBA::ppu {
 		common::u32 m_internal_reference_y_bg1;
 
 		bool m_frame_ok;
+
+		memory::InterruptController* m_int_control;
 
 		static constexpr common::u32 CYCLES_PER_PIXEL = 4;
 		static constexpr common::u32 CYCLES_PER_SCANLINE = 960;

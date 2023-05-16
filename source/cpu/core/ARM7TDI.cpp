@@ -4,18 +4,18 @@
 
 #include <cassert>
 
+#include "../../../memory/InterruptController.hpp"
+
 namespace GBA::cpu {
 
 	ARM7TDI::ARM7TDI() :
-		m_ctx{} {
+		m_ctx{}, m_bus(nullptr), m_int_controller(nullptr) {
 		m_ctx.m_cpsr.instr_state = InstructionMode::ARM;
 		m_ctx.m_cpsr.mode = Mode::User;
 
 		m_ctx.m_regs.SetReg(Mode::SWI, 13, 0x03007FE0);
 		m_ctx.m_regs.SetReg(Mode::IRQ, 13, 0x03007FA0);
 		m_ctx.m_regs.SetReg(Mode::User, 13, 0x03007F00);
-
-		//m_ctx.m_pipeline.Bubble<InstructionMode::ARM>(0x00);
 
 		thumb::InitThumbJumpTable();
 	}
@@ -123,8 +123,6 @@ namespace GBA::cpu {
 		m_regs.SetReg(14, m_regs.GetReg(15) + pc_offset);
 		m_regs.SetReg(15, exc_vector);
 
-		//m_pipeline.Bubble<InstructionMode::ARM>(exc_vector);
-
 		m_cpsr.mode = mode;
 	}
 	
@@ -145,9 +143,34 @@ namespace GBA::cpu {
 		m_cpsr = m_spsr[curr_mode_id - 1];
 	}
 
+	void ARM7TDI::SetInterruptControl(memory::InterruptController* control) {
+		m_int_controller = control;
+	}
+
+	bool ARM7TDI::CheckIRQ() {
+		if (m_int_controller->GetLineStatus())
+			return false; //So an interrupt is triggered
+		//only once and not every time we check 
+		//IE and IF registers
+
+		bool cpsr_ime = !m_ctx.m_cpsr.irq_disable;
+		bool ime = m_int_controller->GetIME();
+		u16 ie = m_int_controller->GetIE();
+		u16 _if = m_int_controller->GetIF();
+
+		return cpsr_ime && ime && (ie & _if);
+	}
+
 	u8 ARM7TDI::Step() {
 		//Check if IRQ occurred
 		//Check halt status
+		if (CheckIRQ()) {
+			m_ctx.EnterException(ExceptionCode::IRQ, 4);
+
+			m_ctx.m_pipeline.Bubble<InstructionMode::ARM>(
+				m_ctx.m_regs.GetReg(15)
+			);
+		}
 
 		bool branch = false;
 

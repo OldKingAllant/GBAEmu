@@ -1138,9 +1138,7 @@ namespace GBA::cpu::arm{
 		* 1S -> Prefetch
 		* 1S + 1N -> Pipeline flush
 		*/
-		u32 argument = instr.data & 0xFFFFFF;
-
-		LOG_INFO("Software interrupt at 0x{:x} with argument 0x{:x}", ctx.m_regs.GetReg(15), argument);
+		//u32 argument = instr.data & 0xFFFFFF;
 
 		ctx.EnterException(ExceptionCode::SOFTI, 4);
 

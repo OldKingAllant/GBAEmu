@@ -17,6 +17,13 @@ namespace GBA::emulation {
 			UseBIOS(bios_location.value());
 		else
 			m_ctx.processor.SkipBios();
+
+		m_ctx.int_controller = new memory::InterruptController(
+			m_ctx.bus.GetMMIO()
+		);
+
+		m_ctx.processor.SetInterruptControl(m_ctx.int_controller);
+		m_ctx.ppu.SetInterruptController(m_ctx.int_controller);
 	}
 
 	void Emulator::EmulateFor(u32 num_instructions) {
@@ -40,5 +47,9 @@ namespace GBA::emulation {
 	void Emulator::SkipBios() {
 		m_ctx.processor.SkipBios();
 		m_ctx.bus.LoadBiosResetOpcode();
+	}
+
+	Emulator::~Emulator() {
+		delete m_ctx.int_controller;
 	}
 }

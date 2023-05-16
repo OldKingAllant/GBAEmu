@@ -8,6 +8,7 @@
 #include "../memory/Bus.hpp"
 #include "../gamepack/GamePack.hpp"
 #include "../ppu/PPU.hpp"
+#include "../memory/InterruptController.hpp"
 
 namespace GBA::emulation {
 	struct EmulatorContext {
@@ -15,6 +16,7 @@ namespace GBA::emulation {
 		memory::Bus bus;
 		gamepack::GamePack pack;
 		ppu::PPU ppu;
+		memory::InterruptController* int_controller;
 	};
 
 	class Emulator {
@@ -29,6 +31,8 @@ namespace GBA::emulation {
 
 		void UseBIOS(std::string_view bios_loc);
 		void SkipBios();
+
+		~Emulator();
 
 	private :
 		EmulatorContext m_ctx;

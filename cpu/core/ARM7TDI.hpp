@@ -2,6 +2,10 @@
 
 #include "CPUContext.hpp"
 
+namespace GBA::memory {
+	class InterruptController;
+}
+
 namespace GBA::cpu {
 	class ARM7TDI {
 	public :
@@ -20,8 +24,14 @@ namespace GBA::cpu {
 			return m_ctx;
 		}
 
+		void SetInterruptControl(memory::InterruptController* int_controller);
+
+	private :
+		bool CheckIRQ();
+
 	private :
 		CPUContext m_ctx;
 		memory::Bus* m_bus;
+		memory::InterruptController* m_int_controller;
 	};
 }
