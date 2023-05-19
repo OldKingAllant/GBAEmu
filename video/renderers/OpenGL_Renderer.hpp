@@ -4,6 +4,7 @@
 #include "../../shared_obj/SharedObject.hpp"
 
 struct SDL_Window;
+struct SDL_KeyboardEvent;
 
 namespace GBA::video::renderer {
 	struct OpenglFunctions;
@@ -26,6 +27,9 @@ namespace GBA::video::renderer {
 	private :
 		void LoadOpengl();
 		void CheckForErrors();
+
+		void KeyDown(SDL_KeyboardEvent* ev);
+		void KeyUp(SDL_KeyboardEvent* ev);
 
 	private :
 		SDL_Window* m_window;

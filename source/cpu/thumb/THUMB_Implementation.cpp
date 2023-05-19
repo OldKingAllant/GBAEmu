@@ -446,7 +446,7 @@ namespace GBA::cpu::thumb{
 			break;
 		case 0x01: {
 			u32 reg_val = ctx.m_regs.GetReg(dest_reg);
-			uint64_t res = (uint64_t)reg_val - immediate;
+			u32 res = reg_val - immediate;
 			//Trash the result
 			ctx.m_cpsr.sign = CHECK_BIT(res, 31);
 			ctx.m_cpsr.zero = !res;
@@ -874,9 +874,9 @@ namespace GBA::cpu::thumb{
 		u16 offset = (instr & 0x7F) * 4;
 
 		if (opcode)
-			ctx.m_regs.AddOffset(13, offset);
-		else
 			ctx.m_regs.AddOffset(13, -offset);
+		else
+			ctx.m_regs.AddOffset(13, offset);
 
 		bus->m_time.access = Access::Seq;
 	}

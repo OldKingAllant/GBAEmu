@@ -3,7 +3,7 @@
 namespace GBA::ppu {
 	using namespace common;
 
-	void PPU::CalculateMosaicBG(u32& x, u32& y) {
+	void PPU::CalculateMosaicBG(i32& x, i32& y) {
 		u32 mosaic_reg = ReadRegister32(0x4C / 4);
 
 		u8 h_size = (mosaic_reg & 0xF) + 1;

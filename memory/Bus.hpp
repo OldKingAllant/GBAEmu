@@ -5,6 +5,7 @@
 #include "Timing.hpp"
 
 #include "MMIO.hpp"
+#include "EventScheduler.hpp"
 #include "../ppu/PPU.hpp"
 
 namespace GBA::gamepack {
@@ -45,8 +46,12 @@ namespace GBA::memory {
 	public :
 		Bus();
 
+		void SetEventScheduler(EventScheduler* sched) {
+			m_sched = sched;
+		}
+
 		template <typename Type>
-		Type Prefetch(u32 address, bool code, MEMORY_RANGE region);
+		Type Prefetch(u32 address, bool code, MEMORY_RANGE region, u32& cycles);
 
 		/*
 		* Implementations are:
@@ -68,11 +73,13 @@ namespace GBA::memory {
 
 			Type return_value = 0;
 
+			u32 num_cycles = 0;
+
 			//Some memory regions are mirrored, others are not
 
 			switch (region) {
 			case MEMORY_RANGE::BIOS:
-				m_time.PushCycles<MEMORY_RANGE::BIOS, type_size>();
+				num_cycles = m_time.PushCycles<MEMORY_RANGE::BIOS, type_size>();
 				
 				if (addr_low > REGIONS_LEN[0])
 					return_value = ReadOpenBus(address);
@@ -81,7 +88,7 @@ namespace GBA::memory {
 				break;
 
 			case MEMORY_RANGE::EWRAM:
-				m_time.PushCycles<MEMORY_RANGE::EWRAM, type_size>();
+				num_cycles = m_time.PushCycles<MEMORY_RANGE::EWRAM, type_size>();
 
 				addr_low &= REGIONS_LEN[(u8)MEMORY_RANGE::EWRAM];
 
@@ -89,7 +96,7 @@ namespace GBA::memory {
 				break;
 
 			case MEMORY_RANGE::IWRAM:
-				m_time.PushCycles<MEMORY_RANGE::IWRAM, type_size>();
+				num_cycles = m_time.PushCycles<MEMORY_RANGE::IWRAM, type_size>();
 
 				addr_low &= REGIONS_LEN[(u8)MEMORY_RANGE::IWRAM];
 
@@ -97,7 +104,7 @@ namespace GBA::memory {
 				break;
 
 			case MEMORY_RANGE::IO:
-				m_time.PushCycles<MEMORY_RANGE::IO, type_size>();
+				num_cycles = m_time.PushCycles<MEMORY_RANGE::IO, type_size>();
 
 				if (addr_low < IO_SIZE && !UNUSED_REGISTERS_MAP[addr_low]) {
 					return_value = mmio->Read<Type>(addr_low);
@@ -107,10 +114,10 @@ namespace GBA::memory {
 				break;
 
 			case MEMORY_RANGE::PAL:
-				m_time.PushCycles<MEMORY_RANGE::PAL, type_size>();
+				num_cycles = m_time.PushCycles<MEMORY_RANGE::PAL, type_size>();
 
 				if constexpr(sizeof(Type) == 4)
-					m_time.PushCycles<MEMORY_RANGE::PAL, type_size>();
+					num_cycles += m_time.PushCycles<MEMORY_RANGE::PAL, type_size>();
 
 				addr_low &= REGIONS_LEN[(u8)MEMORY_RANGE::PAL];
 
@@ -119,16 +126,16 @@ namespace GBA::memory {
 				break;
 
 			case MEMORY_RANGE::VRAM:
-				m_time.PushCycles<MEMORY_RANGE::VRAM, type_size>();
+				num_cycles = m_time.PushCycles<MEMORY_RANGE::VRAM, type_size>();
 
 				if constexpr (sizeof(Type) == 4)
-					m_time.PushCycles<MEMORY_RANGE::PAL, type_size>();
+					num_cycles += m_time.PushCycles<MEMORY_RANGE::PAL, type_size>();
 
 				return_value = m_ppu->ReadVRAM<Type>(addr_low);
 				break;
 
 			case MEMORY_RANGE::OAM:
-				m_time.PushCycles<MEMORY_RANGE::OAM, type_size>();
+				num_cycles = m_time.PushCycles<MEMORY_RANGE::OAM, type_size>();
 
 				addr_low &= REGIONS_LEN[(u8)MEMORY_RANGE::OAM];
 
@@ -139,25 +146,28 @@ namespace GBA::memory {
 			case MEMORY_RANGE::ROM_REG_2:
 			case MEMORY_RANGE::ROM_REG_3: {
 				if constexpr (sizeof(Type) == 1)
-					return_value = (Type)Prefetch<u16>(address, code, region);
+					return_value = (Type)Prefetch<u16>(address, code, region, num_cycles);
 				else
-					return_value = Prefetch<Type>(address, code, region);
+					return_value = Prefetch<Type>(address, code, region, num_cycles);
 			}
 			break;
 				
 
 			case MEMORY_RANGE::SRAM:
-				m_time.PushCycles<MEMORY_RANGE::SRAM, type_size>();
+				num_cycles = m_time.PushCycles<MEMORY_RANGE::SRAM, type_size>();
 				return_value = 0x00;
 				break;
 
 			default:
 				return_value = ReadOpenBus(address);
+				num_cycles = 1;
 				break;
 			}
 
 			m_open_bus_value = return_value;
 			m_open_bus_address = address;
+
+			m_sched->Advance(num_cycles);
 
 			return return_value;
 		}
@@ -174,25 +184,27 @@ namespace GBA::memory {
 
 			constexpr const u8 type_size = sizeof(Type);
 
+			u32 num_cycles = 0;
+
 			switch (region) {
 			case MEMORY_RANGE::BIOS:
-				m_time.PushCycles<MEMORY_RANGE::BIOS, type_size>();
+				num_cycles = m_time.PushCycles<MEMORY_RANGE::BIOS, type_size>();
 				break;
 
 			case MEMORY_RANGE::EWRAM:
-				m_time.PushCycles<MEMORY_RANGE::EWRAM, type_size>();
+				num_cycles = m_time.PushCycles<MEMORY_RANGE::EWRAM, type_size>();
 				addr_low &= REGIONS_LEN[(u8)MEMORY_RANGE::EWRAM];
 				reinterpret_cast<Type*>(m_wram)[addr_low / type_size] = value;
 				break;
 
 			case MEMORY_RANGE::IWRAM:
-				m_time.PushCycles<MEMORY_RANGE::IWRAM, type_size>();
+				num_cycles = m_time.PushCycles<MEMORY_RANGE::IWRAM, type_size>();
 				addr_low &= REGIONS_LEN[(u8)MEMORY_RANGE::IWRAM];
 				reinterpret_cast<Type*>(m_iwram)[addr_low / type_size] = value;
 				break;
 
 			case MEMORY_RANGE::IO:
-				m_time.PushCycles<MEMORY_RANGE::IO, type_size>();
+				num_cycles = m_time.PushCycles<MEMORY_RANGE::IO, type_size>();
 
 				if (addr_low < IO_SIZE && !UNUSED_REGISTERS_MAP[addr_low]) {
 					mmio->Write<Type>(addr_low, value);
@@ -203,20 +215,20 @@ namespace GBA::memory {
 			case MEMORY_RANGE::PAL:
 				addr_low &= REGIONS_LEN[(u8)MEMORY_RANGE::PAL];
 				
-				m_time.PushCycles<MEMORY_RANGE::PAL, type_size>();
+				num_cycles = m_time.PushCycles<MEMORY_RANGE::PAL, type_size>();
 
 				if constexpr (sizeof(Type) == 4)
-					m_time.PushCycles<MEMORY_RANGE::PAL, type_size>();
+					num_cycles += m_time.PushCycles<MEMORY_RANGE::PAL, type_size>();
 
 				m_ppu->WritePalette<Type>(addr_low, value);
 
 				break;
 
 			case MEMORY_RANGE::VRAM:
-				m_time.PushCycles<MEMORY_RANGE::VRAM, type_size>();
+				num_cycles = m_time.PushCycles<MEMORY_RANGE::VRAM, type_size>();
 
 				if constexpr (sizeof(Type) == 4)
-					m_time.PushCycles<MEMORY_RANGE::PAL, type_size>();
+					num_cycles += m_time.PushCycles<MEMORY_RANGE::PAL, type_size>();
 
 				m_ppu->WriteVRAM<Type>(addr_low, value);
 
@@ -224,31 +236,33 @@ namespace GBA::memory {
 
 			case MEMORY_RANGE::OAM:
 				addr_low &= REGIONS_LEN[(u8)MEMORY_RANGE::OAM];
-				m_time.PushCycles<MEMORY_RANGE::OAM, type_size>();
+				num_cycles = m_time.PushCycles<MEMORY_RANGE::OAM, type_size>();
 				break;
 
 			case MEMORY_RANGE::ROM_REG_1:
-				m_time.PushCycles<MEMORY_RANGE::ROM_REG_1, type_size>();
+				num_cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_1, type_size>();
 				StopPrefetch();
 				return;
 
 			case MEMORY_RANGE::ROM_REG_2:
-				m_time.PushCycles<MEMORY_RANGE::ROM_REG_2, type_size>();
+				num_cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_2, type_size>();
 				StopPrefetch();
 				return;
 
 			case MEMORY_RANGE::ROM_REG_3:
-				m_time.PushCycles<MEMORY_RANGE::ROM_REG_3, type_size>();
+				num_cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_3, type_size>();
 				StopPrefetch();
 				break;
 
 			case MEMORY_RANGE::SRAM:
-				m_time.PushCycles<MEMORY_RANGE::SRAM, type_size>();
+				num_cycles = m_time.PushCycles<MEMORY_RANGE::SRAM, type_size>();
 				break;
 			}
 
 			m_open_bus_value = value;
 			m_open_bus_address = address;
+
+			m_sched->Advance(num_cycles);
 		}
 
 		/*
@@ -333,5 +347,7 @@ namespace GBA::memory {
 		ppu::PPU* m_ppu;
 
 		u8* m_bios;
+
+		EventScheduler* m_sched;
 	};
 }

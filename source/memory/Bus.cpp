@@ -20,7 +20,7 @@ namespace GBA::memory {
 		m_time{}, m_enable_prefetch(false), 
 		m_bios_latch{0x00}, m_open_bus_value{0x00},
 		m_open_bus_address{0x00}, m_ppu(nullptr), 
-		m_bios(nullptr)
+		m_bios(nullptr), m_sched(nullptr)
 	{
 		m_wram = new u8[0x3FFFF];
 		m_iwram = new u8[0x7FFF];
@@ -43,6 +43,7 @@ namespace GBA::memory {
 		}
 
 		m_time.PushInternalCycles(count);
+		m_sched->Advance(count);
 	}
 
 	u32 Bus::DebuggerRead32(u32 address) {

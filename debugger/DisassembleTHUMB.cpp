@@ -201,12 +201,10 @@ namespace GBA::debugger {
 
 		std::ostringstream buffer{ "" };
 
-		buffer << "ADD SP, # ";
-
 		if (type)
-			buffer << "0x" << std::hex << offset;
+			buffer << "SUB SP, 0x" << std::hex << offset;
 		else
-			buffer << "-0x" << std::hex << offset;
+			buffer << "ADD SP, 0x" << std::hex << offset;
 
 		return buffer.str();
 	}

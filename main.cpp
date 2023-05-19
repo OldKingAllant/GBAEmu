@@ -10,13 +10,15 @@
 
 #include "video/renderers/OpenGL_Renderer.hpp"
 
+#include "memory/EventScheduler.hpp"
+
 #ifdef main
 #undef main
 #endif // main
 
 
 int main(int argc, char* argv[]) {
-	std::string rom = "./testRoms/bios/bios.gba";
+	std::string rom = "./testRoms/m3_demo.gba";
 	std::string bios_path = "./testRoms/gba_bios.bin";
 
 	GBA::emulation::Emulator emu{rom, std::string_view(bios_path)};
@@ -54,6 +56,8 @@ int main(int argc, char* argv[]) {
 	}
 
 	GBA::video::renderer::OpenGL opengl_rend{};
+
+	opengl_rend.SetKeypad(&emu.GetContext().keypad);
 
 	if (!opengl_rend.Init(3, 3)) {
 		std::exit(0);

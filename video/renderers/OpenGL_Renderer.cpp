@@ -9,6 +9,8 @@
 
 #include "../../shared_obj/ProcedureWrapper.hpp"
 
+#include "../../memory/Keypad.hpp"
+
 namespace GBA::video::renderer {
 	LOG_CONTEXT(OpenGLRenderer);
 
@@ -166,6 +168,68 @@ namespace GBA::video::renderer {
 				m_stop = true;
 		}
 		break;
+
+		case SDL_KEYDOWN: {
+			KeyDown(&ev->key);
+		}
+		break;
+
+		case SDL_KEYUP: {
+			KeyUp(&ev->key);
+		}
+		break;
+
+		default:
+			break;
+		}
+	}
+
+	void OpenGL::KeyDown(SDL_KeyboardEvent* ev) {
+		using input::Buttons;
+
+		switch (ev->keysym.scancode)
+		{
+		case SDL_SCANCODE_RIGHT:
+			m_keypad->KeyPressed(Buttons::BUTTON_RIGHT);
+			break;
+
+		case SDL_SCANCODE_LEFT:
+			m_keypad->KeyPressed(Buttons::BUTTON_LEFT);
+			break;
+
+		case SDL_SCANCODE_UP:
+			m_keypad->KeyPressed(Buttons::BUTTON_UP);
+			break;
+
+		case SDL_SCANCODE_DOWN:
+			m_keypad->KeyPressed(Buttons::BUTTON_DOWN);
+			break;
+
+		default:
+			break;
+		}
+	}
+
+	void OpenGL::KeyUp(SDL_KeyboardEvent* ev) {
+		using input::Buttons;
+
+		switch (ev->keysym.scancode)
+		{
+		case SDL_SCANCODE_RIGHT:
+			m_keypad->KeyReleased(Buttons::BUTTON_RIGHT);
+			break;
+
+		case SDL_SCANCODE_LEFT:
+			m_keypad->KeyReleased(Buttons::BUTTON_LEFT);
+			break;
+
+		case SDL_SCANCODE_UP:
+			m_keypad->KeyReleased(Buttons::BUTTON_UP);
+			break;
+
+		case SDL_SCANCODE_DOWN:
+			m_keypad->KeyReleased(Buttons::BUTTON_DOWN);
+			break;
 
 		default:
 			break;

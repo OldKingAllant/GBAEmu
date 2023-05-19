@@ -91,30 +91,26 @@ namespace GBA::cpu {
 				0xFFFFFFFF;
 		}
 
-		void OverflowAdd(uint64_t first, uint64_t second) {
-			uint64_t res = (uint64_t)first + second;
+		void OverflowAdd(u32 first, u32 second) {
+			u32 res = first + second;
 
 			constexpr uint32_t max_num = (uint32_t)(1 << 31) - 1;
 			constexpr int32_t min_num = -(1 << 31);
 
-			overflow = 
-				res >= max_num ||
-				(int64_t)res < min_num;
+			overflow = (~(first ^ second) & (second & res)) >> 31;
 		}
 
 		void CarrySubtract(uint64_t first, uint64_t second) {
 			carry = first >= second;
 		}
 
-		void OverflowSubtract(uint64_t first, uint64_t second) {
-			uint64_t res = (uint64_t)first - second;
+		void OverflowSubtract(u32 first, u32 second) {
+			u32 res = first - second;
 
 			constexpr uint32_t max_num = (uint32_t)(1 << 31) - 1;
 			constexpr int32_t min_num = -(1 << 31);
 
-			overflow =
-				res >= max_num ||
-				(int64_t)res < min_num;
+			overflow = ((first ^ second) & (second & res)) >> 31;
 		}
 	};
 #pragma pack(pop)

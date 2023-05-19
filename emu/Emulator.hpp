@@ -9,6 +9,8 @@
 #include "../gamepack/GamePack.hpp"
 #include "../ppu/PPU.hpp"
 #include "../memory/InterruptController.hpp"
+#include "../memory/EventScheduler.hpp"
+#include "../memory/Keypad.hpp"
 
 namespace GBA::emulation {
 	struct EmulatorContext {
@@ -17,6 +19,8 @@ namespace GBA::emulation {
 		gamepack::GamePack pack;
 		ppu::PPU ppu;
 		memory::InterruptController* int_controller;
+		memory::EventScheduler scheduler;
+		input::Keypad keypad;
 	};
 
 	class Emulator {

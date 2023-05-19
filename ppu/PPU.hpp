@@ -7,6 +7,7 @@
 namespace GBA::memory {
 	class MMIO;
 	class InterruptController;
+	class EventScheduler;
 }
 
 namespace GBA::ppu {
@@ -28,12 +29,6 @@ namespace GBA::ppu {
 
 		common::u8 ReadRegister8(common::u8 offset) const;
 		void WriteRegister8(common::u8 offset, common::u8 value);
-
-		void WriteDisplayControl8(common::u8 offset, common::u8 value);
-		void WriteDisplayControl16(common::u16 value);
-
-		void WriteDisplayStatus8(common::u8 offset, common::u8 value);
-		void WriteDisplayStatus16(common::u16 value);
 
 		void ClockCycles(common::u32 num_cycles);
 
@@ -105,6 +100,12 @@ namespace GBA::ppu {
 		}
 
 		void SetInterruptController(memory::InterruptController* int_controller);
+		void SetScheduler(memory::EventScheduler* sched);
+
+		friend void HblankEventCallback(void* ppu_ptr);
+		friend void NormalEventCallback(void* ppu_ptr);
+		friend void VblankEventCallback(void* ppu_ptr);
+		friend void ScanlineEventCallback(void* ppu_ptr);
 
 		~PPU();
 
@@ -152,6 +153,9 @@ namespace GBA::ppu {
 		bool m_frame_ok;
 
 		memory::InterruptController* m_int_control;
+		memory::EventScheduler* m_sched;
+
+		uint64_t m_last_event_timestamp;
 
 		static constexpr common::u32 CYCLES_PER_PIXEL = 4;
 		static constexpr common::u32 CYCLES_PER_SCANLINE = 960;

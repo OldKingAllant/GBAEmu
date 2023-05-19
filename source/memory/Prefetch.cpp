@@ -4,7 +4,7 @@
 
 namespace GBA::memory {
 	template <>
-	u16 Bus::Prefetch<u16>(u32 address, bool code, MEMORY_RANGE region) {
+	u16 Bus::Prefetch<u16>(u32 address, bool code, MEMORY_RANGE region, u32& cycles) {
 		u32 addr_low = address & 0x00FFFFFF;
 
 		if (!code || !m_enable_prefetch) {
@@ -16,11 +16,11 @@ namespace GBA::memory {
 				acc = Access::NonSeq;
 
 			if (region == MEMORY_RANGE::ROM_REG_1)
-				m_time.PushCycles<MEMORY_RANGE::ROM_REG_1, 2>(acc);
+				cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_1, 2>(acc);
 			else if (region == MEMORY_RANGE::ROM_REG_2)
-				m_time.PushCycles<MEMORY_RANGE::ROM_REG_2, 2>(acc);
+				cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_2, 2>(acc);
 			else 
-				m_time.PushCycles<MEMORY_RANGE::ROM_REG_3, 2>(acc);
+				cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_3, 2>(acc);
 
 			return m_pack->Read(addr_low);
 		}
@@ -29,7 +29,7 @@ namespace GBA::memory {
 	}
 
 	template <>
-	u32 Bus::Prefetch<u32>(u32 address, bool code, MEMORY_RANGE region) {
+	u32 Bus::Prefetch<u32>(u32 address, bool code, MEMORY_RANGE region, u32& cycles) {
 		u32 addr_low = address & 0x00FFFFFF;
 
 		u32 value = m_pack->Read(addr_low);
@@ -44,11 +44,11 @@ namespace GBA::memory {
 				acc = Access::NonSeq;
 
 			if (region == MEMORY_RANGE::ROM_REG_1)
-				m_time.PushCycles<MEMORY_RANGE::ROM_REG_1, 4>(acc);
+				cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_1, 4>(acc);
 			else if (region == MEMORY_RANGE::ROM_REG_2)
-				m_time.PushCycles<MEMORY_RANGE::ROM_REG_2, 4>(acc);
+				cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_2, 4>(acc);
 			else
-				m_time.PushCycles<MEMORY_RANGE::ROM_REG_3, 4>(acc);
+				cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_3, 4>(acc);
 
 			return value;
 		}

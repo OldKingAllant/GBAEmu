@@ -211,7 +211,8 @@ namespace GBA::memory {
 						continue;
 
 					if (reg.write_callback.has_value()) {
-						reg.write_callback.value()((common::u8)value, offset);
+						reg.write_callback.value()((common::u8)value, offset + pos);
+						value >>= 8;
 						continue;
 					}
 

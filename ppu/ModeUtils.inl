@@ -2,4 +2,4 @@
 
 #include "../common/Defs.hpp"
 
-void CalculateMosaicBG(GBA::common::u32& x, GBA::common::u32& y);
+void CalculateMosaicBG(GBA::common::i32& x, GBA::common::i32& y);
