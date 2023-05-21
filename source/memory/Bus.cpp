@@ -62,19 +62,19 @@ namespace GBA::memory {
 			return *reinterpret_cast<u32*>(m_bios + addr_low);
 
 		case MEMORY_RANGE::EWRAM:
-			return reinterpret_cast<u32*>(m_wram)[addr_low / 4];
+			return *reinterpret_cast<u32*>(m_wram + addr_low);
 
 		case MEMORY_RANGE::IWRAM:
-			return reinterpret_cast<u32*>(m_iwram)[addr_low / 4];
+			return *reinterpret_cast<u32*>(m_iwram + addr_low);
 
 		case MEMORY_RANGE::IO:
 			return 0x00;
 
 		case MEMORY_RANGE::PAL:
-			return 0x00;
+			return *reinterpret_cast<u32*>(m_ppu->DebuggerGetPalette() + addr_low);
 
 		case MEMORY_RANGE::VRAM:
-			return 0x00;
+			return *reinterpret_cast<u32*>(m_ppu->DebuggerGetVRAM() + addr_low);
 
 		case MEMORY_RANGE::OAM:
 			return 0x00;
@@ -110,19 +110,19 @@ namespace GBA::memory {
 			return *reinterpret_cast<u16*>(m_bios + addr_low);
 
 		case MEMORY_RANGE::EWRAM:
-			return reinterpret_cast<u16*>(m_wram)[addr_low / 2];
+			return *reinterpret_cast<u16*>(m_wram + addr_low);
 
 		case MEMORY_RANGE::IWRAM:
-			return reinterpret_cast<u16*>(m_iwram)[addr_low / 2];
+			return *reinterpret_cast<u16*>(m_iwram + addr_low);
 
 		case MEMORY_RANGE::IO:
 			return 0x00;
 
 		case MEMORY_RANGE::PAL:
-			return 0x00;
+			return *reinterpret_cast<u16*>(m_ppu->DebuggerGetPalette() + addr_low);
 
 		case MEMORY_RANGE::VRAM:
-			return 0x00;
+			return *reinterpret_cast<u16*>(m_ppu->DebuggerGetVRAM() + addr_low);
 
 		case MEMORY_RANGE::OAM:
 			return 0x00;

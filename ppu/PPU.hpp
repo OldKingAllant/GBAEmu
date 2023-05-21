@@ -109,6 +109,9 @@ namespace GBA::ppu {
 
 		~PPU();
 
+		common::u8* DebuggerGetPalette();
+		common::u8* DebuggerGetVRAM();
+
 	private:
 		void InitHandlers(memory::MMIO* mmio);
 

@@ -209,7 +209,6 @@ namespace GBA::ppu {
 	void PPU::Mode0() {}
 	void PPU::Mode1() {}
 	void PPU::Mode2() {}
-	void PPU::Mode5() {}
 
 	common::u32 PPU::ReadRegister32(common::u8 offset) const {
 		return reinterpret_cast<u32 const*>(m_ctx.array)[offset];
@@ -233,5 +232,13 @@ namespace GBA::ppu {
 
 	void PPU::WriteRegister8(common::u8 offset, common::u8 value) {
 		m_ctx.array[offset] = value;
+	}
+
+	common::u8* PPU::DebuggerGetPalette() {
+		return m_palette_ram;
+	}
+
+	common::u8* PPU::DebuggerGetVRAM() {
+		return m_vram;
 	}
 }

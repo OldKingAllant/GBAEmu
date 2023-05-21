@@ -3,6 +3,7 @@
 #include <SDL2/SDL.h>
 
 #include <Windows.h>
+#include <GL/glew.h>
 #include <gl/GL.h>
 
 #include "../../common/Logger.hpp"
@@ -11,61 +12,16 @@
 
 #include "../../memory/Keypad.hpp"
 
+#include "detail/OpengGLFunctions.hpp"
+
 namespace GBA::video::renderer {
 	LOG_CONTEXT(OpenGLRenderer);
-
-	#define GL_CLAMP_TO_EDGE 0x812F
-
-	struct OpenglFunctions {
-		typedef void (APIENTRY * GLCLEAR)(GLbitfield mask);
-		typedef void (APIENTRY * GLCLEARCOLOR)(GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha);
-		typedef void (APIENTRY * GLGENTEXTURES)(GLsizei n, GLuint* textures);
-		typedef void (APIENTRY * GLDELTEXTURES)(GLsizei n, const GLuint* textures);
-		typedef void (APIENTRY * GLBINDTEXTURE)(GLenum target, GLuint texture);
-		typedef void (APIENTRY * GLTEXIMAGE2D)(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid* pixels);
-		typedef void (APIENTRY * GLTEXPARAMI)(GLenum target, GLenum pname, GLint param);
-		typedef GLenum (APIENTRY * GLGETERROR)(void);
-		typedef void (APIENTRY * GLBEGIN)(GLenum mode);
-		typedef void (APIENTRY * GLEND)(void);
-		typedef void (APIENTRY * GLVERTEX2I)(GLshort x, GLshort y);
-		typedef void (APIENTRY * GLVIEWPORT)(GLint x, GLint y, GLsizei width, GLsizei height);
-		typedef void (APIENTRY * GLMATRIXMODE)(GLenum mode);
-		typedef void (APIENTRY * GLIDENT)(void);
-		typedef void (APIENTRY * GLUORTHO2D)(GLdouble left, GLdouble right, GLdouble bottom, GLdouble top);
-		typedef void (APIENTRY * GLTEXCOORD2F)(GLfloat s, GLfloat t);
-		typedef void (APIENTRY * GLVERTEX2F)(GLfloat x, GLfloat y);
-		typedef void (APIENTRY * GLENABLE)(GLenum cap);
-		typedef void (APIENTRY * GLPIXELSTOREI)(GLenum pname, GLint param);
-
-		//GLCLEAR glClear;
-		shared_object::FunctionWrapper* glClear;
-		GLCLEARCOLOR glClearColor;
-		GLGENTEXTURES glGenTextures;
-		GLDELTEXTURES glDeleteTextures;
-		GLBINDTEXTURE glBindTexture;
-		GLTEXIMAGE2D glTexImage2D;
-		GLTEXPARAMI glTexParameteri;
-		GLGETERROR glGetError;
-		GLBEGIN glBegin;
-		GLEND glEnd;
-		GLVERTEX2I glVertex2i;
-		GLVIEWPORT glViewport;
-		GLMATRIXMODE glMatrixMode;
-		GLIDENT glLoadIdentity;
-		GLUORTHO2D gluOrtho2D;
-		GLTEXCOORD2F glTexCoord2f;
-		GLVERTEX2F glVertex2f;
-		GLENABLE glEnable;
-		GLPIXELSTOREI glPixelStorei;
-	};
 
 	OpenGL::OpenGL() :
 		m_window(nullptr), m_gl_context(nullptr),
 		m_functions(nullptr), m_opengl(), m_glu(),
 		m_gl_data{}
 	{
-		LoadOpengl();
-
 		m_gl_data.placeholder_data = new float[240 * 160 * 3];
 
 		std::fill_n(m_gl_data.placeholder_data, 240 * 160 * 3, 0.5f);
@@ -90,36 +46,22 @@ namespace GBA::video::renderer {
 			return;
 		}
 
-		m_functions = new OpenglFunctions{};
+		if (glewInit() != GLEW_OK) {
+			LOG_ERROR("Glew init failed!");
+			return;
+		}
 
-		m_functions->glClear = new shared_object::FunctionWrapperImpl<void(*)(GLbitfield mask), 
-			shared_object::CallConvetion::STCALL>(m_opengl.GetProcAddress("glClear"));
-		m_functions->glClearColor = (OpenglFunctions::GLCLEARCOLOR)m_opengl.GetProcAddress("glClearColor");
-		m_functions->glGenTextures = (OpenglFunctions::GLGENTEXTURES)m_opengl.GetProcAddress("glGenTextures");
-		m_functions->glDeleteTextures = (OpenglFunctions::GLDELTEXTURES)m_opengl.GetProcAddress("glDeleteTextures");
-		m_functions->glBindTexture = (OpenglFunctions::GLBINDTEXTURE)m_opengl.GetProcAddress("glBindTexture");
-		m_functions->glTexImage2D = (OpenglFunctions::GLTEXIMAGE2D)m_opengl.GetProcAddress("glTexImage2D");
-		m_functions->glTexParameteri = (OpenglFunctions::GLTEXPARAMI)m_opengl.GetProcAddress("glTexParameteri");
-		m_functions->glGetError = (OpenglFunctions::GLGETERROR)m_opengl.GetProcAddress("glGetError");
-		m_functions->glBegin = (OpenglFunctions::GLBEGIN)m_opengl.GetProcAddress("glBegin");
-		m_functions->glEnd = (OpenglFunctions::GLEND)m_opengl.GetProcAddress("glEnd");
-		m_functions->glVertex2i = (OpenglFunctions::GLVERTEX2I)m_opengl.GetProcAddress("glVertex2i");
-		m_functions->glViewport = (OpenglFunctions::GLVIEWPORT)m_opengl.GetProcAddress("glViewport");
-		m_functions->glMatrixMode = (OpenglFunctions::GLMATRIXMODE)m_opengl.GetProcAddress("glMatrixMode");
-		m_functions->glLoadIdentity = (OpenglFunctions::GLIDENT)m_opengl.GetProcAddress("glLoadIdentity");
+		m_functions = LoadOpenglFunctions(&m_opengl);
+
 		m_functions->gluOrtho2D = (OpenglFunctions::GLUORTHO2D)m_glu.GetProcAddress("gluOrtho2D");
-		m_functions->glTexCoord2f = (OpenglFunctions::GLTEXCOORD2F)m_opengl.GetProcAddress("glTexCoord2f");
-		m_functions->glVertex2f = (OpenglFunctions::GLVERTEX2F)m_opengl.GetProcAddress("glVertex2f");
-		m_functions->glEnable = (OpenglFunctions::GLENABLE)m_opengl.GetProcAddress("glEnable");
-		m_functions->glPixelStorei = (OpenglFunctions::GLPIXELSTOREI)m_opengl.GetProcAddress("glPixelStorei");
 	}
 
 	bool OpenGL::Init(unsigned scale_x, unsigned scale_y) {
 		m_scale_x = scale_x;
 		m_scale_y = scale_y;
 
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 
 		SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
@@ -140,6 +82,23 @@ namespace GBA::video::renderer {
 			return false;
 		}
 
+		LoadOpengl();
+
+		m_functions->glGenBuffers(1, &m_gl_data.buffer_id);
+		m_functions->glBindBuffer(GL_ARRAY_BUFFER, m_gl_data.buffer_id);
+		m_functions->glBufferData(GL_ARRAY_BUFFER, 24 * sizeof(float), m_gl_data.vertex_data, GL_STATIC_DRAW);
+
+		m_functions->glGenVertexArrays(1, &m_gl_data.vertex_array);
+		m_functions->glBindVertexArray(m_gl_data.vertex_array);
+
+		m_functions->glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+		m_functions->glEnableVertexAttribArray(0);
+		m_functions->glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*)(2 * sizeof(float)));
+		m_functions->glEnableVertexAttribArray(1);
+
+		m_functions->glBindBuffer(GL_ARRAY_BUFFER, 0);
+		m_functions->glBindVertexArray(0);
+
 		m_functions->glGenTextures(1, &m_gl_data.texture_id);
 		m_functions->glBindTexture(GL_TEXTURE_2D, m_gl_data.texture_id);
 
@@ -150,6 +109,17 @@ namespace GBA::video::renderer {
 
 		m_functions->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		m_functions->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+		auto program = CreateProgram({ 
+			std::pair{ "./assets/base.vert", GL_VERTEX_SHADER },
+			std::pair{ "./assets/base.frag", GL_FRAGMENT_SHADER }
+			}, m_functions);
+
+		m_gl_data.program_id = program.first;
+
+		m_functions->glUseProgram(m_gl_data.program_id);
+
+		m_gl_data.texture_loc = m_functions->glGetUniformLocation(m_gl_data.program_id, "frame");
 
 		CheckForErrors();
 
@@ -243,41 +213,24 @@ namespace GBA::video::renderer {
 
 	void OpenGL::PresentFrame() {
 		m_functions->glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-		m_functions->glClear->call<void>((unsigned)GL_COLOR_BUFFER_BIT);
+		m_functions->glClear(GL_COLOR_BUFFER_BIT);
 
-		m_functions->glEnable(GL_TEXTURE_2D);
+		m_functions->glUseProgram(m_gl_data.program_id);
 
+		m_functions->glActiveTexture(GL_TEXTURE0);
 		m_functions->glBindTexture(GL_TEXTURE_2D, m_gl_data.texture_id);
+
+		m_functions->glUniform1i(m_gl_data.texture_loc, 0);
+		//m_functions->glBindBuffer(GL_ARRAY_BUFFER, m_gl_data.buffer_id);
 
 		m_functions->glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,
 			240, 160, 0, GL_RGB, GL_FLOAT, (void*)m_gl_data.placeholder_data);
 
-		double h = GBA_HEIGHT * (double)m_scale_y;
-		double w = GBA_WIDTH * (double)m_scale_x;
+		m_functions->glBindVertexArray(m_gl_data.vertex_array);
 
-		m_functions->glViewport(0, 0, (GLsizei)w, (GLsizei)h);
+		m_functions->glDrawArrays(GL_TRIANGLES, 0, 6);
 
-		m_functions->glMatrixMode(GL_PROJECTION);
-		m_functions->glLoadIdentity();
-
-		m_functions->gluOrtho2D(0, w, h, 0);
-
-		CheckForErrors();
-
-		m_functions->glBegin(GL_QUADS);
-
-		m_functions->glTexCoord2f(0.0f, 0.0f);
-		m_functions->glVertex2f(0.0f, 0.0f);
-		m_functions->glTexCoord2f(1.0f, 0.0f);
-		m_functions->glVertex2f((float)w, 0);
-		m_functions->glTexCoord2f(1.0f, 1.0f);
-		m_functions->glVertex2f((float)w, (float)h);
-		m_functions->glTexCoord2f(0.0f, 1.0f);
-		m_functions->glVertex2f(0.0f, (float)h);
-
-		m_functions->glEnd();
-
-		CheckForErrors();
+		m_functions->glBindVertexArray(0);
 
 		SDL_GL_SwapWindow(m_window);
 	}

@@ -20,8 +20,88 @@
 #include "DisassembleARM.hpp"
 #include "DisassembleTHUMB.hpp"
 #include "Debugger.hpp"
+#include "../emu/Emulator.hpp"
+
+#include <vector>
 
 namespace GBA::debugger {
+	struct IORegComponents {
+		const char* name;
+		u8 bit_start;
+		u8 bit_len;
+	};
+
+	struct IORegisterInfo {
+		u16 offset;
+		u8 size;
+		const char* name;
+	};
+
+	struct ExtendedIORegisterInfo {
+		u16 offset;
+		u8 size;
+		const char* name;
+		std::vector<IORegComponents> components;
+	};
+
+	struct IOComponent {
+		const char* name;
+		u16 base;
+		std::vector<ExtendedIORegisterInfo> registers;
+	};
+
+	std::vector<IOComponent> hardware_components = {
+		IOComponent { "PPU", 0x0, 
+			{
+				ExtendedIORegisterInfo {
+					0x0, 2, "DISPCNT", {
+						{ "BG Mode", 0, 3 },
+						{ "CGB Mode", 3, 1 },
+						{ "Frame select", 4, 1},
+						{ "H-Blank interval free", 5, 1},
+						{ "OBJ one dimensional mapping", 6, 1},
+						{ "Forced blank", 7, 1},
+						{ "BG0 enable", 8, 1},
+						{ "BG1 enable", 9, 1},
+						{ "BG2 enable", 10, 1},
+						{ "BG3 enable", 11, 1},
+						{ "OBJ enable", 12, 1},
+						{ "Window 0 enable", 13, 1},
+						{ "Window 1 enable", 14, 1},
+						{ "OBJ Window enable", 15, 1},
+					}
+				}, 
+				ExtendedIORegisterInfo {
+					0x4, 2, "DISPSTAT", {
+						{ "V-Blank flag", 0, 1},
+						{ "H-Blank flag", 1, 1},
+						{ "V-Count match flag", 2, 1},
+						{ "V-Blank irq enable", 3, 1},
+						{ "H-Blank irq enable", 4, 1},
+						{ "V-Count irq enable", 5, 1},
+						{ "V-Count setting", 8, 8}
+					}
+				},
+				ExtendedIORegisterInfo {
+					0x6, 2, "VCOUNT", {
+						{ "LYC", 0, 8}
+					}
+				}
+			} 
+		}
+	};
+
+	static const IORegisterInfo io_registers[] = {
+		{ 0x0, 2, "DISPCNT" },
+		{ 0x4, 2, "DISPSTAT" },
+		{ 0x6, 2, "VCOUNT" },
+		{ 0x130, 2, "KEYINPUT" },
+		{ 0x132, 2, "KEYCNT" },
+		{ 0x200, 2, "IE" },
+		{ 0x202, 2, "IF" },
+		{ 0x208, 4, "IME" }
+	};
+
 	DebugWindow::DebugWindow(Debugger& debug) : 
 		m_debugger(debug),
 		m_processor(nullptr), 
@@ -56,6 +136,12 @@ namespace GBA::debugger {
 
 		m_emu_status.stopped = true;
 		m_emu_status.update_ui = true;
+
+		auto& context = debug.GetEmulator().GetContext();
+
+		m_processor = &context.processor;
+		m_bus = &context.bus;
+		m_pack = &context.pack;
 	}
 
 	void DebugWindow::Init() {
@@ -98,6 +184,8 @@ namespace GBA::debugger {
 		DrawDisassemblerWindow();
 		DrawControlWindow();
 		DrawMemoryWindow();
+		DrawGamepakWindow();
+		DrawIOMemory();
 
 		ImGui::Render();
 
@@ -536,7 +624,7 @@ namespace GBA::debugger {
 
 			u8 shown_values = 0;
 
-			while (x_space > 0 && shown_values < 16 && address < ranges[id][1]) {
+			while (x_space > 0 && shown_values < 16 && address <= ranges[id][1]) {
 				buf.str("");
 
 				u16 value = m_bus->DebuggerRead16(address);
@@ -604,24 +692,179 @@ namespace GBA::debugger {
 		ImGui::End();
 	}
 
+	void DebugWindow::DrawGamepakWindow() {
+		ImGui::Begin("Gamepak info");
+
+		if (ImGui::BeginTable("#Header", 2, ImGuiTableFlags_Borders)) {
+			auto& header = m_pack->GetHeader();
+
+			ImGui::TableNextColumn();
+			ImGui::TextColored(gui_colors::YELLOW, "Backup type");
+			ImGui::TableNextColumn();
+			ImGui::Text("Unimplemented");
+
+			ImGui::TableNextRow();
+
+			ImGui::TableNextColumn();
+			ImGui::TextColored(gui_colors::YELLOW, "Title");
+			ImGui::TableNextColumn();
+			ImGui::Text(reinterpret_cast<const char*>(header.title));
+
+			ImGui::TableNextRow();
+
+			ImGui::TableNextColumn();
+			ImGui::TextColored(gui_colors::YELLOW, "Game maker");
+			ImGui::TableNextColumn();
+			ImGui::Text("%.*s", 4, header.gameMaker);
+
+			ImGui::TableNextRow();
+
+			ImGui::TableNextColumn();
+			ImGui::TextColored(gui_colors::YELLOW, "Maker code");
+			ImGui::TableNextColumn();
+			ImGui::Text("%.*s", 2, header.makerCode);
+
+			ImGui::TableNextRow();
+
+			ImGui::TableNextColumn();
+			ImGui::TextColored(gui_colors::YELLOW, "Fixed");
+			ImGui::TableNextColumn();
+			ImGui::Text("0x%x", header.fixed);
+
+			ImGui::TableNextRow();
+
+			ImGui::TableNextColumn();
+			ImGui::TextColored(gui_colors::YELLOW, "Unit code");
+			ImGui::TableNextColumn();
+			ImGui::Text("0x%x", header.unitCode);
+
+			ImGui::TableNextRow();
+
+			ImGui::TableNextColumn();
+			ImGui::TextColored(gui_colors::YELLOW, "Device type");
+			ImGui::TableNextColumn();
+			ImGui::Text("0x%x", header.devType);
+
+			ImGui::TableNextRow();
+
+			ImGui::TableNextColumn();
+			ImGui::TextColored(gui_colors::YELLOW, "Version");
+			ImGui::TableNextColumn();
+			ImGui::Text("0x%x", header.version);
+
+			ImGui::TableNextRow();
+
+			ImGui::TableNextColumn();
+			ImGui::TextColored(gui_colors::YELLOW, "Checksum");
+			ImGui::TableNextColumn();
+			ImGui::Text("0x%x", header.headerChecksum);
+
+			ImGui::EndTable();
+		}
+
+		ImGui::End();
+	}
+
+	void DebugWindow::DrawIOMemory() {
+		ImGui::Begin("MMIO");
+
+		memory::MMIO* mmio = m_debugger.GetEmulator()
+			.GetContext().bus.GetMMIO();
+
+		auto output_register = [mmio](int reg_num) {
+			ImGui::TextColored(gui_colors::YELLOW,
+				io_registers[reg_num].name);
+
+			u16 offset = io_registers[reg_num].offset;
+			u8 size = io_registers[reg_num].size;
+
+			u32 value = 0;
+
+			for (u8 curr_pos = 0; curr_pos <
+				size; curr_pos++) {
+				u8 byte_val = mmio->DebuggerReadIO(
+					offset + curr_pos
+				);
+
+				value |= ((u32)byte_val << (8 * curr_pos));
+			}
+
+			ImGui::Text("  0x%x", value);
+		};
+
+		ImGui::BeginTabBar("#MMIO_Tabs");
+
+		if (ImGui::BeginTabItem("Raw view")) {
+			int num_regs = (int)(std::end(io_registers) -
+				std::begin(io_registers));
+
+			for (int i = 0; i < num_regs; i++) {
+				output_register(i);
+			}
+
+			ImGui::EndTabItem();
+		}
+
+		for (IOComponent const& component : hardware_components) {
+			if (ImGui::BeginTabItem(component.name)) {
+				for (auto const& reg : component.registers) {
+					ImGui::TextColored(gui_colors::YELLOW, reg.name);
+
+					ImGui::BeginTable(component.name, 2, ImGuiTableFlags_Borders);
+
+					ImGui::TableNextRow();
+					ImGui::TableNextColumn();
+
+					u16 offset = reg.offset;
+					u8 size = reg.size;
+
+					u32 reg_value = 0;
+
+					for (u8 curr_pos = 0; curr_pos <
+						size; curr_pos++) {
+						u8 byte_val = mmio->DebuggerReadIO(
+							offset + curr_pos
+						);
+
+						reg_value |= ((u32)byte_val << (8 * curr_pos));
+					}
+
+					for (auto const& part : reg.components) {
+						ImGui::TextColored(gui_colors::YELLOW, part.name);
+
+						ImGui::TableNextColumn();
+
+						u32 mask = (1 << part.bit_len) - 1;
+
+						u32 part_value = (reg_value >> part.bit_start) & mask;
+
+						ImGui::Text("0x%x", part_value);
+
+						ImGui::TableNextRow();
+						ImGui::TableNextColumn();
+					}
+
+					ImGui::EndTable();
+
+					ImGui::Spacing();
+					ImGui::Spacing();
+				}
+
+				ImGui::EndTabItem();
+			}
+		}
+
+		ImGui::EndTabBar();
+
+		ImGui::End();
+	}
+
 	DebugWindow::~DebugWindow() {
 		Stop();
 	}
 
 	bool DebugWindow::IsRunning() {
 		return m_running;
-	}
-
-	void DebugWindow::SetProcessor(cpu::ARM7TDI* processor) {
-		m_processor = processor;
-	}
-
-	void DebugWindow::SetBus(memory::Bus* bus) {
-		m_bus = bus;
-	}
-
-	void DebugWindow::SetGamePack(gamepack::GamePack* pack) {
-		m_pack = pack;
 	}
 
 	void DebugWindow::Stop() {

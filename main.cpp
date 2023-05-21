@@ -18,7 +18,7 @@
 
 
 int main(int argc, char* argv[]) {
-	std::string rom = "./testRoms/m3_demo.gba";
+	std::string rom = "./testRoms/tonc/bm_modes.gba";
 	std::string bios_path = "./testRoms/gba_bios.bin";
 
 	GBA::emulation::Emulator emu{rom, std::string_view(bios_path)};
@@ -43,10 +43,6 @@ int main(int argc, char* argv[]) {
 	GBA::debugger::Debugger debugger{ emu };
 
 	GBA::debugger::DebugWindow debug_window{ debugger };
-
-	debug_window.SetProcessor(&ctx.processor);
-	debug_window.SetBus(&ctx.bus);
-	debug_window.SetGamePack(&ctx.pack);
 
 	debug_window.Init();
 

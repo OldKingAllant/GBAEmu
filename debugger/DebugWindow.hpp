@@ -30,10 +30,6 @@ namespace GBA::debugger {
 	public :
 		DebugWindow(Debugger& debugger);
 
-		void SetProcessor(cpu::ARM7TDI* processor);
-		void SetBus(memory::Bus* bus);
-		void SetGamePack(gamepack::GamePack* pack);
-
 		void Init();
 		void Stop();
 
@@ -45,6 +41,8 @@ namespace GBA::debugger {
 		void DrawDisassemblerWindow();
 		void DrawControlWindow();
 		void DrawMemoryWindow();
+		void DrawGamepakWindow();
+		void DrawIOMemory();
 
 		~DebugWindow();
 

@@ -15,16 +15,15 @@ namespace GBA::shared_object {
 	public :
 		SharedObject();
 
-		bool Load(std::string_view location);
-		bool Unload();
+		virtual bool Load(std::string_view location);
+		virtual bool Unload();
 
-		Procedure GetProcAddress(std::string_view name);
+		virtual Procedure GetProcAddress(std::string_view name);
 
 		~SharedObject();
 
-	private :
+	protected :
 		ObjectHandle m_handle;
-		Procedure WGL_GetProcAddress;
 		std::string m_module_name;
 	};
 }

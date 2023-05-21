@@ -10,4 +10,13 @@ namespace GBA::memory {
 			reg.pointer = nullptr;
 		}
 	}
+
+	u8 MMIO::DebuggerReadIO(u16 offset) {
+		auto& reg = m_registers[offset];
+
+		if (!reg.pointer)
+			return 0xFF;
+
+		return *(reg.pointer);
+	}
 }

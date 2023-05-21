@@ -230,6 +230,8 @@ namespace GBA::memory {
 			}
 		}
 
+		common::u8 DebuggerReadIO(common::u16 offset);
+
 	private:
 		IORegister m_registers[IO_SIZE];
 	};
