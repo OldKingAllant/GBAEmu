@@ -151,6 +151,13 @@ namespace GBA::ppu {
 		mmio->AddRegister<u16>(0x0, true, true, &m_ctx.array[0x0], 0b1111111111110111);
 		mmio->AddRegister<u16>(0x4, true, true, &m_ctx.array[0x4], 0b1111111111111000);
 		mmio->AddRegister<u16>(0x6, true, false, &m_ctx.array[0x6], 0x0);
+		mmio->AddRegister<u16>(0x8, true, true, &m_ctx.array[0x8], 0xFFFF);
+		mmio->AddRegister<u16>(0xA, true, true, &m_ctx.array[0xA], 0xFFFF);
+		mmio->AddRegister<u16>(0xC, true, true, &m_ctx.array[0xC], 0xFFFF);
+		mmio->AddRegister<u16>(0xE, true, true, &m_ctx.array[0xE], 0xFFFF);
+
+		mmio->AddRegister<u16>(0x10, true, true, &m_ctx.array[0x10], 0xFFFF);
+		mmio->AddRegister<u16>(0x12, true, true, &m_ctx.array[0x12], 0xFFFF);
 	}
 
 	void PPU::ResetFrameData() {
@@ -206,7 +213,6 @@ namespace GBA::ppu {
 		delete[] m_framebuffer;
 	}
 
-	void PPU::Mode0() {}
 	void PPU::Mode1() {}
 	void PPU::Mode2() {}
 

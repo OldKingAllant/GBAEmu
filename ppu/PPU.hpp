@@ -4,6 +4,8 @@
 #include "../common/BitManip.hpp"
 #include "../common/Defs.hpp"
 
+#include <array>
+
 namespace GBA::memory {
 	class MMIO;
 	class InterruptController;
