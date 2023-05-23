@@ -434,7 +434,7 @@ namespace GBA::debugger {
 	}
 
 	Disasm DisassembleFormat17(u16 opcode, cpu::CPUContext& ctx) {
-		u8 comment = opcode & 0xFF;
+		u32 comment = opcode & 0xFF;
 
 		std::ostringstream buffer{ "" };
 

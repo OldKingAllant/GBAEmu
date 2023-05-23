@@ -172,10 +172,9 @@ namespace GBA::cpu::thumb{
 		}
 
 		void NEG(u8 dest_reg, u32 source, CPUContext& ctx) {
-			u32 reg_value = ctx.m_regs.GetReg(dest_reg);
-			u32 original = reg_value;
+			u32 original = source;
 
-			reg_value = 0 - source;
+			u32 reg_value = 0 - source;
 
 			ctx.m_regs.SetReg(dest_reg, reg_value);
 
