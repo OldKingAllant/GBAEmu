@@ -75,6 +75,11 @@ namespace GBA::memory {
 
 			u32 num_cycles = 0;
 
+			/*if (code && (region == MEMORY_RANGE::IWRAM
+				|| region == MEMORY_RANGE::EWRAM)) {
+				bool br = true;
+			}*/
+
 			//Some memory regions are mirrored, others are not
 
 			switch (region) {
@@ -145,8 +150,11 @@ namespace GBA::memory {
 			case MEMORY_RANGE::ROM_REG_1:
 			case MEMORY_RANGE::ROM_REG_2:
 			case MEMORY_RANGE::ROM_REG_3: {
-				if constexpr (sizeof(Type) == 1)
+				if constexpr (sizeof(Type) == 1) {
+					addr_low &= ~1;
 					return_value = (Type)Prefetch<u16>(address, code, region, num_cycles);
+					return_value >>= 8 * (addr_low % 2);
+				}	
 				else
 					return_value = Prefetch<Type>(address, code, region, num_cycles);
 			}
