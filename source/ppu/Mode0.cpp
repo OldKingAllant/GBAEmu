@@ -32,22 +32,20 @@ namespace GBA::ppu {
 			pixels = ProcessNormalBackground(3, curr_line);
 
 		for (int x = 0; x < 240; x++) {
-			if (!pixels[x].palette_id) {
-				m_framebuffer[framebuffer_y + x * 3] = 0.0f;
-				m_framebuffer[framebuffer_y + x * 3 + 1] = 0.0f;
-				m_framebuffer[framebuffer_y + x * 3 + 2] = 0.0f;
-			}
-			else {
-				u16 color_packed = pixels[x].color;
+			u16 backdrop = *reinterpret_cast<u16*>(m_palette_ram);
 
-				u8 r = color_packed & 0x1F;
-				u8 g = (color_packed >> 5) & 0x1F;
-				u8 b = (color_packed >> 10) & 0x1F;
+			u16 color_packed = backdrop;
 
-				m_framebuffer[framebuffer_y + x * 3] = (float)r / 0x1F;
-				m_framebuffer[framebuffer_y + x * 3 + 1] = (float)g / 0x1F;
-				m_framebuffer[framebuffer_y + x * 3 + 2] = (float)b / 0x1F;
-			}
+			if (pixels[x].palette_id)
+				color_packed = pixels[x].color;
+
+			u8 r = color_packed & 0x1F;
+			u8 g = (color_packed >> 5) & 0x1F;
+			u8 b = (color_packed >> 10) & 0x1F;
+
+			m_framebuffer[framebuffer_y + x * 3] = (float)r / 0x1F;
+			m_framebuffer[framebuffer_y + x * 3 + 1] = (float)g / 0x1F;
+			m_framebuffer[framebuffer_y + x * 3 + 2] = (float)b / 0x1F;
 		}
 	}
 }
