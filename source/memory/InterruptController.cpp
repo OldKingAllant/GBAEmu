@@ -38,10 +38,10 @@ namespace GBA::memory {
 	}
 
 	bool InterruptController::GetLineStatus() {
-		bool status = m_irq_line;
+		return m_irq_line;
+	}
 
+	void InterruptController::ResetLineStatus() {
 		m_irq_line = true;
-
-		return status;
 	}
 }

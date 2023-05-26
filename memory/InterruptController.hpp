@@ -33,6 +33,7 @@ namespace GBA::memory {
 		common::u16 GetIF() const;
 
 		bool GetLineStatus();
+		void ResetLineStatus();
 
 		void RequestInterrupt(InterruptType type);
 
