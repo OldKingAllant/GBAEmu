@@ -561,7 +561,7 @@ namespace GBA::cpu::thumb{
 			source = (ctx.m_regs.GetReg(15) + 4) & ~2;
 
 		u8 dest_reg = (instr >> 8) & 0x7;
-		u8 offset = (instr & 0xFF) * 4;
+		u32 offset = (instr & 0xFF) * 4;
 
 		ctx.m_regs.SetReg(dest_reg, source + offset);
 
@@ -1050,7 +1050,7 @@ namespace GBA::cpu::thumb{
 	void ThumbFormat9(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
 		u8 type = (instr >> 11) & 0x3;
 
-		u8 offset = (instr >> 6) & 0x1F;
+		u32 offset = (instr >> 6) & 0x1F;
 		u8 base_reg = (instr >> 3) & 0x7;
 		u8 rd = instr & 0x7;
 

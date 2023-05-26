@@ -158,7 +158,12 @@ namespace GBA::cpu {
 		u16 ie = m_int_controller->GetIE();
 		u16 _if = m_int_controller->GetIF();
 
-		return cpsr_ime && ime && (ie & _if);
+		if (cpsr_ime && ime && (ie & _if)) {
+			m_int_controller->ResetLineStatus();
+			return true;
+		}
+
+		return false;
 	}
 
 	u8 ARM7TDI::Step() {
