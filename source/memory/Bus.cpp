@@ -22,11 +22,11 @@ namespace GBA::memory {
 		m_open_bus_address{0x00}, m_ppu(nullptr), 
 		m_bios(nullptr), m_sched(nullptr)
 	{
-		m_wram = new u8[0x3FFFF];
-		m_iwram = new u8[0x7FFF];
+		m_wram = new u8[0x40000];
+		m_iwram = new u8[0x8000];
 
-		std::fill_n(m_wram, 0x3FFFF, 0x00);
-		std::fill_n(m_iwram, 0x7FFF, 0x00);
+		std::fill_n(m_wram, 0x40000, 0x00);
+		std::fill_n(m_iwram, 0x8000, 0x00);
 
 		mmio = new MMIO();
 

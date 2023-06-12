@@ -144,16 +144,17 @@ namespace GBA::memory {
 
 				addr_low &= REGIONS_LEN[(u8)MEMORY_RANGE::OAM];
 
-				return_value = 0x00;
+				return_value = m_ppu->ReadOAM<Type>(addr_low);
+
 				break;
 
 			case MEMORY_RANGE::ROM_REG_1:
 			case MEMORY_RANGE::ROM_REG_2:
 			case MEMORY_RANGE::ROM_REG_3: {
 				if constexpr (sizeof(Type) == 1) {
-					addr_low &= ~1;
-					return_value = (Type)Prefetch<u16>(address, code, region, num_cycles);
-					return_value >>= 8 * (addr_low % 2);
+					//addr_low &= ~1;
+					u16 temp = Prefetch<u16>(address & ~1, code, region, num_cycles);
+					return_value = (temp >> (8 * (addr_low % 2))) & 0xFF;
 				}	
 				else
 					return_value = Prefetch<Type>(address, code, region, num_cycles);
@@ -245,6 +246,9 @@ namespace GBA::memory {
 			case MEMORY_RANGE::OAM:
 				addr_low &= REGIONS_LEN[(u8)MEMORY_RANGE::OAM];
 				num_cycles = m_time.PushCycles<MEMORY_RANGE::OAM, type_size>();
+
+				m_ppu->WriteOAM<Type>(addr_low, value);
+
 				break;
 
 			case MEMORY_RANGE::ROM_REG_1:

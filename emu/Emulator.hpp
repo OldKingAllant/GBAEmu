@@ -11,6 +11,7 @@
 #include "../memory/InterruptController.hpp"
 #include "../memory/EventScheduler.hpp"
 #include "../memory/Keypad.hpp"
+#include "../memory/Timers.hpp"
 
 namespace GBA::emulation {
 	struct EmulatorContext {
@@ -21,6 +22,7 @@ namespace GBA::emulation {
 		memory::InterruptController* int_controller;
 		memory::EventScheduler scheduler;
 		input::Keypad keypad;
+		timers::TimerChain timers;
 	};
 
 	class Emulator {

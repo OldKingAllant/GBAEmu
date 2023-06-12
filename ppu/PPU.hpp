@@ -13,6 +13,13 @@ namespace GBA::memory {
 }
 
 namespace GBA::ppu {
+	struct Pixel {
+		bool is_obj;
+		GBA::common::i16 palette_id;
+		GBA::common::u16 color;
+		GBA::common::u8 priority;
+	};
+
 	enum class Mode {
 		NORMAL,
 		VBLANK,
@@ -92,6 +99,22 @@ namespace GBA::ppu {
 			}
 		}
 
+		template <typename Type>
+		Type ReadOAM(common::u32 address) {
+			address /= sizeof(Type);
+
+			return reinterpret_cast<Type*>(m_oam)[address];
+		}
+
+		template <typename Type>
+		void WriteOAM(common::u32 address, Type value) {
+			address /= sizeof(Type);
+
+			if (sizeof(Type) != 1) {
+				reinterpret_cast<Type*>(m_oam)[address] = value;
+			}
+		}
+
 		bool HasFrame() {
 			return m_frame_ok;
 		}
@@ -118,6 +141,8 @@ namespace GBA::ppu {
 		void InitHandlers(memory::MMIO* mmio);
 
 		void ResetFrameData();
+
+		std::array<Pixel, 240> DrawSprites(int lcd_y);
 
 #include "ModeUtils.inl"
 
@@ -147,13 +172,12 @@ namespace GBA::ppu {
 
 		common::u8* m_palette_ram;
 		common::u8* m_vram;
+		common::u8* m_oam;
 
 		float* m_framebuffer;
 
-		common::u32 m_internal_reference_x_bg0;
-		common::u32 m_internal_reference_x_bg1;
-		common::u32 m_internal_reference_y_bg0;
-		common::u32 m_internal_reference_y_bg1;
+		common::u32 m_internal_reference_x[2];
+		common::u32 m_internal_reference_y[2];
 
 		bool m_frame_ok;
 
@@ -175,6 +199,6 @@ namespace GBA::ppu {
 		static constexpr common::u32 PALETTE_SIZE = 512;
 
 		static constexpr common::u32 BG_PALETTE_START = 0x0;
-		static constexpr common::u32 OBJ_PALETTE_START = 0x1FF;
+		static constexpr common::u32 OBJ_PALETTE_START = 0x200;
 	};
 }

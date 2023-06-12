@@ -175,6 +175,30 @@ namespace GBA::video::renderer {
 			m_keypad->KeyPressed(Buttons::BUTTON_DOWN);
 			break;
 
+		case SDL_SCANCODE_A:
+			m_keypad->KeyPressed(Buttons::BUTTON_A);
+			break;
+
+		case SDL_SCANCODE_S:
+			m_keypad->KeyPressed(Buttons::BUTTON_B);
+			break;
+
+		case SDL_SCANCODE_Q:
+			m_keypad->KeyPressed(Buttons::BUTTON_L);
+			break;
+
+		case SDL_SCANCODE_E:
+			m_keypad->KeyPressed(Buttons::BUTTON_R);
+			break;
+
+		case SDL_SCANCODE_BACKSPACE:
+			m_keypad->KeyPressed(Buttons::BUTTON_SELECT);
+			break;
+
+		case SDL_SCANCODE_SPACE:
+			m_keypad->KeyPressed(Buttons::BUTTON_START);
+			break;
+
 		default:
 			break;
 		}
@@ -199,6 +223,30 @@ namespace GBA::video::renderer {
 
 		case SDL_SCANCODE_DOWN:
 			m_keypad->KeyReleased(Buttons::BUTTON_DOWN);
+			break;
+
+		case SDL_SCANCODE_A:
+			m_keypad->KeyReleased(Buttons::BUTTON_A);
+			break;
+
+		case SDL_SCANCODE_S:
+			m_keypad->KeyReleased(Buttons::BUTTON_B);
+			break;
+
+		case SDL_SCANCODE_Q:
+			m_keypad->KeyReleased(Buttons::BUTTON_L);
+			break;
+
+		case SDL_SCANCODE_E:
+			m_keypad->KeyReleased(Buttons::BUTTON_R);
+			break;
+
+		case SDL_SCANCODE_BACKSPACE:
+			m_keypad->KeyReleased(Buttons::BUTTON_SELECT);
+			break;
+
+		case SDL_SCANCODE_SPACE:
+			m_keypad->KeyReleased(Buttons::BUTTON_START);
 			break;
 
 		default:

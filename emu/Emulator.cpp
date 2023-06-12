@@ -30,6 +30,10 @@ namespace GBA::emulation {
 
 		m_ctx.keypad.SetMMIO(m_ctx.bus.GetMMIO());
 		m_ctx.keypad.SetInterruptController(m_ctx.int_controller);
+
+		m_ctx.timers.SetMMIO(m_ctx.bus.GetMMIO());
+		m_ctx.timers.SetInterruptController(m_ctx.int_controller);
+		m_ctx.timers.SetEventScheduler(&m_ctx.scheduler);
 	}
 
 	void Emulator::EmulateFor(u32 num_instructions) {
@@ -39,6 +43,7 @@ namespace GBA::emulation {
 			u32 cycles = m_ctx.bus.m_time.PopCycles();
 
 			m_ctx.ppu.ClockCycles(cycles);
+			m_ctx.timers.ClockCycles(cycles);
 		}
 	}
 

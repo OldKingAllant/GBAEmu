@@ -14,7 +14,7 @@ namespace GBA::memory {
 			[this](common::u8 value, common::u16 offset) {
 				common::u8 shift_amount = offset % 2;
 
-				common::u32 to_xor = (value << (8 * shift_amount));
+				common::u32 to_xor = ((u16)value << (8 * shift_amount));
 
 				m_registers[0x2 + shift_amount] ^= to_xor;
 			});
