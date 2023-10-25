@@ -299,8 +299,6 @@ namespace GBA::ppu {
 			u32 tile_y = tex_y / detail::TILE_Y_SIZE;
 			u32 x_offset_inside_tile = 0;
 			u32 tile_x = 0;
-			//u32 tile_region_y = tile_y / detail::TILE_REGION_Y_SIZE;
-			//u32 tile_region_x = 0;
 
 			x_offset_inside_tile = tex_x % detail::TILE_X_SIZE;
 			tile_x = tex_x / detail::TILE_X_SIZE;
@@ -335,14 +333,14 @@ namespace GBA::ppu {
 		return backround_data;
 	}
 
-	std::array<std::array<Pixel, 240>, 4> backgrounds{};
+	std::array<std::array<Pixel, 240>, 5> backgrounds{};
 
 	std::array<Pixel, 240> PPU::MergeBackrounds(
 		std::array<Pixel, 240> const& bg1,
 		std::array<Pixel, 240> const& bg2,
 		std::array<Pixel, 240> const& bg3,
 		std::array<Pixel, 240> const& bg4,
-		std::array<Pixel, 240> const& sprites
+		std::array<Pixel, 240>& sprites
 	) {
 		std::array<Pixel, 240> merged{};
 
@@ -523,6 +521,8 @@ namespace GBA::ppu {
 		case 0x1: {
 			u8 bottom_layers = (bldcnt >> 8) & 0x1F;
 
+			bool top_layers_obj = (top_layers >> 4) & 1;
+
 			u8 pos = 0;
 
 			u16 bldalpha = ReadRegister16(0x52 / 2);
@@ -530,41 +530,15 @@ namespace GBA::ppu {
 			u8 eva = bldalpha & 0x1F;
 			u8 evb = (bldalpha >> 8) & 0x1F;
 
-			while (pos < 4 && bottom_layers && top_layers) {
-				if (!CHECK_BIT(top_layers, priorities[pos].bg_id)) {
-					pos++;
-					continue;
-				}
+			//We cannot select top/bottom pairs at the
+			//beginning, since transparent pixels
+			//can cause a fallback to other layers
 
-				u8 top_layer = priorities[pos].bg_id;
-				u8 second_layer = 5; // Backdrop
+			for (u32 x = 0; x < 240; x++) {
+				Pixel* top_pixel = nullptr;
+				Pixel* bottom_pixel = nullptr;
 
-				if (pos < 3 && 
-					CHECK_BIT(bottom_layers, priorities[pos + 1].bg_id)) {
-					second_layer = priorities[pos + 1].bg_id;
-				}
-				else if (!CHECK_BIT(bottom_layers, 5)) {
-					pos++;
-					continue;
-				}
-
-				//////////
-				auto& top_pixels = backgrounds[top_layer];
 				
-				if (second_layer == 5) {
-					//Blending with solid plane
-					//of color 0
-					u16 backdrop_color = *reinterpret_cast<u16*>(m_palette_ram);
-				}
-				else {
-					auto const& bottom_pixels = backgrounds[second_layer];
-
-					//
-				}
-				/////////
-				pos++;
-				top_layers &= ~(1 << top_layer);
-				bottom_layers &= ~(1 << second_layer);
 			}
 		}
 		break;

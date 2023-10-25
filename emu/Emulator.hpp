@@ -12,6 +12,7 @@
 #include "../memory/EventScheduler.hpp"
 #include "../memory/Keypad.hpp"
 #include "../memory/Timers.hpp"
+#include "../memory/DirectMemoryAccess.hpp"
 
 namespace GBA::emulation {
 	struct EmulatorContext {
@@ -23,6 +24,7 @@ namespace GBA::emulation {
 		memory::EventScheduler scheduler;
 		input::Keypad keypad;
 		timers::TimerChain timers;
+		memory::DMA* all_dma[4];
 	};
 
 	class Emulator {

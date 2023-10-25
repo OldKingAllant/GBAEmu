@@ -10,5 +10,5 @@ std::array<Pixel, 240> MergeBackrounds(
 	std::array<Pixel, 240> const& bg2,
 	std::array<Pixel, 240> const& bg3,
 	std::array<Pixel, 240> const& bg4,
-	std::array<Pixel, 240> const& sprites
+	std::array<Pixel, 240>& sprites
 );

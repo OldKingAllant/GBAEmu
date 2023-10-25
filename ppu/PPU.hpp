@@ -15,6 +15,7 @@ namespace GBA::memory {
 namespace GBA::ppu {
 	struct Pixel {
 		bool is_obj;
+		bool is_bld_enabled;
 		GBA::common::i16 palette_id;
 		GBA::common::u16 color;
 		GBA::common::u8 priority;

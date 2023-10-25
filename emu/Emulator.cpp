@@ -34,6 +34,18 @@ namespace GBA::emulation {
 		m_ctx.timers.SetMMIO(m_ctx.bus.GetMMIO());
 		m_ctx.timers.SetInterruptController(m_ctx.int_controller);
 		m_ctx.timers.SetEventScheduler(&m_ctx.scheduler);
+
+		m_ctx.all_dma[0] = new memory::DMA(&m_ctx.bus, (u8)0);
+		m_ctx.all_dma[1] = new memory::DMA(&m_ctx.bus, (u8)1);
+		m_ctx.all_dma[2] = new memory::DMA(&m_ctx.bus, (u8)2);
+		m_ctx.all_dma[3] = new memory::DMA(&m_ctx.bus, (u8)3);
+
+		memory::MMIO* mmio = m_ctx.bus.GetMMIO();
+
+		m_ctx.all_dma[0]->SetMMIO(mmio);
+		m_ctx.all_dma[1]->SetMMIO(mmio);
+		m_ctx.all_dma[2]->SetMMIO(mmio);
+		m_ctx.all_dma[3]->SetMMIO(mmio);
 	}
 
 	void Emulator::EmulateFor(u32 num_instructions) {
@@ -62,5 +74,10 @@ namespace GBA::emulation {
 
 	Emulator::~Emulator() {
 		delete m_ctx.int_controller;
+
+		delete m_ctx.all_dma[0];
+		delete m_ctx.all_dma[1];
+		delete m_ctx.all_dma[2];
+		delete m_ctx.all_dma[3];
 	}
 }

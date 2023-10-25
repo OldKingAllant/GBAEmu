@@ -100,7 +100,7 @@ namespace GBA::ppu {
 
 			u8 mode = (attr_0 >> 10) & 0x3;
 
-			if (mode != 0) {
+			if (mode > 1) {
 				error::DebugBreak();
 			}
 
@@ -119,7 +119,9 @@ namespace GBA::ppu {
 
 			u32 tile_id = attr_2 & 1023;
 
-			if (mode >= 3 && tile_id < 512)
+			u8 ppu_mode = (m_ctx.m_control & 0x7);
+
+			if (ppu_mode >= 3 && tile_id < 512)
 				continue;
 
 			u8 prio_to_bg = (attr_2 >> 10) & 0x3;
@@ -223,33 +225,35 @@ namespace GBA::ppu {
 						+ vram_offset];
 					
 
+					u16 color = 0;
+
 					if (pal_mode) {
-						if (color_id) {
-							obj_data[x].is_obj = true;
-							obj_data[x].priority = prio_to_bg;
-							obj_data[x].palette_id = color_id;
-							obj_data[x].color = READ_16(m_palette_ram,
-								color_id * 2 + OBJ_PALETTE_START);
-						}
+						color = READ_16(m_palette_ram,
+							color_id * 2 + OBJ_PALETTE_START);
 					}
 					else {
-						u16 color = 0;
+						u16 pixel_id = 0;
 
-						if(tex_x % 2)
-							color = (color_id >> 4) & 0xF;
-						else 
-							color = color_id & 0xF;
+						if (tex_x % 2)
+							pixel_id = (color_id >> 4) & 0xF;
+						else
+							pixel_id = color_id & 0xF;
 
-						if (color) {
-							obj_data[x].is_obj = true;
-							obj_data[x].priority = prio_to_bg;
-							obj_data[x].palette_id = color;
+						color_id = pixel_id;
 
-							color *= 2;
-							color += pal_number * 32;
+						pixel_id *= 2;
+						pixel_id += pal_number * 32;
 
-							obj_data[x].color = READ_16(m_palette_ram, color + OBJ_PALETTE_START);
-						}
+						color = READ_16(m_palette_ram,
+							pixel_id + OBJ_PALETTE_START);
+					}
+
+					if (color_id) {
+						obj_data[x].is_obj = true;
+						obj_data[x].priority = prio_to_bg;
+						obj_data[x].palette_id = color_id;
+						obj_data[x].color = color;
+						obj_data[x].is_bld_enabled = mode == 1;
 					}
 				}
 			}
@@ -343,33 +347,35 @@ namespace GBA::ppu {
 					u16 color_id = m_vram[OBJ_VRAM_BASE
 						+ vram_offset];
 
+					u16 color = 0;
+
 					if (pal_mode) {
-						if (color_id) {
-							obj_data[x].is_obj = true;
-							obj_data[x].priority = prio_to_bg;
-							obj_data[x].palette_id = color_id;
-							obj_data[x].color = READ_16(m_palette_ram,
-								color_id * 2 + OBJ_PALETTE_START);
-						}
+						color = READ_16(m_palette_ram,
+							color_id * 2 + OBJ_PALETTE_START);
 					}
 					else {
-						u16 pixel_color = 0;
+						u16 pixel_id = 0;
 
 						if (tex_x % 2)
-							pixel_color = (color_id >> 4) & 0xF;
+							pixel_id = (color_id >> 4) & 0xF;
 						else
-							pixel_color = color_id & 0xF;
+							pixel_id = color_id & 0xF;
 
-						if (pixel_color) {
-							obj_data[x].is_obj = true;
-							obj_data[x].priority = prio_to_bg;
-							obj_data[x].palette_id = pixel_color;
+						color_id = pixel_id;
 
-							pixel_color *= 2;
-							pixel_color += pal_number * 32;
+						pixel_id *= 2;
+						pixel_id += pal_number * 32;
 
-							obj_data[x].color = READ_16(m_palette_ram, pixel_color + OBJ_PALETTE_START);
-						}
+						color = READ_16(m_palette_ram,
+							pixel_id + OBJ_PALETTE_START);
+					}
+
+					if (color_id) {
+						obj_data[x].is_obj = true;
+						obj_data[x].priority = prio_to_bg;
+						obj_data[x].palette_id = color_id;
+						obj_data[x].color = color;
+						obj_data[x].is_bld_enabled = mode == 1;
 					}
 				}
 			}
