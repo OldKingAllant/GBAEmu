@@ -90,6 +90,8 @@ namespace GBA::ppu {
 
 		u16 bg_control = ReadRegister16(detail::bg_control_reg[bg_id] / 2);
 
+		u8 bg_prio = bg_control & 3;
+
 		u32 char_base_block = (bg_control >> 2) & 0x3;
 		char_base_block *= 16 * 1024;
 
@@ -212,6 +214,8 @@ namespace GBA::ppu {
 				backround_data[x].color = *reinterpret_cast<u16*>(m_palette_ram + pal_id + color);
 				backround_data[x].palette_id = color;
 			}
+
+			backround_data[x].priority = bg_prio;
 		}
 
 		return backround_data;
@@ -221,6 +225,8 @@ namespace GBA::ppu {
 		std::array<Pixel, 240> backround_data{};
 
 		u16 bg_control = ReadRegister16(detail::bg_control_reg[bg_id] / 2);
+
+		u8 bg_prio = bg_control & 3;
 
 		u32 ch_base_block = (bg_control >> 2) & 3;
 		ch_base_block *= 16 * 1024;
@@ -322,6 +328,7 @@ namespace GBA::ppu {
 
 			backround_data[x].color = color;
 			backround_data[x].palette_id = color_id;
+			backround_data[x].priority = bg_prio;
 
 			curr_x += dx;
 			curr_y += dy;
@@ -345,7 +352,7 @@ namespace GBA::ppu {
 		std::array<Pixel, 240> merged{};
 
 		backgrounds = {
-			bg1, bg2, bg3, bg4
+			bg1, bg2, bg3, bg4, sprites
 		};
 
 		u16 bg1_cnt = ReadRegister16(0x8 / 2);
@@ -355,36 +362,20 @@ namespace GBA::ppu {
 
 		u8 mode = m_ctx.m_control & 0x7;
 
-		struct Priority {
-			u8 value;
-			u8 bg_id;
-		};
-
-		Priority priorities[] = {
-			{ (u8)(bg1_cnt & 0x3), (u8)0}, { (u8)(bg2_cnt & 0x3), (u8)1},
-			{ (u8)(bg3_cnt & 0x3), (u8)2}, { (u8)(bg4_cnt & 0x3), (u8)3 }
-		};
-
 		//Priority goes from 0 to 3 with 0 highest
 		//Between same priority, lower bg id wins
 
 		//Extract bg with highest priority
 
-		std::sort(std::begin(priorities), std::end(priorities),
-			[](Priority p1, Priority p2) {
-				return p1.value > p2.value;
-		});
-
 		//////////////////
 
-		bool bg0_en = ((m_ctx.m_control >> 8) & 1)
-			&& mode < 2;
-		bool bg1_en = ((m_ctx.m_control >> 9) & 1)
-			&& mode < 2;
-		bool bg2_en = (m_ctx.m_control >> 10) & 1;
-		bool bg3_en = ((m_ctx.m_control >> 11) & 1)
-			&& (mode == 0 || mode == 2);
-		bool obj_en = (m_ctx.m_control >> 12) & 1;
+		bool layer_enabled_global[5] = {
+			((m_ctx.m_control >> 8) & 1) && mode < 2,
+			((m_ctx.m_control >> 9) & 1) && mode < 2,
+			(m_ctx.m_control >> 10) & 1,
+			((m_ctx.m_control >> 11) & 1) && (mode == 0 || mode == 2),
+			(m_ctx.m_control >> 12) & 1
+		};
 
 		bool win0_en = (m_ctx.m_control >> 13) & 1;
 		bool win1_en = (m_ctx.m_control >> 14) & 1;
@@ -393,21 +384,6 @@ namespace GBA::ppu {
 
 		u16 winin_cnt = ReadRegister16(0x48 / 2);
 		u16 winout_cnt = ReadRegister16(0x4A / 2);
-
-		int win0_bg_enable[] = {
-			winin_cnt & 1, (winin_cnt >> 1) & 1,
-			(winin_cnt >> 2) & 1, (winin_cnt >> 3) & 1
-		};
-
-		int win1_bg_enable[] = {
-			(winin_cnt >> 8) & 1, (winin_cnt >> 9) & 1,
-			(winin_cnt >> 10) & 1, (winin_cnt >> 11) & 1
-		};
-
-		int winout_bg_enable[] = {
-			winout_cnt & 1, (winout_cnt >> 1) & 1,
-			(winout_cnt >> 2) & 1, (winout_cnt >> 3) & 1
-		};
 
 		bool win0_obj_enable = (winin_cnt >> 4) & 1;
 		bool win1_obj_enable = (winin_cnt >> 12) & 1;
@@ -431,298 +407,265 @@ namespace GBA::ppu {
 		u16 win1_top = (win1_v >> 8) & 0xFF;
 		u16 win1_bottom = (win1_v & 0xFF) - 1;
 
-		////////////////
+		struct WindowInfo {
+			bool enabled;
+			u16 left;
+			u16 right;
+			u16 top;
+			u16 bottom;
+			int layer_enable[5];
+			int enable_special_effects;
+		};
 
-		u8 main_bg_id = priorities[0].bg_id;
-
-		auto is_gb_completely_disabled = [&](u8 bg_id) {
-			if (win0_en || win1_en) {
-				if ((win0_en && !win0_bg_enable[bg_id]) &&
-					(win1_en && !win1_bg_enable[bg_id]) &&
-					!winout_bg_enable[bg_id]) {
-					//Disabled both in winin and winout
-					return true;
-				}
-			}
-
-			return false;
+		WindowInfo windows[4] = {
+			WindowInfo { win0_en, win0_left, win0_right, win0_top, win0_bottom, {
+				winin_cnt & 1, (winin_cnt >> 1) & 1,
+				(winin_cnt >> 2) & 1, (winin_cnt >> 3) & 1,
+				win0_obj_enable
+			}, (winin_cnt >> 5) & 1 },
+			WindowInfo { win1_en, win1_left, win1_right, win1_top, win1_bottom, {
+				(winin_cnt >> 8) & 1, (winin_cnt >> 9) & 1,
+				(winin_cnt >> 10) & 1, (winin_cnt >> 11) & 1,
+				win1_obj_enable
+			}, (winin_cnt >> 13) & 1 },
+			WindowInfo { win_enabled, 0, 0, 0, 0, {
+				winout_cnt & 1, (winout_cnt >> 1) & 1,
+				(winout_cnt >> 2) & 1, (winout_cnt >> 3) & 1,
+				winout_obj_enable
+			}, (winout_cnt >> 5) & 1 },
+			WindowInfo { true, 0, 0, 0, 0, {
+			}, true }
 		};
 
 		u16 curr_line = m_ctx.m_vcount;
 
-		auto curr_window_id = [&](u16 x) {
-			if (win0_en &&
-				(curr_line >= win0_top && curr_line <= win0_bottom) &&
-				(x >= win0_left && x <= win0_right)) {
+		bool window0_line = curr_line >= windows[0].top && curr_line < windows[0].bottom && windows[0].enabled;
+		bool window1_line = curr_line >= windows[1].top && curr_line < windows[1].bottom && windows[1].enabled;
+
+		bool curr_line_has_window = window0_line || window1_line;
+
+		auto get_current_window_id = [&](u16 x_pos) {
+			if (!curr_line_has_window) {
+				if (windows[2].enabled)
+					return 2;
+				return 3;
+			}
+
+			if (x_pos >= windows[0].left && x_pos < windows[0].right && window0_line)
 				return 0;
-			}
-
-			if (win1_en &&
-				(curr_line >= win1_top && curr_line <= win1_bottom) &&
-				(x >= win1_left && x <= win1_right)) {
+			else if (x_pos >= windows[1].left && x_pos < windows[1].right && window1_line)
 				return 1;
-			}
-
 			return 2;
 		};
 
-		auto is_gb_window_disabled = [&](u8 bg_id, u8 win_id) {
-			//Window 0 has priority
-
-			if (win0_en && win_id == 0)
-				return !win0_bg_enable[bg_id];
-
-			if (win1_en && win_id == 1)
-				return !win1_bg_enable[bg_id];
-
-			return false;
+		struct Priority {
+			u16 priority;
+			u8 layer;
 		};
 
-		auto is_obj_window_disabled = [&](u8 win_id) {
-			if (win0_en && win_id == 0)
-				return !win0_obj_enable;
-
-			if (win1_en && win_id == 1)
-				return !win1_obj_enable;
-
-			return false;
+		Priority priorities[] = {
+			Priority { static_cast<u16>(bg1_cnt & 3), 0 },
+			Priority { static_cast<u16>(bg2_cnt & 3), 1 },
+			Priority { static_cast<u16>(bg3_cnt & 3), 2 },
+			Priority { static_cast<u16>(bg4_cnt & 3), 3 }
 		};
 
-		bool gb_disabled[] = {
-			is_gb_completely_disabled(0) || !bg0_en,
-			is_gb_completely_disabled(1) || !bg1_en,
-			is_gb_completely_disabled(2) || !bg2_en,
-			is_gb_completely_disabled(3) || !bg3_en
-		};
+		std::sort(
+			std::begin(priorities),
+			std::end(priorities),
+			[](auto const& p1, auto const& p2) { return p1.priority < p2.priority; });
 
-		//////////////////////
-		//Apply color special effects
-		u16 bldcnt = ReadRegister16(0x50 / 2);
-		bool win0_bld_en = (winin_cnt >> 5) & 1;
-		bool win1_bld_en = (winin_cnt >> 13) & 1;
-		bool winout_bld_en = (winout_cnt >> 5) & 1;
+		u16 color_special_effects_reg = ReadRegister16(0x50 / 2);
+		u16 curr_effect = (color_special_effects_reg >> 6) & 3;
+		u16 first_target = color_special_effects_reg & 0x1F;
+		u16 second_target = (color_special_effects_reg >> 8) & 0x1F;
 
-		auto blend_enabled_window = [&](u8 win_id) {
-			if (win0_en && win_id == 0)
-				return win0_bld_en;
+		u16 backdrop = *reinterpret_cast<u16*>(m_palette_ram);
 
-			if (win1_en && win_id == 1)
-				return win1_bld_en;
+		u16 bldalpha = ReadRegister16(0x52 / 2);
 
-			return false;
-		};
+		u16 eva = std::min(bldalpha & 0x1F, 16);
+		u16 evb = std::min((bldalpha >> 8) & 0x1F, 16);
 
-		u8 effect = (bldcnt >> 6) & 3;
+		for (u16 x = 0; x < 240; x++) {
+			u8 candidate_layer_index = 0;
+			u8 window_id = get_current_window_id(x);
 
-		u8 top_layers = bldcnt & 0x1F;
+			bool candidate_found = false;
 
-		switch (effect)
-		{
-		case 0x1: {
-			u8 bottom_layers = (bldcnt >> 8) & 0x1F;
+			u8 curr_index = 0;
 
-			bool top_layers_obj = (top_layers >> 4) & 1;
+			while (!candidate_found && curr_index < 4) {
+				u8 curr_layer = priorities[curr_index].layer;
 
-			u8 pos = 0;
+				candidate_found = !!backgrounds[curr_layer][x].palette_id
+					&& (window_id == 3 || windows[window_id].layer_enable[curr_layer])
+					&& layer_enabled_global[curr_layer];
 
-			u16 bldalpha = ReadRegister16(0x52 / 2);
-
-			u8 eva = bldalpha & 0x1F;
-			u8 evb = (bldalpha >> 8) & 0x1F;
-
-			//We cannot select top/bottom pairs at the
-			//beginning, since transparent pixels
-			//can cause a fallback to other layers
-
-			for (u32 x = 0; x < 240; x++) {
-				Pixel* top_pixel = nullptr;
-				Pixel* bottom_pixel = nullptr;
-
-				
-			}
-		}
-		break;
-
-		case 0x2: {
-			u16 bldy = ReadRegister16(0x54 / 2);
-
-			u8 evy = bldy & 0x1F;
-
-			bool backdrop_changed = CHECK_BIT(bldcnt, 5);
-
-			if (backdrop_changed) {
-				u16 backdrop_color = *reinterpret_cast<u16*>(m_palette_ram);
-
-				//Save the backdrop color somewhere 
+				if (!candidate_found)
+					curr_index++;
 			}
 
-			u8 pos = 0;
+			u8 layer = priorities[curr_index].layer;
 
-			while (pos < backgrounds.size()) {
-				if (!CHECK_BIT(top_layers, pos)) {
-					pos++;
-					continue;
+			if (backgrounds[4][x].is_obj && backgrounds[4][x].palette_id
+				&& (window_id == 3 || windows[window_id].layer_enable[4])
+				&& layer_enabled_global[4]) {
+				if (!candidate_found || priorities[curr_index].priority >= backgrounds[4][x].priority) {
+					candidate_found = true;
+					layer = 4;
 				}
+			}
 
-				for (int x = 0; x < 240; x++) {
-					u8 window_id = curr_window_id(x);
+			if (candidate_found) {
+				merged[x] = backgrounds[layer][x];
+			}
+			else {
+				merged[x].color = backdrop;
+				merged[x].palette_id = 1;
+				layer = 5;
+			}
 
-					if (win_enabled) {
-						if ((window_id == 2 && !winout_bld_en) ||
-							(window_id != 2 && !blend_enabled_window(window_id)))
-							continue;
-						// We could
-						//skip directly to the 
-						//end of the window
+			if ((window_id == 3 || windows[window_id].enable_special_effects)
+				&& CHECK_BIT(first_target, layer)) {
+				u16 special_effect_select = curr_effect;
+				u16 real_effect_select = curr_effect;
+
+				if (merged[x].is_bld_enabled)
+					special_effect_select = 1;
+
+				switch (special_effect_select)
+				{
+				case 0x1: {
+					//Try to select second target
+					second_target = CLEAR_BIT(second_target, layer);
+
+					//Selected layer is
+					//backdrop, we 
+					//do not have other
+					//layers to select
+					if (layer == 5)
+						break;
+
+					u8 index = 0;
+
+					bool blend_fail = false;
+
+					if (layer < 4 && backgrounds[4][x].is_obj && backgrounds[4][x].priority
+						>= priorities[curr_index].priority 
+						&& (window_id == 3 || windows[window_id].layer_enable[4])
+						&& layer_enabled_global[layer]
+						&& CHECK_BIT(second_target, 4)) {
+						index = 4;
+					}
+					else {
+						index = layer == 4 ? 0 : curr_index + 1;
+						u16 top_priority = layer == 4 ? merged[x].priority : priorities[curr_index].priority;
+
+						while (index < 4) {
+							u8 curr_layer = priorities[index].layer;
+
+							if (priorities[index].priority >= top_priority) {
+								if ((window_id == 3 || windows[window_id].layer_enable[4])
+									&& layer_enabled_global[layer]
+									&& CHECK_BIT(second_target, curr_layer)) {
+									break;
+								}
+
+								index++;
+							}
+							else {
+								blend_fail = true;
+								break;
+							}
+						}
 					}
 
-					u16 color = backgrounds[pos][x].color;
+					if (blend_fail)
+						break;
 
-					if (!backgrounds[pos][x].palette_id)
-						continue;
-
-					u8 r = color & 0x1F;
-					u8 g = (color >> 5) & 0x1F;
-					u8 b = (color >> 10) & 0x1F;
-
-					r = (r + (31 - r) * evy) & 0x1F;
-					g = (g + (31 - g) * evy) & 0x1F;
-					b = (b + (31 - b) * evy) & 0x1F;
-
-					color = (b << 10) | (g << 5) | r;
-
-					backgrounds[pos][x].color = color;
-				}
-
-				pos++;
-			}
-		}
-		break;
-
-		case 0x3: {
-			u16 bldy = ReadRegister16(0x54 / 2);
-
-			u8 evy = bldy & 0x1F;
-
-			bool backdrop_changed = CHECK_BIT(bldcnt, 5);
-
-			if (backdrop_changed) {
-				u16 backdrop_color = *reinterpret_cast<u16*>(m_palette_ram);
-
-				//Save the backdrop color somewhere 
-			}
-
-			u8 pos = 0;
-
-			while (pos < backgrounds.size()) {
-				if (!CHECK_BIT(top_layers, pos)) {
-					pos++;
-					continue;
-				}
-
-				for (int x = 0; x < 240; x++) {
-					u8 window_id = curr_window_id(x);
-
-					if (win_enabled) {
-						if((window_id == 2 && !winout_bld_en) ||
-							(window_id != 2 && !blend_enabled_window(window_id)))
-							continue; 
-						// We could
-						//skip directly to the 
-						//end of the window
+					if (index == 4) {
+						if (CHECK_BIT(second_target, 5)) {
+							index = 5;
+							error::DebugBreak();
+						}
+						else if (merged[x].is_bld_enabled)
+							goto brightness;
+						else
+							break;
 					}
-
-					u16 color = backgrounds[pos][x].color;
 					
-					if (!backgrounds[pos][x].palette_id)
-						continue;
+					u8 second_target_layer = index < 4 ? priorities[index].layer : index;
+
+					if (!CHECK_BIT(second_target, second_target_layer))
+						break;
+
+					Pixel top_pixel = merged[x];
+					Pixel lower_pixel = Pixel{};
+
+					if (second_target_layer == 5) {
+						lower_pixel.palette_id = 1;
+						lower_pixel.color = backdrop;
+					}
+					else {
+						lower_pixel = backgrounds[second_target_layer][x];
+					}
+
+					if (lower_pixel.palette_id) {
+						//Blend
+						u16 color = top_pixel.color;
+						u16 color2 = lower_pixel.color;
+
+						u8 r = color & 0x1F;
+						u8 g = (color >> 5) & 0x1F;
+						u8 b = (color >> 10) & 0x1F;
+
+						u8 r2 = color2 & 0x1F;
+						u8 g2 = (color2 >> 5) & 0x1F;
+						u8 b2 = (color2 >> 10) & 0x1F;
+
+						//I = MIN ( 31, I1st*EVA + I2nd*EVB )
+						r = std::min((r * eva + r2 * evb + 8) >> 4, 31);
+						g = std::min((g * eva + g2 * evb + 8) >> 4, 31);
+						b = std::min((b * eva + b2 * evb + 8) >> 4, 31);
+
+						merged[x].color = r | (g << 5) | (b << 10);
+					}
+					else if (merged[x].is_bld_enabled) {
+						goto brightness;
+					}
+				}
+					break;
+				case 0x2:
+				case 0x3: {
+				brightness:
+					//Brightness decrease/increase
+					u16 evy = ReadRegister16(0x54 / 2) & 0x1F;
+
+					u16 color = merged[x].color;
 
 					u8 r = color & 0x1F;
 					u8 g = (color >> 5) & 0x1F;
 					u8 b = (color >> 10) & 0x1F;
 
-					r = (r - r * evy) & 0x1F;
-					g = (g - g * evy) & 0x1F;
-					b = (b - b * evy) & 0x1F;
-
-					color = (b << 10) | (g << 5) | r;
-
-					backgrounds[pos][x].color = color;
-				}
-
-				pos++;
-			}
-		}
-		break;
-
-		default:
-			break;
-		}
-
-		/////////////////////
-
-		for (int x = 0; x < 240; x++) {
-			Pixel result = backgrounds[main_bg_id][x];
-
-			result.priority = priorities[main_bg_id].value;
-
-			u8 window_id = curr_window_id(x);
-
-			bool bg_disabled_window = gb_disabled[main_bg_id];
-
-			if (win_enabled) {
-				bg_disabled_window = bg_disabled_window ||
-					(window_id != 2 && is_gb_window_disabled(main_bg_id, window_id))
-					|| (window_id == 2 && !winout_bg_enable[main_bg_id]);
-			}
-
-			if (!result.palette_id || bg_disabled_window) {
-				u8 curr_pos = 1;
-
-				while ((!result.palette_id || bg_disabled_window) 
-					&& curr_pos < 4) {
-					u8 bg_id = priorities[curr_pos].bg_id;
-
-					result = backgrounds[bg_id][x];
-
-					bg_disabled_window = gb_disabled[bg_id];
-
-					if (win_enabled) {
-						bg_disabled_window = bg_disabled_window ||
-							(window_id != 2 && is_gb_window_disabled(bg_id, window_id))
-							|| (window_id == 2 && !winout_bg_enable[bg_id]);
+					if (real_effect_select == 0x2) {
+						r += ((31 - r) * evy + 8) >> 4;
+						g += ((31 - g) * evy + 8) >> 4;
+						b += ((31 - b) * evy + 8) >> 4;
+					}
+					else if(real_effect_select == 0x3) {
+						r -= (r * evy + 7) >> 4;
+						g -= (g * evy + 7) >> 4;
+						b -= (b * evy + 7) >> 4;
 					}
 
-					curr_pos++;
+					merged[x].color = r | (g << 5) | (b << 10);
 				}
-
-				if(curr_pos < 4)
-					result.priority = priorities[curr_pos].value;
-
-				if (curr_pos == 4 && bg_disabled_window) {
-					//Also BG 3 is disabled, put transparent color at pixel X
-					result = Pixel{};
-					result.palette_id = 0;
-					result.priority = 3;
+					break;
+				default:
+					break;
 				}
 			}
-
-			if (obj_en && sprites[x].is_obj && sprites[x].palette_id) {
-				bool obj_allowed = true;
-
-				if (win_enabled) {
-					obj_allowed = (window_id != 2 && !is_obj_window_disabled(window_id))
-						|| (window_id == 2 && winout_obj_enable);
-				}
-
-				if (obj_allowed) {
-					if (sprites[x].priority <= result.priority
-						|| !result.palette_id)
-						result = sprites[x];
-				}
-			}
-
-			merged[x] = result;
 		}
 
 		return merged;
