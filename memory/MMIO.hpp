@@ -175,7 +175,7 @@ namespace GBA::memory {
 				for (uint8_t pos = 0; pos < sizeof(Type); pos++) {
 					auto& reg = m_registers[offset + pos];
 
-					if (reg.pointer || reg.readable)
+					if (reg.pointer && reg.readable)
 						value |= (*(reg.pointer) << (8 * pos));
 				}
 

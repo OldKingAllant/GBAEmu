@@ -8,6 +8,8 @@
 
 #include "../../ppu/PPU.hpp"
 
+#include "../../memory/DirectMemoryAccess.hpp"
+
 #include <filesystem>
 #include <fstream>
 
@@ -20,7 +22,9 @@ namespace GBA::memory {
 		m_time{}, m_enable_prefetch(false), 
 		m_bios_latch{0x00}, m_open_bus_value{0x00},
 		m_open_bus_address{0x00}, m_ppu(nullptr), 
-		m_bios(nullptr), m_sched(nullptr)
+		m_bios(nullptr), m_sched(nullptr),
+		active_dmas_count{}, active_dmas{},
+		dmas{}
 	{
 		m_wram = new u8[0x40000];
 		m_iwram = new u8[0x8000];
@@ -192,6 +196,13 @@ namespace GBA::memory {
 
 	void Bus::LoadBiosResetOpcode() {
 		m_bios_latch = *reinterpret_cast<u32*>(m_bios + 0xDC + 8);
+	}
+
+	void Bus::TryTriggerDMA(DMAFireType trigger_type) {
+		dmas[0]->TriggerDMA(trigger_type);
+		dmas[1]->TriggerDMA(trigger_type);
+		dmas[2]->TriggerDMA(trigger_type);
+		dmas[3]->TriggerDMA(trigger_type);
 	}
 
 	Bus::~Bus() {

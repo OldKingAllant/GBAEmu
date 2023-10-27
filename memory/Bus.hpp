@@ -1,12 +1,15 @@
 #pragma once
 
 #include "../common/Defs.hpp"
+#include "../common/Error.hpp"
 
 #include "Timing.hpp"
 
 #include "MMIO.hpp"
 #include "EventScheduler.hpp"
 #include "../ppu/PPU.hpp"
+
+#include "DMAFireType.hpp"
 
 namespace GBA::gamepack {
 	class GamePack;
@@ -22,6 +25,7 @@ namespace GBA::ppu {
 
 namespace GBA::memory {
 	class MMIO;
+	class DMA;
 
 	using namespace common;
 
@@ -327,6 +331,44 @@ namespace GBA::memory {
 
 		~Bus();
 
+		inline void AddActiveDma(u8 id) {
+			if (active_dmas_count >= 4) [[unlikely]]
+				error::DebugBreak();
+
+			u8 pos = active_dmas_count;
+
+			while (pos > 0) {
+				if (active_dmas[pos] > id)
+					break;
+
+				pos--;
+			}
+
+			std::shift_right(active_dmas.begin() + pos, active_dmas.end(), 1);
+
+			active_dmas[pos] = id;
+			active_dmas_count++;
+		}
+
+		inline u8 GetActiveDma() const {
+			return active_dmas_count ? active_dmas[((unsigned)active_dmas_count) - 1] : 4;
+		}
+
+		inline void RemoveActiveDma() {
+			//Only the highest priority
+			//DMA should be removed
+			if(active_dmas_count)
+				active_dmas_count--;
+		}
+
+		template <unsigned N>
+		void SetDmas(DMA*(&dma_list)[N]) {
+			static_assert(N == 4);
+			std::copy(std::begin(dma_list), std::end(dma_list), dmas);
+		}
+
+		void TryTriggerDMA(DMAFireType trigger_type);
+
 		TimeManager m_time;
 
 	private :
@@ -361,5 +403,10 @@ namespace GBA::memory {
 		u8* m_bios;
 
 		EventScheduler* m_sched;
+
+		//DMA things
+		u8 active_dmas_count;
+		std::array<u8, 4> active_dmas;
+		DMA* dmas[4];
 	};
 }

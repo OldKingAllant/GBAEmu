@@ -10,6 +10,7 @@ namespace GBA::memory {
 	class MMIO;
 	class InterruptController;
 	class EventScheduler;
+	class Bus;
 }
 
 namespace GBA::ppu {
@@ -53,8 +54,9 @@ namespace GBA::ppu {
 		void HBlank();
 		void Normal();
 
-		void SetMMIO(memory::MMIO* mmio) {
+		void SetMMIO(memory::MMIO* mmio, memory::Bus* bus) {
 			InitHandlers(mmio);
+			m_bus = bus;
 		}
 
 		template <typename Type>
@@ -186,6 +188,8 @@ namespace GBA::ppu {
 		memory::EventScheduler* m_sched;
 
 		uint64_t m_last_event_timestamp;
+
+		memory::Bus* m_bus;
 
 		static constexpr common::u32 CYCLES_PER_PIXEL = 4;
 		static constexpr common::u32 CYCLES_PER_SCANLINE = 960;

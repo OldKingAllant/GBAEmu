@@ -3,6 +3,7 @@
 #include "../../memory/MMIO.hpp"
 #include "../../memory/InterruptController.hpp"
 #include "../../memory/EventScheduler.hpp"
+#include "../../memory/Bus.hpp"
 
 #include "../../common/Logger.hpp"
 #include "../../common/Error.hpp"
@@ -21,7 +22,8 @@ namespace GBA::ppu {
 		m_internal_reference_x{}, 
 		m_internal_reference_y{},
 		m_frame_ok{false}, m_int_control(nullptr),
-		m_sched(nullptr), m_last_event_timestamp{0}
+		m_sched(nullptr), m_last_event_timestamp{0},
+		m_bus(nullptr)
 	{
 		m_palette_ram = new u8[0x400];
 		m_vram = new u8[0x18000];
@@ -65,6 +67,8 @@ namespace GBA::ppu {
 				EventType::PPUNORMAL, NormalEventCallback, ppu_ptr);
 
 		ppu.m_last_event_timestamp += PPU::CYCLES_PER_HBLANK;
+
+		ppu.m_bus->TryTriggerDMA(memory::DMAFireType::HBLANK);
 	}
 
 	void NormalEventCallback(void* ppu_ptr) {
@@ -141,6 +145,8 @@ namespace GBA::ppu {
 		ppu.m_frame_ok = true;
 
 		ppu.m_last_event_timestamp += PPU::TOTAL_CYCLES_PER_LINE;
+
+		ppu.m_bus->TryTriggerDMA(memory::DMAFireType::HBLANK);
 	}
 
 	void PPU::SetScheduler(memory::EventScheduler* sched) {
