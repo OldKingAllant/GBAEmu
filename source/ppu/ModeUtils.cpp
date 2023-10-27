@@ -407,6 +407,18 @@ namespace GBA::ppu {
 		u16 win1_top = (win1_v >> 8) & 0xFF;
 		u16 win1_bottom = (win1_v & 0xFF) - 1;
 
+		if (win0_right == 0xFFFF)
+			win0_right = 0;
+
+		if (win0_bottom == 0xFFFF)
+			win0_bottom = 0;
+
+		if (win1_right == 0xFFFF)
+			win1_right = 0;
+
+		if (win1_bottom == 0xFFFF)
+			win1_bottom = 0;
+
 		struct WindowInfo {
 			bool enabled;
 			u16 left;
