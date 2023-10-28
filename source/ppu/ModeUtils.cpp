@@ -489,8 +489,8 @@ namespace GBA::ppu {
 
 		u16 color_special_effects_reg = ReadRegister16(0x50 / 2);
 		u16 curr_effect = (color_special_effects_reg >> 6) & 3;
-		u16 first_target = color_special_effects_reg & 0x1F;
-		u16 second_target = (color_special_effects_reg >> 8) & 0x1F;
+		u16 first_target = color_special_effects_reg & 0x3F;
+		u16 second_target = (color_special_effects_reg >> 8) & 0x3F;
 
 		u16 backdrop = *reinterpret_cast<u16*>(m_palette_ram);
 
@@ -566,7 +566,7 @@ namespace GBA::ppu {
 					if (layer < 4 && backgrounds[4][x].is_obj && backgrounds[4][x].priority
 						>= priorities[curr_index].priority 
 						&& (window_id == 3 || windows[window_id].layer_enable[4])
-						&& layer_enabled_global[layer]
+						&& layer_enabled_global[4]
 						&& CHECK_BIT(second_target, 4)) {
 						index = 4;
 					}
@@ -599,7 +599,6 @@ namespace GBA::ppu {
 					if (index == 4) {
 						if (CHECK_BIT(second_target, 5)) {
 							index = 5;
-							error::DebugBreak();
 						}
 						else if (merged[x].is_bld_enabled)
 							goto brightness;
@@ -674,6 +673,284 @@ namespace GBA::ppu {
 					merged[x].color = r | (g << 5) | (b << 10);
 				}
 					break;
+				default:
+					break;
+				}
+			}
+		}
+
+		return merged;
+	}
+
+	std::array<Pixel, 240> PPU::MergeBitmap(
+		std::array<Pixel, 240> const& bg,
+		std::array<Pixel, 240> const& sprites
+	) {
+		bool mosaic = (ReadRegister16(0xC / 2) >> 6) & 1;
+
+		if (mosaic)
+			error::DebugBreak();
+
+		std::array<Pixel, 240> merged{};
+
+		u16 bg2_cnt = ReadRegister16(0xC / 2);
+
+		u8 mode = m_ctx.m_control & 0x7;
+
+		//Priority goes from 0 to 3 with 0 highest
+		//Between same priority, lower bg id wins
+
+		//Extract bg with highest priority
+
+		//////////////////
+
+		bool layer_enabled_global[2] = {
+			(m_ctx.m_control >> 10) & 1,
+			(m_ctx.m_control >> 12) & 1
+		};
+
+		bool win0_en = (m_ctx.m_control >> 13) & 1;
+		bool win1_en = (m_ctx.m_control >> 14) & 1;
+
+		bool win_enabled = win0_en || win1_en;
+
+		u16 winin_cnt = ReadRegister16(0x48 / 2);
+		u16 winout_cnt = ReadRegister16(0x4A / 2);
+
+		bool win0_obj_enable = (winin_cnt >> 4) & 1;
+		bool win1_obj_enable = (winin_cnt >> 12) & 1;
+		bool winout_obj_enable = (winout_cnt >> 4) & 1;
+
+		u16 win0_h = ReadRegister16(0x40 / 2);
+		u16 win1_h = ReadRegister16(0x42 / 2);
+
+		u16 win0_v = ReadRegister16(0x44 / 2);
+		u16 win1_v = ReadRegister16(0x46 / 2);
+
+		u16 win0_left = (win0_h >> 8) & 0xFF;
+		u16 win0_right = (win0_h & 0xFF) - 1;
+
+		u16 win0_top = (win0_v >> 8) & 0xFF;
+		u16 win0_bottom = (win0_v & 0xFF) - 1;
+
+		u16 win1_left = (win1_h >> 8) & 0xFF;
+		u16 win1_right = (win1_h & 0xFF) - 1;
+
+		u16 win1_top = (win1_v >> 8) & 0xFF;
+		u16 win1_bottom = (win1_v & 0xFF) - 1;
+
+		if (win0_right == 0xFFFF)
+			win0_right = 0;
+
+		if (win0_bottom == 0xFFFF)
+			win0_bottom = 0;
+
+		if (win1_right == 0xFFFF)
+			win1_right = 0;
+
+		if (win1_bottom == 0xFFFF)
+			win1_bottom = 0;
+
+		struct WindowInfo {
+			bool enabled;
+			u16 left;
+			u16 right;
+			u16 top;
+			u16 bottom;
+			int layer_enable[2];
+			int enable_special_effects;
+		};
+
+		WindowInfo windows[4] = {
+			WindowInfo { win0_en, win0_left, win0_right, win0_top, win0_bottom, {
+				(winin_cnt >> 2) & 1,
+				win0_obj_enable
+			}, (winin_cnt >> 5) & 1 },
+			WindowInfo { win1_en, win1_left, win1_right, win1_top, win1_bottom, {
+				(winin_cnt >> 10) & 1,
+				win1_obj_enable
+			}, (winin_cnt >> 13) & 1 },
+			WindowInfo { win_enabled, 0, 0, 0, 0, {
+				(winout_cnt >> 2) & 1,
+				winout_obj_enable
+			}, (winout_cnt >> 5) & 1 },
+			WindowInfo { true, 0, 0, 0, 0, {
+			}, true }
+		};
+
+		u16 curr_line = m_ctx.m_vcount;
+
+		bool window0_line = curr_line >= windows[0].top && curr_line < windows[0].bottom && windows[0].enabled;
+		bool window1_line = curr_line >= windows[1].top && curr_line < windows[1].bottom && windows[1].enabled;
+
+		bool curr_line_has_window = window0_line || window1_line;
+
+		auto get_current_window_id = [&](u16 x_pos) {
+			if (!curr_line_has_window) {
+				if (windows[2].enabled)
+					return 2;
+				return 3;
+			}
+
+			if (x_pos >= windows[0].left && x_pos < windows[0].right && window0_line)
+				return 0;
+			else if (x_pos >= windows[1].left && x_pos < windows[1].right && window1_line)
+				return 1;
+			return 2;
+		};
+
+		u16 color_special_effects_reg = ReadRegister16(0x50 / 2);
+		u16 curr_effect = (color_special_effects_reg >> 6) & 3;
+		u16 first_target = color_special_effects_reg & 0x3F;
+		u16 second_target = (color_special_effects_reg >> 8) & 0x3F;
+
+		u16 backdrop = *reinterpret_cast<u16*>(m_palette_ram);
+
+		u16 bldalpha = ReadRegister16(0x52 / 2);
+
+		u16 eva = std::min(bldalpha & 0x1F, 16);
+		u16 evb = std::min((bldalpha >> 8) & 0x1F, 16);
+
+		for (u16 x = 0; x < 240; x++) {
+			u8 window_id = get_current_window_id(x);
+			bool candidate_found = false;
+
+			u8 layer = 2;
+
+			if (sprites[x].is_obj && sprites[x].palette_id
+				&& (window_id == 3 || windows[window_id].layer_enable[1])
+				&& layer_enabled_global[1]) {
+				candidate_found = true;
+				merged[x] = sprites[x];
+				layer = 1;
+			}
+			else if (bg[x].palette_id
+				&& (window_id == 3 || windows[window_id].layer_enable[0])
+				&& layer_enabled_global[0]) {
+				candidate_found = true;
+				merged[x] = bg[x];
+				layer = 0;
+			}
+
+			if (!candidate_found) {
+				merged[x].color = backdrop;
+				merged[x].palette_id = 1;
+			}
+
+			if ((window_id == 3 || windows[window_id].enable_special_effects)
+				&& CHECK_BIT(first_target, layer)) {
+				u16 special_effect_select = curr_effect;
+				u16 real_effect_select = curr_effect;
+
+				if (merged[x].is_bld_enabled)
+					special_effect_select = 1;
+
+				switch (special_effect_select)
+				{
+				case 0x1: {
+					//Try to select second target
+					second_target = CLEAR_BIT(second_target, layer);
+
+					//Selected layer is
+					//backdrop, we 
+					//do not have other
+					//layers to select
+					if (layer == 2)
+						break;
+
+					u8 index = 5;
+
+					if (layer == 1
+						&& (window_id == 3 || windows[window_id].layer_enable[0])
+						&& layer_enabled_global[0]
+						&& CHECK_BIT(second_target, 2)) {
+						index = 2;
+					}
+					else if(
+						(window_id == 3 || windows[window_id].layer_enable[1])
+						&& layer_enabled_global[1]
+						&& CHECK_BIT(second_target, 4)
+					) {
+						index = 4;
+					}
+
+					if (index == 5) {
+						if (CHECK_BIT(second_target, 5)) {
+							index = 5;
+						}
+						else if (merged[x].is_bld_enabled)
+							goto brightness;
+						else
+							break;
+					}
+
+					u8 second_target_layer = index;
+
+					if (!CHECK_BIT(second_target, second_target_layer))
+						break;
+
+					Pixel top_pixel = merged[x];
+					Pixel lower_pixel = Pixel{};
+
+					if (second_target_layer == 5) {
+						lower_pixel.palette_id = 1;
+						lower_pixel.color = backdrop;
+					}
+					else {
+						lower_pixel = second_target_layer == 2 ? bg[x] : sprites[x];
+					}
+
+					if (lower_pixel.palette_id) {
+						//Blend
+						u16 color = top_pixel.color;
+						u16 color2 = lower_pixel.color;
+
+						u8 r = color & 0x1F;
+						u8 g = (color >> 5) & 0x1F;
+						u8 b = (color >> 10) & 0x1F;
+
+						u8 r2 = color2 & 0x1F;
+						u8 g2 = (color2 >> 5) & 0x1F;
+						u8 b2 = (color2 >> 10) & 0x1F;
+
+						//I = MIN ( 31, I1st*EVA + I2nd*EVB )
+						r = std::min((r * eva + r2 * evb + 8) >> 4, 31);
+						g = std::min((g * eva + g2 * evb + 8) >> 4, 31);
+						b = std::min((b * eva + b2 * evb + 8) >> 4, 31);
+
+						merged[x].color = r | (g << 5) | (b << 10);
+					}
+					else if (merged[x].is_bld_enabled) {
+						goto brightness;
+					}
+				}
+						break;
+				case 0x2:
+				case 0x3: {
+				brightness:
+					//Brightness decrease/increase
+					u16 evy = ReadRegister16(0x54 / 2) & 0x1F;
+
+					u16 color = merged[x].color;
+
+					u8 r = color & 0x1F;
+					u8 g = (color >> 5) & 0x1F;
+					u8 b = (color >> 10) & 0x1F;
+
+					if (real_effect_select == 0x2) {
+						r += ((31 - r) * evy + 8) >> 4;
+						g += ((31 - g) * evy + 8) >> 4;
+						b += ((31 - b) * evy + 8) >> 4;
+					}
+					else if (real_effect_select == 0x3) {
+						r -= (r * evy + 7) >> 4;
+						g -= (g * evy + 7) >> 4;
+						b -= (b * evy + 7) >> 4;
+					}
+
+					merged[x].color = r | (g << 5) | (b << 10);
+				}
+						break;
 				default:
 					break;
 				}

@@ -18,7 +18,7 @@
 
 
 int main(int argc, char* argv[]) {
-	std::string rom = "./testRoms/tonc/dma_demo.gba";
+	std::string rom = "./testRoms/tonc/m7_ex.gba";
 	std::string bios_path = "./testRoms/gba_bios.bin";
 
 	GBA::emulation::Emulator emu{rom, std::string_view(bios_path)};
