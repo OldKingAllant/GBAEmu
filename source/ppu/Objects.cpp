@@ -181,10 +181,9 @@ namespace GBA::ppu {
 				u32 vram_tile_y_id = 0;
 
 				if (addressing_mode)
-					vram_tile_y_id = tile_id +
-					tile_y * total_x_tiles;
+					vram_tile_y_id = tile_y * total_x_tiles;
 				else
-					vram_tile_y_id = (start_tile_y_id + tile_y) * 32;
+					vram_tile_y_id = tile_y * 32;
 
 				u32 vram_y_offset = (vram_tile_y_id * 0x20) +
 					(y_offset * line_size);
@@ -207,17 +206,9 @@ namespace GBA::ppu {
 					if (!pal_mode)
 						x_offset /= 2;
 
-					u32 vram_offset = start_offset;
-
-					if (addressing_mode) {
-						vram_offset = vram_y_offset
-							+ (tile_x * 0x20)
-							+ x_offset;
-					}
-					else {
-						vram_offset += vram_y_offset
-							+ ((tile_x * 0x20) + x_offset);
-					}
+					u32 vram_offset = start_offset + vram_y_offset
+						+ (tile_x * 0x20)
+						+ x_offset;
 
 					vram_offset %= 0x8000;
 
@@ -316,10 +307,9 @@ namespace GBA::ppu {
 					u32 vram_tile_y_id = 0;
 
 					if (addressing_mode)
-						vram_tile_y_id = tile_id +
-						tile_y * total_x_tiles;
+						vram_tile_y_id = tile_y * total_x_tiles;
 					else
-						vram_tile_y_id = (start_tile_y_id + tile_y) * 32;
+						vram_tile_y_id = tile_y * 32;
 
 					u32 vram_y_offset = (vram_tile_y_id * 0x20) +
 						(y_offset * line_size);
@@ -330,17 +320,9 @@ namespace GBA::ppu {
 					if (!pal_mode)
 						x_offset /= 2;
 
-					u32 vram_offset = start_offset;
-
-					if (addressing_mode) {
-						vram_offset = vram_y_offset
-							+ (tile_x * 0x20)
-							+ x_offset;
-					}
-					else {
-						vram_offset += vram_y_offset
-							+ ((tile_x * 0x20) + x_offset);
-					}
+					u32 vram_offset = start_offset + vram_y_offset
+						+ (tile_x * 0x20)
+						+ x_offset;
 
 					vram_offset %= 0x8000;
 
