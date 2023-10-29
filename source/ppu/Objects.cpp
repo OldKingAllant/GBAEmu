@@ -54,7 +54,7 @@ namespace GBA::ppu {
 		for (u16 index = 0; index < 0x3FF; index += 8) {
 			u16 attr_0 = READ_16(m_oam, index);
 
-			u16 y_coord = attr_0 & 0xFF;
+			int y_coord = attr_0 & 0xFF;
 			u8 shape = (attr_0 >> 14) & 0x3;
 
 			if (shape == 3)
@@ -75,6 +75,11 @@ namespace GBA::ppu {
 
 			if (CHECK_BIT(attr_0, 8) && CHECK_BIT(attr_0, 9)) {
 				end_y = y_coord + y_size * 2;
+			}
+
+			if (end_y >= 256) {
+				y_coord -= 256;
+				end_y -= 256;
 			}
 
 			if (lcd_y >= y_coord && lcd_y < end_y) {
@@ -107,7 +112,10 @@ namespace GBA::ppu {
 			u8 shape = (attr_0 >> 14) & 0x3;
 			u8 size_type = (attr_1 >> 14) & 0x3;
 
-			u32 x_start = attr_1 & 0x1FF;
+			int x_start = attr_1 & 0x1FF;
+
+			if (x_start >= 256)
+				x_start = x_start - 512;
 
 			u32 x_size = detail::obj_sizes[shape][size_type][0];
 			u32 y_size = detail::obj_sizes[shape][size_type][1];
@@ -127,7 +135,7 @@ namespace GBA::ppu {
 			u8 prio_to_bg = (attr_2 >> 10) & 0x3;
 			u8 pal_number = (attr_2 >> 12) & 0xF;
 
-			u32 y_coord = attr_0 & 0xFF;
+			int y_coord = attr_0 & 0xFF;
 
 			bool mosaic = CHECK_BIT(attr_0, 12);
 			bool pal_mode = CHECK_BIT(attr_0, 13);
@@ -149,7 +157,12 @@ namespace GBA::ppu {
 			u32 start_tile_y_id = tile_id / 32;
 			u32 start_tile_x_id = tile_id % 32;
 
-			u32 end_y = y_coord + y_size;
+			int end_y = y_coord + y_size;
+
+			if (end_y >= 256) {
+				end_y -= 256;
+				y_coord -= 256;
+			}
 
 			u32 mos_h_size = 1;
 			u32 mos_v_size = 1;
@@ -188,7 +201,7 @@ namespace GBA::ppu {
 				u32 vram_y_offset = (vram_tile_y_id * 0x20) +
 					(y_offset * line_size);
 
-				for (u32 x = x_start; x < end &&
+				for (u32 x = x_start < 0 ? 0 : x_start; x < end &&
 					x < 240; x++) {
 					u32 transformed_x = x - (x % mos_h_size);
 
@@ -271,7 +284,7 @@ namespace GBA::ppu {
 				i32 y_center = y_size / 2;
 				i32 x_center = x_size / 2;
 
-				i32 local_x = -x_center;
+				i32 local_x = x_start <0 ? -x_center + -x_start : -x_center;
 				i32 local_y = transformed_y - (y_coord + y_center);
 
 				i32 tex_y_base = local_y * dmy;
@@ -279,7 +292,7 @@ namespace GBA::ppu {
 
 				u32 end_x = x_start + x_size;
 
-				for (u32 x = x_start; x < end_x && x < 240; x++) {
+				for (u32 x = x_start < 0 ? 0 : x_start; x < end_x && x < 240; x++) {
 					i32 curr_x = tex_x_base + dx * local_x + (x_size << 7);
 					i32 curr_y = tex_y_base + dy * local_x + (y_size << 7);
 
