@@ -6,6 +6,8 @@
 
 #include "../../../cpu/thumb/TableGen2.hpp"
 
+#include <bit>
+
 namespace GBA::cpu::thumb{
 	LOG_CONTEXT(THUMB_Interpreter);
 

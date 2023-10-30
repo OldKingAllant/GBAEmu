@@ -9,6 +9,8 @@
 
 #include "../common/BitManip.hpp"
 
+#include <bit>
+
 namespace GBA::debugger {
 	namespace arm = cpu::arm;
 
