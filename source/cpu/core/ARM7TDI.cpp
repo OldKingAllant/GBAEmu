@@ -9,7 +9,7 @@
 namespace GBA::cpu {
 
 	ARM7TDI::ARM7TDI() :
-		m_ctx{}, m_bus(nullptr), m_int_controller(nullptr) {
+		m_ctx{}, m_bus(nullptr), m_int_controller(nullptr), m_halt(false) {
 		m_ctx.m_cpsr.instr_state = InstructionMode::ARM;
 		m_ctx.m_cpsr.mode = Mode::User;
 
@@ -169,6 +169,20 @@ namespace GBA::cpu {
 	u8 ARM7TDI::Step() {
 		//Check if IRQ occurred
 		//Check halt status
+		if (m_halt) [[unlikely]] {
+			u16 ie = m_int_controller->GetIE();
+			u16 _if = m_int_controller->GetIF();
+
+			if (ie & _if) {
+				m_halt = false;
+				m_bus->ResetHalt();
+			}
+			else {
+				m_bus->InternalCycles(1);
+				return 0;
+			}
+		}
+
 		if (CheckIRQ()) {
 			m_ctx.EnterException(ExceptionCode::IRQ, 4);
 

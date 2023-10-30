@@ -26,6 +26,10 @@ namespace GBA::cpu {
 
 		void SetInterruptControl(memory::InterruptController* int_controller);
 
+		inline void SetHalted() {
+			m_halt = true;
+		}
+
 	private :
 		bool CheckIRQ();
 
@@ -33,5 +37,6 @@ namespace GBA::cpu {
 		CPUContext m_ctx;
 		memory::Bus* m_bus;
 		memory::InterruptController* m_int_controller;
+		bool m_halt;
 	};
 }

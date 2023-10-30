@@ -369,6 +369,10 @@ namespace GBA::memory {
 
 		void TryTriggerDMA(DMAFireType trigger_type);
 
+		inline void ResetHalt() {
+			m_halt_cnt = 0;
+		}
+
 		TimeManager m_time;
 
 	private :
@@ -408,5 +412,9 @@ namespace GBA::memory {
 		u8 active_dmas_count;
 		std::array<u8, 4> active_dmas;
 		DMA* dmas[4];
+
+		u8 m_post_boot;
+		u8 m_halt_cnt;
+		u32 m_mem_control;
 	};
 }

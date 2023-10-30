@@ -14,7 +14,7 @@
 #include <fstream>
 
 namespace GBA::memory {
-	LOG_CONTEXT(Memory bus);
+	LOG_CONTEXT(Memory_bus);
 
 	Bus::Bus() :
 		m_pack(nullptr), m_wram(nullptr),
@@ -24,7 +24,8 @@ namespace GBA::memory {
 		m_open_bus_address{0x00}, m_ppu(nullptr), 
 		m_bios(nullptr), m_sched(nullptr),
 		active_dmas_count{}, active_dmas{},
-		dmas{}
+		dmas{}, m_post_boot{}, m_halt_cnt{},
+		m_mem_control{}
 	{
 		m_wram = new u8[0x40000];
 		m_iwram = new u8[0x8000];
@@ -35,6 +36,38 @@ namespace GBA::memory {
 		mmio = new MMIO();
 
 		m_bios = new u8[16 * 1024];
+
+		mmio->AddRegister<u16>(0x204, true, true, reinterpret_cast<u8*>(&m_time.m_config_raw), 0xFFFF, [](u8 value, u16 pos) {
+			LOG_INFO("Writing waitstate control");
+			error::DebugBreak();
+		});
+
+		mmio->AddRegister<u8>(0x300, true, true, &m_post_boot, 0x1, [this](u8 value, u16) {
+			if (m_post_boot) {
+				LOG_INFO("Attempting to write post boot flag when already set");
+				return;
+			}
+
+			m_post_boot = value;
+		});
+
+		mmio->AddRegister<u8>(0x301, false, true, &m_halt_cnt, 0x80, [this](u8 value, u16) {
+			m_halt_cnt = value;
+
+			if (value) {
+				LOG_INFO("Stop");
+				error::DebugBreak();
+			}
+
+			m_processor->SetHalted();
+		});
+
+		mmio->AddRegister<u32>(0x800, true, true, reinterpret_cast<u8*>(&m_mem_control), 0xFFFF'FFFF,
+			[](u8 value, u16 pos) {
+				LOG_INFO("Writing internal memory control");
+				error::DebugBreak();
+			}
+		);
 	}
 
 	void Bus::ConnectGamepack(gamepack::GamePack* pack) {

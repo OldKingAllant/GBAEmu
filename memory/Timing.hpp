@@ -173,6 +173,9 @@ namespace GBA::memory {
 			return 1;
 		}
 
+	public :
+		u32 m_config_raw;
+
 	private :
 		u32 m_curr_cycles;
 
@@ -183,7 +186,5 @@ namespace GBA::memory {
 			u32 rom1[2];
 			u32 rom2[2];
 		} m_wait_config;
-
-		u32 m_config_raw;
 	};
 }
