@@ -11,7 +11,7 @@ namespace GBA::ppu {
 		static constexpr u32 FRAME_0_START = 0x0;
 		static constexpr u32 FRAME_1_START = 0xA000;
 		static constexpr u32 FRAME_SIZE = 0x9FFF;
-		static constexpr u32 BG2_CNT = 0xA;
+		static constexpr u32 BG2_CNT = 0xC;
 		static constexpr u32 FRAME_W = 160;
 		static constexpr u32 FRAME_H = 128;
 	}
