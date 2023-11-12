@@ -11,6 +11,10 @@
 
 #include "DMAFireType.hpp"
 
+#include "../gamepack/GamePack.hpp"
+
+#include "../common/Logger.hpp"
+
 namespace GBA::gamepack {
 	class GamePack;
 }
@@ -38,6 +42,9 @@ namespace GBA::memory {
 		0x3FF, //Palette RAM
 		0x17FFF, //VRAM
 		0x3FF, //OAM
+		0xFFFFFF,
+		0xFFFFFF,
+		0xFFFFFF,
 		0xFFFFFF,
 		0xFFFFFF,
 		0xFFFFFF,
@@ -79,11 +86,6 @@ namespace GBA::memory {
 
 			u32 num_cycles = 0;
 
-			/*if (code && (region == MEMORY_RANGE::IWRAM
-				|| region == MEMORY_RANGE::EWRAM)) {
-				bool br = true;
-			}*/
-
 			//Some memory regions are mirrored, others are not
 
 			switch (region) {
@@ -118,8 +120,11 @@ namespace GBA::memory {
 				if (addr_low < IO_SIZE && !UNUSED_REGISTERS_MAP[addr_low]) {
 					return_value = mmio->Read<Type>(addr_low);
 				}
-				else
+				else {
 					return_value = ReadOpenBus(address);
+					logging::Logger::Instance().LogInfo("Memory_bus",
+						" Accessing invalid/unused port {:x}", address);
+				}
 				break;
 
 			case MEMORY_RANGE::PAL:
@@ -153,8 +158,11 @@ namespace GBA::memory {
 				break;
 
 			case MEMORY_RANGE::ROM_REG_1:
+			case MEMORY_RANGE::ROM_REG_1_SECOND:
 			case MEMORY_RANGE::ROM_REG_2:
-			case MEMORY_RANGE::ROM_REG_3: {
+			case MEMORY_RANGE::ROM_REG_2_SECOND:
+			case MEMORY_RANGE::ROM_REG_3:
+			case MEMORY_RANGE::ROM_REG_3_SECOND: {
 				if constexpr (sizeof(Type) == 1) {
 					//addr_low &= ~1;
 					u16 temp = Prefetch<u16>(address & ~1, code, region, num_cycles);
@@ -168,7 +176,7 @@ namespace GBA::memory {
 
 			case MEMORY_RANGE::SRAM:
 				num_cycles = m_time.PushCycles<MEMORY_RANGE::SRAM, type_size>();
-				return_value = 0x00;
+				return_value = m_pack->ReadSRAM(addr_low);
 				break;
 
 			default:
@@ -222,6 +230,10 @@ namespace GBA::memory {
 				if (addr_low < IO_SIZE && !UNUSED_REGISTERS_MAP[addr_low]) {
 					mmio->Write<Type>(addr_low, value);
 				}
+				else {
+					logging::Logger::Instance().LogInfo("Memory_bus",
+						" Accessing invalid/unused port {:x}", address);
+				}
 
 				break;
 
@@ -256,22 +268,29 @@ namespace GBA::memory {
 				break;
 
 			case MEMORY_RANGE::ROM_REG_1:
+			case MEMORY_RANGE::ROM_REG_1_SECOND:
 				num_cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_1, type_size>();
 				StopPrefetch();
+				m_pack->Write(address, (u16)value);
 				return;
 
 			case MEMORY_RANGE::ROM_REG_2:
+			case MEMORY_RANGE::ROM_REG_2_SECOND:
 				num_cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_2, type_size>();
 				StopPrefetch();
+				m_pack->Write(address, (u16)value);
 				return;
 
 			case MEMORY_RANGE::ROM_REG_3:
+			case MEMORY_RANGE::ROM_REG_3_SECOND:
 				num_cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_3, type_size>();
 				StopPrefetch();
+				m_pack->Write(address, (u16)value);
 				break;
 
 			case MEMORY_RANGE::SRAM:
 				num_cycles = m_time.PushCycles<MEMORY_RANGE::SRAM, type_size>();
+				m_pack->WriteSRAM(addr_low, value & 0xFF);
 				break;
 			}
 

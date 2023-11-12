@@ -12,13 +12,15 @@
 
 #include "memory/EventScheduler.hpp"
 
+#include <chrono>
+
 #ifdef main
 #undef main
 #endif // main
 
 
 int main(int argc, char* argv[]) {
-	std::string rom = "./testRoms/tonc/m7_ex.gba";
+	std::string rom = "./testRoms/SuperMarioWorld2.gba";
 	std::string bios_path = "./testRoms/gba_bios.bin";
 
 	GBA::emulation::Emulator emu{rom, std::string_view(bios_path)};
@@ -59,6 +61,9 @@ int main(int argc, char* argv[]) {
 		std::exit(0);
 	}
 
+	unsigned long long prev_second = 0;
+	unsigned tot_frames = 0;
+
 	while (!debug_window.StopRequested()
 		&& !opengl_rend.Stopped()) {
 		SDL_Event ev;
@@ -78,6 +83,21 @@ int main(int argc, char* argv[]) {
 		debugger.Run(debug_window.GetEmulatorStatus());
 
 		if (ctx.ppu.HasFrame()) {
+			tot_frames++;
+
+			auto now = 
+				std::chrono::time_point_cast<std::chrono::milliseconds>
+				(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
+
+			auto diff = now - prev_second;
+
+			if (diff > 1000) {
+				prev_second = now;
+
+				//std::cout << tot_frames << std::endl;
+				tot_frames = 0;
+			}
+
 			opengl_rend.SetFrame(ctx.ppu.GetFrame());
 		}
 	}

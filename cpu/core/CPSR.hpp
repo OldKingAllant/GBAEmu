@@ -113,5 +113,7 @@ namespace GBA::cpu {
 			overflow = ((first ^ second) & (second & res)) >> 31;
 		}
 	};
+
+	static_assert(sizeof(CPSR) == 4, "Invalid CPSR size");
 #pragma pack(pop)
 }

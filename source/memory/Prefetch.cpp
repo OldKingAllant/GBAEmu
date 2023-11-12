@@ -7,6 +7,13 @@ namespace GBA::memory {
 	u16 Bus::Prefetch<u16>(u32 address, bool code, MEMORY_RANGE region, u32& cycles) {
 		u32 addr_low = address & 0x00FFFFFF;
 
+		addr_low += (
+			region == MEMORY_RANGE::ROM_REG_1_SECOND ||
+			region == MEMORY_RANGE::ROM_REG_2_SECOND ||
+			region == MEMORY_RANGE::ROM_REG_3_SECOND
+			)
+			? 0x01000000 : 0x0;
+
 		if (!code || !m_enable_prefetch) {
 			StopPrefetch();
 
@@ -15,25 +22,32 @@ namespace GBA::memory {
 			if ((addr_low & 0x1ffff) == 0)
 				acc = Access::NonSeq;
 
-			if (region == MEMORY_RANGE::ROM_REG_1)
+			if (region == MEMORY_RANGE::ROM_REG_1 || region == MEMORY_RANGE::ROM_REG_1_SECOND)
 				cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_1, 2>(acc);
-			else if (region == MEMORY_RANGE::ROM_REG_2)
+			else if (region == MEMORY_RANGE::ROM_REG_2 || region == MEMORY_RANGE::ROM_REG_2_SECOND)
 				cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_2, 2>(acc);
 			else 
 				cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_3, 2>(acc);
 
-			return m_pack->Read(addr_low);
+			return m_pack->Read(addr_low, (u8)region - 8);
 		}
 
-		return m_pack->Read(addr_low);
+		return m_pack->Read(addr_low, (u8)region - 8);
 	}
 
 	template <>
 	u32 Bus::Prefetch<u32>(u32 address, bool code, MEMORY_RANGE region, u32& cycles) {
 		u32 addr_low = address & 0x00FFFFFF;
 
-		u32 value = m_pack->Read(addr_low);
-		value |= (m_pack->Read(addr_low + 2) << 16);
+		addr_low += (
+			region == MEMORY_RANGE::ROM_REG_1_SECOND ||
+			region == MEMORY_RANGE::ROM_REG_2_SECOND ||
+			region == MEMORY_RANGE::ROM_REG_3_SECOND
+			)
+			? 0x01000000 : 0x0;
+
+		u32 value = m_pack->Read(addr_low, (u8)region - 8);
+		value |= (m_pack->Read(addr_low + 2, (u8)region - 8) << 16);
 
 		if (!code || !m_enable_prefetch) {
 			StopPrefetch();
@@ -43,9 +57,9 @@ namespace GBA::memory {
 			if ((addr_low & 0x1ffff) == 0)
 				acc = Access::NonSeq;
 
-			if (region == MEMORY_RANGE::ROM_REG_1)
+			if (region == MEMORY_RANGE::ROM_REG_1 || region == MEMORY_RANGE::ROM_REG_1_SECOND)
 				cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_1, 4>(acc);
-			else if (region == MEMORY_RANGE::ROM_REG_2)
+			else if (region == MEMORY_RANGE::ROM_REG_2 || region == MEMORY_RANGE::ROM_REG_2_SECOND)
 				cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_2, 4>(acc);
 			else
 				cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_3, 4>(acc);

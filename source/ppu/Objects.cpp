@@ -201,63 +201,65 @@ namespace GBA::ppu {
 				u32 vram_y_offset = (vram_tile_y_id * 0x20) +
 					(y_offset * line_size);
 
-				for (u32 x = x_start < 0 ? 0 : x_start; x < end &&
-					x < 240; x++) {
-					u32 transformed_x = x - (x % mos_h_size);
+				if ((int)end >= 0) {
+					for (u32 x = x_start < 0 ? 0 : x_start; x < end &&
+						x < 240; x++) {
+						u32 transformed_x = x - (x % mos_h_size);
 
-					u32 tex_x = transformed_x - x_start;
+						u32 tex_x = transformed_x - x_start;
 
-					if (tex_x > x_size)
-						tex_x = 0;
+						if (tex_x > x_size)
+							tex_x = 0;
 
-					if (h_flip)
-						tex_x = end - transformed_x - 1;
+						if (h_flip)
+							tex_x = end - transformed_x - 1;
 
-					u32 tile_x = tex_x / 8;
-					u32 x_offset = tex_x % 8;
+						u32 tile_x = tex_x / 8;
+						u32 x_offset = tex_x % 8;
 
-					if (!pal_mode)
-						x_offset /= 2;
+						if (!pal_mode)
+							x_offset /= 2;
 
-					u32 vram_offset = start_offset + vram_y_offset
-						+ (tile_x * 0x20)
-						+ x_offset;
+						u32 vram_offset = start_offset + vram_y_offset
+							+ (tile_x * 0x20)
+							+ x_offset;
 
-					vram_offset %= 0x8000;
+						vram_offset %= 0x8000;
 
-					u16 color_id = m_vram[OBJ_VRAM_BASE
-						+ vram_offset];
-					
+						u16 color_id = m_vram[OBJ_VRAM_BASE
+							+ vram_offset];
 
-					u16 color = 0;
 
-					if (pal_mode) {
-						color = READ_16(m_palette_ram,
-							color_id * 2 + OBJ_PALETTE_START);
-					}
-					else {
-						u16 pixel_id = 0;
+						u16 color = 0;
 
-						if (tex_x % 2)
-							pixel_id = (color_id >> 4) & 0xF;
-						else
-							pixel_id = color_id & 0xF;
+						if (pal_mode) {
+							color = READ_16(m_palette_ram,
+								color_id * 2 + OBJ_PALETTE_START);
+						}
+						else {
+							u16 pixel_id = 0;
 
-						color_id = pixel_id;
+							if (tex_x % 2)
+								pixel_id = (color_id >> 4) & 0xF;
+							else
+								pixel_id = color_id & 0xF;
 
-						pixel_id *= 2;
-						pixel_id += pal_number * 32;
+							color_id = pixel_id;
 
-						color = READ_16(m_palette_ram,
-							pixel_id + OBJ_PALETTE_START);
-					}
+							pixel_id *= 2;
+							pixel_id += pal_number * 32;
 
-					if (color_id) {
-						obj_data[x].is_obj = true;
-						obj_data[x].priority = prio_to_bg;
-						obj_data[x].palette_id = color_id;
-						obj_data[x].color = color;
-						obj_data[x].is_bld_enabled = mode == 1;
+							color = READ_16(m_palette_ram,
+								pixel_id + OBJ_PALETTE_START);
+						}
+
+						if (color_id) {
+							obj_data[x].is_obj = true;
+							obj_data[x].priority = prio_to_bg;
+							obj_data[x].palette_id = color_id;
+							obj_data[x].color = color;
+							obj_data[x].is_bld_enabled = mode == 1;
+						}
 					}
 				}
 			}
@@ -292,85 +294,87 @@ namespace GBA::ppu {
 
 				u32 end_x = x_start + x_size;
 
-				for (u32 x = x_start < 0 ? 0 : x_start; x < end_x && x < 240; x++) {
-					i32 curr_x = tex_x_base + dx * local_x + (x_size << 7);
-					i32 curr_y = tex_y_base + dy * local_x + (y_size << 7);
+				if ((int)end_x >= 0) {
+					for (u32 x = x_start < 0 ? 0 : x_start; x < end_x && x < 240; x++) {
+						i32 curr_x = tex_x_base + dx * local_x + (x_size << 7);
+						i32 curr_y = tex_y_base + dy * local_x + (y_size << 7);
 
-					local_x++;
+						local_x++;
 
-					i32 tex_x = curr_x >> 8;
-					i32 tex_y = curr_y >> 8;
+						i32 tex_x = curr_x >> 8;
+						i32 tex_y = curr_y >> 8;
 
-					if (double_size) {
-						tex_x -= orig_x_size / 2;
-						tex_y -= orig_y_size / 2;
-					}
+						if (double_size) {
+							tex_x -= orig_x_size / 2;
+							tex_y -= orig_y_size / 2;
+						}
 
-					if (tex_x < 0 || tex_y < 0) {
-						continue;
-					}
+						if (tex_x < 0 || tex_y < 0) {
+							continue;
+						}
 
-					if (tex_x >= (i32)orig_x_size || tex_y >= (i32)orig_y_size) {
-						continue;
-					}
+						if (tex_x >= (i32)orig_x_size || tex_y >= (i32)orig_y_size) {
+							continue;
+						}
 
-					u32 tile_y = tex_y / 8;
-					u32 y_offset = tex_y % 8;
+						u32 tile_y = tex_y / 8;
+						u32 y_offset = tex_y % 8;
 
-					u32 vram_tile_y_id = 0;
+						u32 vram_tile_y_id = 0;
 
-					if (addressing_mode)
-						vram_tile_y_id = tile_y * total_x_tiles;
-					else
-						vram_tile_y_id = tile_y * 32;
-
-					u32 vram_y_offset = (vram_tile_y_id * 0x20) +
-						(y_offset * line_size);
-
-					u32 tile_x = tex_x / 8;
-					u32 x_offset = tex_x % 8;
-
-					if (!pal_mode)
-						x_offset /= 2;
-
-					u32 vram_offset = start_offset + vram_y_offset
-						+ (tile_x * 0x20)
-						+ x_offset;
-
-					vram_offset %= 0x8000;
-
-					u16 color_id = m_vram[OBJ_VRAM_BASE
-						+ vram_offset];
-
-					u16 color = 0;
-
-					if (pal_mode) {
-						color = READ_16(m_palette_ram,
-							color_id * 2 + OBJ_PALETTE_START);
-					}
-					else {
-						u16 pixel_id = 0;
-
-						if (tex_x % 2)
-							pixel_id = (color_id >> 4) & 0xF;
+						if (addressing_mode)
+							vram_tile_y_id = tile_y * total_x_tiles;
 						else
-							pixel_id = color_id & 0xF;
+							vram_tile_y_id = tile_y * 32;
 
-						color_id = pixel_id;
+						u32 vram_y_offset = (vram_tile_y_id * 0x20) +
+							(y_offset * line_size);
 
-						pixel_id *= 2;
-						pixel_id += pal_number * 32;
+						u32 tile_x = tex_x / 8;
+						u32 x_offset = tex_x % 8;
 
-						color = READ_16(m_palette_ram,
-							pixel_id + OBJ_PALETTE_START);
-					}
+						if (!pal_mode)
+							x_offset /= 2;
 
-					if (color_id) {
-						obj_data[x].is_obj = true;
-						obj_data[x].priority = prio_to_bg;
-						obj_data[x].palette_id = color_id;
-						obj_data[x].color = color;
-						obj_data[x].is_bld_enabled = mode == 1;
+						u32 vram_offset = start_offset + vram_y_offset
+							+ (tile_x * 0x20)
+							+ x_offset;
+
+						vram_offset %= 0x8000;
+
+						u16 color_id = m_vram[OBJ_VRAM_BASE
+							+ vram_offset];
+
+						u16 color = 0;
+
+						if (pal_mode) {
+							color = READ_16(m_palette_ram,
+								color_id * 2 + OBJ_PALETTE_START);
+						}
+						else {
+							u16 pixel_id = 0;
+
+							if (tex_x % 2)
+								pixel_id = (color_id >> 4) & 0xF;
+							else
+								pixel_id = color_id & 0xF;
+
+							color_id = pixel_id;
+
+							pixel_id *= 2;
+							pixel_id += pal_number * 32;
+
+							color = READ_16(m_palette_ram,
+								pixel_id + OBJ_PALETTE_START);
+						}
+
+						if (color_id) {
+							obj_data[x].is_obj = true;
+							obj_data[x].priority = prio_to_bg;
+							obj_data[x].palette_id = color_id;
+							obj_data[x].color = color;
+							obj_data[x].is_bld_enabled = mode == 1;
+						}
 					}
 				}
 			}

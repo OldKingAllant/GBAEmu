@@ -200,16 +200,16 @@ namespace GBA::cpu {
 		if (m_ctx.m_cpsr.instr_state == InstructionMode::ARM) {
 			u32 opcode = m_ctx.m_pipeline.Pop<InstructionMode::ARM>();
 
-			m_ctx.m_pipeline.Fetch<InstructionMode::ARM>();
-
 			arm::ExecuteArm(opcode, m_ctx, m_bus, branch);
+
+			m_ctx.m_pipeline.Fetch<InstructionMode::ARM>();
 		}
 		else {
 			u16 opcode = m_ctx.m_pipeline.Pop<InstructionMode::THUMB>();
 
-			m_ctx.m_pipeline.Fetch<InstructionMode::THUMB>();
-
 			thumb::ExecuteThumb(opcode, m_bus, m_ctx, branch);
+
+			m_ctx.m_pipeline.Fetch<InstructionMode::THUMB>();
 		}
 
 		if (branch) {
@@ -229,10 +229,12 @@ namespace GBA::cpu {
 			m_bus->StopPrefetch();
 		}
 		else {
-			if (m_ctx.m_cpsr.instr_state == InstructionMode::ARM)
+			if (m_ctx.m_cpsr.instr_state == InstructionMode::ARM) {
 				m_ctx.m_regs.AddOffset(15, 0x4);
-			else 
+			}
+			else {
 				m_ctx.m_regs.AddOffset(15, 0x2);
+			}
 		}
 
 		return 0;

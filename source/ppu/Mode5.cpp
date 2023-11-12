@@ -32,6 +32,9 @@ namespace GBA::ppu {
 			error::DebugBreak();
 		}
 
+		if (mosaic)
+			error::DebugBreak();
+
 		unsigned framebuffer_y = curr_line * 240 * 3;
 
 		u32 vram_offset = 0;
@@ -52,9 +55,6 @@ namespace GBA::ppu {
 		for (unsigned x = 0; x < 240; x++) {
 			int tex_x = x;
 			int tex_y = curr_line;
-
-			if (mosaic)
-				CalculateMosaicBG(tex_x, tex_y);
 
 			u16 color_packed = m_palette_ram[BG_PALETTE_START];
 			color_packed |= ((u16)m_palette_ram[BG_PALETTE_START + 1] << 8);

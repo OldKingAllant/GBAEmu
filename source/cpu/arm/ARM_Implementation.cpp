@@ -292,12 +292,18 @@ namespace GBA::cpu::arm{
 
 		u32 HDSTransfer(i32 base, u8 reg, u8 opcode,
 			CPUContext& ctx, memory::Bus* bus, bool& branch) {
+			if (reg == 15) {
+				LOG_INFO("HDS with r15");
+			}
+
 			switch (opcode)
 			{
 			case 0b001: {
 				u32 to_write = ctx.m_regs.GetReg(reg);
 				to_write += 12 * (reg == 15);
+
 				bus->m_time.access = Access::NonSeq;
+				
 				bus->Write<u16>(base, to_write);
 			}
 			break;
@@ -321,15 +327,21 @@ namespace GBA::cpu::arm{
 
 				ctx.m_regs.SetReg(reg, value);
 
-				bus->m_time.access = Access::Seq;
+				//bus->m_time.access = Access::Seq;
+
+				bus->InternalCycles(1);
 			}
 			break;
 
 			case 0b110: {
 				bus->m_time.access = Access::NonSeq;
+				
 				int32_t value = (int8_t)bus->Read<u8>(base);
 				ctx.m_regs.SetReg(reg, value);
-				bus->m_time.access = Access::Seq;
+
+				//bus->m_time.access = Access::Seq;
+
+				bus->InternalCycles(1);
 			}
 			break;
 
@@ -345,11 +357,15 @@ namespace GBA::cpu::arm{
 
 				ctx.m_regs.SetReg(reg, value);
 
-				bus->m_time.access = Access::Seq;
+				//bus->m_time.access = Access::Seq;
+
+				bus->InternalCycles(1);
 			}
 			break;
 
 			default:
+				LOG_INFO(" Invalid HDS transer type");
+				error::DebugBreak();
 				break;
 			}
 
@@ -459,6 +475,8 @@ namespace GBA::cpu::arm{
 		}
 
 		void MrsTransfer(ARMPsrTransferMRS instr, CPUContext& ctx) {
+			static_assert(sizeof(ARMPsrTransferMRS) == 4);
+
 			if (instr.psr) {
 				if (ctx.m_cpsr.mode == Mode::User ||
 					ctx.m_cpsr.mode == Mode::SYS) [[unlikely]] {
@@ -477,6 +495,8 @@ namespace GBA::cpu::arm{
 		}
 
 		void MsrTransfer(ARMPsrTransferMSR instr, CPUContext& ctx) {
+			static_assert(sizeof(ARMPsrTransferMSR) == 4);
+
 			u32 value = 0;
 
 			if (instr.immediate) {
@@ -637,6 +657,7 @@ namespace GBA::cpu::arm{
 	}
 
 	void Branch(ARMBranch instr, CPUContext& ctx,  memory::Bus* bus, bool& branch) {
+		static_assert(sizeof(ARMBranch) == 4);
 		/*
 		* This takes 2S + 1N waitstates:
 		* 1S -> Prefetch
@@ -658,10 +679,12 @@ namespace GBA::cpu::arm{
 
 		ctx.m_regs.AddOffset(15, offset + 8);
 
-		bus->m_time.access = Access::NonSeq;
+		bus->m_time.access = Access::Seq;
 	}
 
 	void inline StoreBlock(ARMBlockTransfer instr, CPUContext& ctx,  memory::Bus* bus, bool& branch, u32 base, u32 new_base) {
+		static_assert(sizeof(ARMBlockTransfer) == 4);
+
 		u16 list = instr.rlist;
 
 		u8 reg_id = 0;
@@ -856,7 +879,7 @@ namespace GBA::cpu::arm{
 				ctx.RestorePreviousMode(ctx.m_regs.GetReg(15));
 		}
 
-		bus->m_time.access = Access::Seq;
+		//bus->m_time.access = Access::Seq;
 
 		bus->InternalCycles(1);
 	}
@@ -938,6 +961,8 @@ namespace GBA::cpu::arm{
 
 	template <>
 	void DataProcessing(ARM_ALUImmediate instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+		static_assert(sizeof(ARM_ALUImmediate) == 4);
+		
 		u8 dest_reg = instr.dest_reg;
 		u8 first_op_reg = instr.first_op_reg;
 
@@ -964,6 +989,8 @@ namespace GBA::cpu::arm{
 
 	template <>
 	void DataProcessing(ARM_ALURegisterReg instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+		static_assert(sizeof(ARM_ALURegisterReg) == 4);
+		
 		u8 dest_reg = instr.destination_reg;
 		u8 first_op_reg = instr.first_operand_reg;
 
@@ -1010,6 +1037,8 @@ namespace GBA::cpu::arm{
 
 	template <>
 	void DataProcessing(ARM_ALURegisterImm instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+		static_assert(sizeof(ARM_ALURegisterImm) == 4);
+		
 		u8 dest_reg = instr.destination_reg;
 		u8 first_op_reg = instr.first_operand_reg;
 
@@ -1068,6 +1097,8 @@ namespace GBA::cpu::arm{
 	}
 
 	void SingleHDSTransfer(ARM_SingleHDSTransfer instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+		static_assert(sizeof(ARM_SingleHDSTransfer) == 4);
+		
 		u32 offset = 0;
 
 		if (instr.immediate_offset)
@@ -1079,6 +1110,10 @@ namespace GBA::cpu::arm{
 
 		if (instr.base_reg == 15)
 			base += 8;
+
+		if (instr.base_reg == 15) {
+			LOG_INFO("HDS with r15");
+		}
 
 		u8 dest = instr.source_dest_reg;
 
@@ -1108,6 +1143,8 @@ namespace GBA::cpu::arm{
 	}
 
 	void BranchExchange(ARMBranchExchange instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+		static_assert(sizeof(ARMBranchExchange) == 4);
+		
 		if (instr.operand_reg == 0xF) [[unlikely]] {
 			LOG_ERROR("Using r15 with BX!");
 			error::DebugBreak();
@@ -1129,7 +1166,7 @@ namespace GBA::cpu::arm{
 
 		branch = true;
 
-		bus->m_time.access = Access::NonSeq;
+		bus->m_time.access = Access::Seq;
 	}
 
 	void SoftwareInterrupt(ARMInstruction instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
@@ -1144,10 +1181,12 @@ namespace GBA::cpu::arm{
 
 		branch = true;
 
-		bus->m_time.access = Access::NonSeq;
+		bus->m_time.access = Access::Seq;
 	}
 
 	void SingleDataSwap(ARMDataSwap instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+		static_assert(sizeof(ARMDataSwap) == 4);
+		
 		u32 base = ctx.m_regs.GetReg( instr.base_reg );
 		u32 dest_reg = instr.dest_reg;
 		u32 source_reg = instr.source_reg;
@@ -1171,7 +1210,7 @@ namespace GBA::cpu::arm{
 			bus->Write<u32>(base, reg_value);
 		}
 
-		bus->m_time.access = Access::Seq;
+		//bus->m_time.access = Access::Seq;
 
 		bus->InternalCycles(1);
 	}
@@ -1215,6 +1254,7 @@ namespace GBA::cpu::arm{
 	}
 
 	void Multiply(ARMMultiply instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+		static_assert(sizeof(ARMMultiply) == 4);
 		/*
 		* Execution times :
 		* 1S + (opcode dependent value)
@@ -1342,6 +1382,8 @@ namespace GBA::cpu::arm{
 
 	template <bool Imm>
 	void SingleDataTransfer(ARMSingleDataTransfer instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+		static_assert(sizeof(ARMSingleDataTransfer) == 4);
+		
 		u32 offset = 0;
 
 		if constexpr (!Imm) {
@@ -1401,7 +1443,7 @@ namespace GBA::cpu::arm{
 
 			bus->InternalCycles(1);
 
-			bus->m_time.access = Access::Seq;
+			//bus->m_time.access = Access::Seq;
 		}
 		else {
 			u32 value = ctx.m_regs.GetReg(instr.dest_reg) +
@@ -1448,10 +1490,12 @@ namespace GBA::cpu::arm{
 
 		bus->InternalCycles(1);
 
-		bus->m_time.access = Access::NonSeq;
+		bus->m_time.access = Access::Seq;
 	}
 
 	void ExecuteArm(ARMInstruction instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+		static_assert(sizeof(ARMInstruction) == 4);
+		
 		if (!ctx.m_cpsr.CheckCondition(instr.condition)) // The instruction takes one S cycle (caused by the fetch process)
 		{
 			bus->m_time.access = Access::Seq; //Set the access to sequential

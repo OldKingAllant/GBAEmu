@@ -37,9 +37,15 @@ namespace GBA::memory {
 
 		m_bios = new u8[16 * 1024];
 
-		mmio->AddRegister<u16>(0x204, true, true, reinterpret_cast<u8*>(&m_time.m_config_raw), 0xFFFF, [](u8 value, u16 pos) {
-			LOG_INFO("Writing waitstate control");
-			error::DebugBreak();
+		mmio->AddRegister<u16>(0x204, true, true, reinterpret_cast<u8*>(&m_time.m_config_raw), 0xFFFF, [this](u8 value, u16 pos) {
+			pos -= 0x204;
+
+			m_time.m_config_raw &= ~((u16)0xFF << (pos * 8));
+			m_time.m_config_raw |= ((u16)value << (pos * 8));
+
+			if(pos == 0x1)
+				m_time.UpdateWaitstate(m_time.m_config_raw);
+			//error::DebugBreak();
 		});
 
 		mmio->AddRegister<u8>(0x300, true, true, &m_post_boot, 0x1, [this](u8 value, u16) {
@@ -114,18 +120,21 @@ namespace GBA::memory {
 			return *reinterpret_cast<u32*>(m_ppu->DebuggerGetVRAM() + addr_low);
 
 		case MEMORY_RANGE::OAM:
-			return 0x00;
+			return m_ppu->ReadOAM<u32>(addr_low);
 
 		case MEMORY_RANGE::ROM_REG_1:
+		case MEMORY_RANGE::ROM_REG_1_SECOND:
 		case MEMORY_RANGE::ROM_REG_2:
-		case MEMORY_RANGE::ROM_REG_3: {
+		case MEMORY_RANGE::ROM_REG_2_SECOND:
+		case MEMORY_RANGE::ROM_REG_3:
+		case MEMORY_RANGE::ROM_REG_3_SECOND: {
 			u32 value = m_pack->Read(addr_low);
 			value |= (m_pack->Read(addr_low + 2) << 16);
 			return value;
 		}
 
 		case MEMORY_RANGE::SRAM:
-			return 0x00;
+			return m_pack->DebuggerReadSRAM32(addr_low);
 		}
 
 		return static_cast<u32>(~0);
@@ -162,15 +171,18 @@ namespace GBA::memory {
 			return *reinterpret_cast<u16*>(m_ppu->DebuggerGetVRAM() + addr_low);
 
 		case MEMORY_RANGE::OAM:
-			return 0x00;
+			return m_ppu->ReadOAM<u16>(addr_low);
 
 		case MEMORY_RANGE::ROM_REG_1:
+		case MEMORY_RANGE::ROM_REG_1_SECOND:
 		case MEMORY_RANGE::ROM_REG_2:
+		case MEMORY_RANGE::ROM_REG_2_SECOND:
 		case MEMORY_RANGE::ROM_REG_3:
+		case MEMORY_RANGE::ROM_REG_3_SECOND:
 			return m_pack->Read(addr_low);
 
 		case MEMORY_RANGE::SRAM:
-			return 0x00;
+			return m_pack->DebuggerReadSRAM32(addr_low);
 		}
 
 		return static_cast<u16>(~0);

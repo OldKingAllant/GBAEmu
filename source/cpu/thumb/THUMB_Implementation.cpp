@@ -322,7 +322,7 @@ namespace GBA::cpu::thumb{
 				branch = true;
 			}
 
-			bus->m_time.access = Access::Seq;
+			bus->m_time.access = Access::NonSeq;
 
 			bus->InternalCycles(1);
 
@@ -413,7 +413,7 @@ namespace GBA::cpu::thumb{
 
 			rlist = instr & 0xFF;
 
-			bus->m_time.access = Access::Seq;
+			bus->m_time.access = Access::NonSeq;
 
 			bus->InternalCycles(1);
 
@@ -429,7 +429,7 @@ namespace GBA::cpu::thumb{
 
 		branch = true;
 
-		bus->m_time.access = Access::NonSeq;
+		bus->m_time.access = Access::Seq;
 	}
 
 	void ThumbFormat3(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool&) {
@@ -537,7 +537,7 @@ namespace GBA::cpu::thumb{
 
 			branch = true;
 
-			bus->m_time.access = Access::NonSeq;
+			bus->m_time.access = Access::Seq;
 		}
 			break;
 		default:
@@ -546,7 +546,7 @@ namespace GBA::cpu::thumb{
 
 		if (dest_reg == 15) {
 			branch = true;
-			bus->m_time.access = Access::NonSeq;
+			bus->m_time.access = Access::Seq;
 		}
 		else if (opcode != 0x3)
 			bus->m_time.access = Access::Seq;
@@ -592,7 +592,7 @@ namespace GBA::cpu::thumb{
 
 		branch = true;
 
-		bus->m_time.access = Access::NonSeq;
+		bus->m_time.access = Access::Seq;
 	}
 
 	void ThumbFormat18(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
@@ -608,7 +608,7 @@ namespace GBA::cpu::thumb{
 
 		branch = true;
 
-		bus->m_time.access = Access::NonSeq;
+		bus->m_time.access = Access::Seq;
 	}
 
 	void ThumbFormat1(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
@@ -918,7 +918,7 @@ namespace GBA::cpu::thumb{
 
 		branch = true;
 
-		bus->m_time.access = Access::NonSeq;
+		bus->m_time.access = Access::Seq;
 	}
 
 	void ThumbFormat6(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
@@ -933,8 +933,6 @@ namespace GBA::cpu::thumb{
 		bus->m_time.access = Access::NonSeq;
 
 		u32 value = bus->Read<u32>(address);
-
-		bus->m_time.access = Access::Seq;
 
 		value = std::rotr(value, (address & 3) * 8);
 
@@ -973,7 +971,6 @@ namespace GBA::cpu::thumb{
 			u32 value = bus->Read<u32>(address);
 			value = std::rotr(value, (address & 3) * 8);
 			ctx.m_regs.SetReg(rd, value);
-			bus->m_time.access = Access::Seq;
 			bus->InternalCycles(1);
 		}
 		break;
@@ -981,7 +978,6 @@ namespace GBA::cpu::thumb{
 		case 0x3: {
 			u32 value = bus->Read<u8>(address);
 			ctx.m_regs.SetReg(rd, value);
-			bus->m_time.access = Access::Seq;
 			bus->InternalCycles(1);
 		}
 		break;
@@ -1015,7 +1011,6 @@ namespace GBA::cpu::thumb{
 		case 0x1: {
 			i32 value = (i8)bus->Read<u8>(address);
 			ctx.m_regs.SetReg(rd, value);
-			bus->m_time.access = Access::Seq;
 			bus->InternalCycles(1);
 		}
 		break;
@@ -1024,7 +1019,6 @@ namespace GBA::cpu::thumb{
 			u32 value = bus->Read<u16>(address);
 			value = std::rotr(value, (address & 1) * 8);
 			ctx.m_regs.SetReg(rd, value);
-			bus->m_time.access = Access::Seq;
 			bus->InternalCycles(1);
 		}
 		break;
@@ -1038,7 +1032,6 @@ namespace GBA::cpu::thumb{
 				value = (i16)bus->Read<u16>(address);
 
 			ctx.m_regs.SetReg(rd, value);
-			bus->m_time.access = Access::Seq;
 			bus->InternalCycles(1);
 		}
 		break;
@@ -1074,7 +1067,6 @@ namespace GBA::cpu::thumb{
 			u32 value = bus->Read<u32>(address);
 			value = std::rotr(value, (address & 3) * 8);
 			ctx.m_regs.SetReg(rd, value);
-			bus->m_time.access = Access::Seq;
 			bus->InternalCycles(1);
 		}
 		break;
@@ -1089,7 +1081,6 @@ namespace GBA::cpu::thumb{
 			u8 value = bus->Read<u8>(address + offset);
 
 			ctx.m_regs.SetReg(rd, value);
-			bus->m_time.access = Access::Seq;
 			bus->InternalCycles(1);
 		}
 		break;
@@ -1121,7 +1112,6 @@ namespace GBA::cpu::thumb{
 
 			ctx.m_regs.SetReg(rd, value);
 
-			bus->m_time.access = Access::Seq;
 			bus->InternalCycles(1);
 		}
 	}
@@ -1146,7 +1136,6 @@ namespace GBA::cpu::thumb{
 			value = std::rotr(value, (address & 3) * 8);
 			ctx.m_regs.SetReg(rd, value);
 
-			bus->m_time.access = Access::Seq;
 			bus->InternalCycles(1);
 		}
 	}
@@ -1175,7 +1164,7 @@ namespace GBA::cpu::thumb{
 
 		branch = true;
 
-		bus->m_time.access = Access::NonSeq;
+		bus->m_time.access = Access::Seq;
 	}
 
 	void InitThumbJumpTable() {

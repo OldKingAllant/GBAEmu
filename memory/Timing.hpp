@@ -15,8 +15,11 @@ namespace GBA::memory {
 		VRAM = 0x06,
 		OAM = 0x07,
 		ROM_REG_1 = 0x08,
+		ROM_REG_1_SECOND = 0x09,
 		ROM_REG_2 = 0x0A,
+		ROM_REG_2_SECOND = 0x0B,
 		ROM_REG_3 = 0x0C,
+		ROM_REG_3_SECOND = 0x0D,
 		SRAM = 0x0E
 	};
 

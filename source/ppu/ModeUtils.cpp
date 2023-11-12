@@ -518,7 +518,7 @@ namespace GBA::ppu {
 					curr_index++;
 			}
 
-			u8 layer = priorities[curr_index].layer;
+			u8 layer = candidate_found ? priorities[curr_index].layer : 0;
 
 			if (backgrounds[4][x].is_obj && backgrounds[4][x].palette_id
 				&& (window_id == 3 || windows[window_id].layer_enable[4])
@@ -591,12 +591,16 @@ namespace GBA::ppu {
 								break;
 							}
 						}
+
+						if (index == 4)
+							index = 6; //Layer in BGs not found,
+									   //set invalid index
 					}
 
 					if (blend_fail)
 						break;
 
-					if (index == 4) {
+					if (index == 6) {
 						if (CHECK_BIT(second_target, 5)) {
 							index = 5;
 						}
@@ -651,7 +655,7 @@ namespace GBA::ppu {
 				case 0x3: {
 				brightness:
 					//Brightness decrease/increase
-					u16 evy = ReadRegister16(0x54 / 2) & 0x1F;
+					u16 evy = std::min( ReadRegister16(0x54 / 2) & 0x1F, 16);
 
 					u16 color = merged[x].color;
 

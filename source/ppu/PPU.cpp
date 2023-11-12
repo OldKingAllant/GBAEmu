@@ -146,7 +146,9 @@ namespace GBA::ppu {
 
 		ppu.m_last_event_timestamp += PPU::TOTAL_CYCLES_PER_LINE;
 
-		ppu.m_bus->TryTriggerDMA(memory::DMAFireType::HBLANK);
+		ppu.m_bus->TryTriggerDMA(memory::DMAFireType::VBLANK);
+
+		ppu.ResetFrameData();
 	}
 
 	void PPU::SetScheduler(memory::EventScheduler* sched) {
@@ -265,7 +267,10 @@ namespace GBA::ppu {
 		mmio->AddRegister<u32>(0x4C, false, true, &m_ctx.array[0x4C], 0xFFFF'FFFF);
 
 		//Color special effects
-		mmio->AddRegister<u16>(0x50, true, true, &m_ctx.array[0x50], 0xFFFF);
+		mmio->AddRegister<u16>(0x50, true, true, &m_ctx.array[0x50], 0xFFFF, 
+			[this](u8 value, u16 pos) {
+				m_ctx.array[pos] = value;
+			});
 		mmio->AddRegister<u16>(0x52, true, true, &m_ctx.array[0x52], 0xFFFF);
 		mmio->AddRegister<u16>(0x54, true, true, &m_ctx.array[0x54], 0xFFFF);
 	}
@@ -331,7 +336,9 @@ namespace GBA::ppu {
 		delete[] m_oam;
 	}
 
-	void PPU::Mode2() {}
+	void PPU::Mode2() {
+		LOG_INFO("Mode 2");
+	}
 
 	common::u32 PPU::ReadRegister32(common::u8 offset) const {
 		return reinterpret_cast<u32 const*>(m_ctx.array)[offset];

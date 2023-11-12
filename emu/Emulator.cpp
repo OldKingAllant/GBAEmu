@@ -1,6 +1,10 @@
 #include "Emulator.hpp"
 
+#include "../common/Logger.hpp"
+
 namespace GBA::emulation {
+	LOG_CONTEXT(Emulator);
+
 	using namespace common;
 
 	Emulator::Emulator(std::string_view rom_location, std::optional<std::string_view> bios_location) :

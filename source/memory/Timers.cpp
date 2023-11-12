@@ -6,7 +6,10 @@
 
 #include "../../common/BitManip.hpp"
 
+#include "../../common/Logger.hpp"
+
 namespace GBA::timers {
+	LOG_CONTEXT(Timers);
 
 	using namespace common;
 
@@ -135,12 +138,13 @@ namespace GBA::timers {
 		u8 timer_cnt_index = 0x2;
 		u8 timer_val_index = 0x0;
 
-		bool prev_timer_overflowed = false;
+		u32 num_overflows = 0;
 
 		for (u8 index = 0; index < 4; index++) {
 			if (!CHECK_BIT(m_registers[timer_cnt_index], 7)) {
 				timer_cnt_index += 0x4;
 				timer_val_index += 0x4;
+				num_overflows = 0;
 				continue;
 			}
 
@@ -161,27 +165,29 @@ namespace GBA::timers {
 				}
 			}
 			else {
-				if (prev_timer_overflowed)
-					curr_timer_val++;
+				curr_timer_val += num_overflows;
 			}
 
 
 			if (curr_timer_val > 0xFFFF) {
-				//Overflow
-				prev_timer_overflowed = true;
+				while (curr_timer_val > 0xFFFF) {
+					num_overflows++;
 
-				if (CHECK_BIT(m_registers[timer_cnt_index], 6)) {
-					using memory::InterruptType;
+					if (CHECK_BIT(m_registers[timer_cnt_index], 6)) {
+						using memory::InterruptType;
 
-					u16 int_id = (8 << index);
+						u16 int_id = (8 << index);
 
-					m_int_controller->RequestInterrupt((InterruptType)int_id);
+						m_int_controller->RequestInterrupt((InterruptType)int_id);
+					}
+
+					u32 timer_difference = curr_timer_val - 0x10000;
+
+					curr_timer_val = m_timer_reload_val[index] + timer_difference;
 				}
-
-				curr_timer_val = m_timer_reload_val[index];
 			}
 			else
-				prev_timer_overflowed = false;
+				num_overflows = 0;
 
 			*reinterpret_cast<u16*>(m_registers + timer_val_index) = (u16)curr_timer_val;
 

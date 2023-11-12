@@ -31,6 +31,9 @@ namespace GBA::ppu {
 		if (curr_line >= 160) {
 			error::DebugBreak();
 		}
+
+		if (mosaic)
+			error::DebugBreak();
 			
 		unsigned framebuffer_y = curr_line * 240 * 3;
 
@@ -49,26 +52,43 @@ namespace GBA::ppu {
 			return;
 		}
 
+		std::array<Pixel, 240> bg2{};
+
+
+
 		for (unsigned x = 0; x < 240; x++) {
 			int tex_x = x;
 			int tex_y = curr_line;
 
-			if (mosaic)
-				CalculateMosaicBG(tex_x, tex_y);
-
 			u16 color_packed = m_palette_ram[BG_PALETTE_START];
 			color_packed |= ((u16)m_palette_ram[BG_PALETTE_START + 1] << 8);
+
+			u8 palette_index = 0;
 
 			if (tex_x < mode4::FRAME_W && tex_y < mode4::FRAME_H &&
 				tex_x >= 0 && tex_y >= 0) {
 				u32 vram_pos = tex_x * mode4::PIXEL_SIZE
 					+ (tex_y * 240 * mode4::PIXEL_SIZE);
 
-				u8 palette_index = m_vram[vram_offset + vram_pos];
+				palette_index = m_vram[vram_offset + vram_pos];
 
 				color_packed = m_palette_ram[BG_PALETTE_START + palette_index * 2];
 				color_packed |= ((u16)m_palette_ram[BG_PALETTE_START + palette_index * 2 + 1] << 8);
 			}
+
+			bg2[x].palette_id = palette_index;
+			bg2[x].color = color_packed;
+		}
+
+		bool obj_enable = (m_ctx.m_control >> 12) & 1;
+
+		if (obj_enable) {
+			auto sprites = DrawSprites(curr_line);
+			bg2 = MergeBitmap(bg2, sprites);
+		}
+
+		for (unsigned x = 0; x < 240; x++) {
+			u16 color_packed = bg2[x].color;
 
 			u8 r = color_packed & 0x1F;
 			u8 g = (color_packed >> 5) & 0x1F;
