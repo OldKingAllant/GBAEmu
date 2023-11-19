@@ -87,8 +87,7 @@ namespace GBA::cpu {
 		}
 
 		void CarryAdd(uint64_t first, uint64_t second) {
-			carry = (first + second) >
-				0xFFFFFFFF;
+			carry = (first + second) >> 32;
 		}
 
 		void OverflowAdd(u32 first, u32 second) {
@@ -97,7 +96,7 @@ namespace GBA::cpu {
 			constexpr uint32_t max_num = (uint32_t)(1 << 31) - 1;
 			constexpr int32_t min_num = -(1 << 31);
 
-			overflow = (~(first ^ second) & (second & res)) >> 31;
+			overflow = (~(first ^ second) & (second ^ res)) >> 31;
 		}
 
 		void CarrySubtract(uint64_t first, uint64_t second) {
@@ -110,7 +109,7 @@ namespace GBA::cpu {
 			constexpr uint32_t max_num = (uint32_t)(1 << 31) - 1;
 			constexpr int32_t min_num = -(1 << 31);
 
-			overflow = ((first ^ second) & (second & res)) >> 31;
+			overflow = ((first ^ second) & (first ^ res)) >> 31;
 		}
 	};
 

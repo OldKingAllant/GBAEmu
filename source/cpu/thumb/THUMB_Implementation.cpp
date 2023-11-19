@@ -14,26 +14,22 @@ namespace GBA::cpu::thumb{
 	namespace detail {
 		template <bool Imm>
 		std::pair<u32, bool> LSL(u32 value, u8 amount, u8 old_carry) {
-			if constexpr (!Imm) {
-				if (!amount)
-					return { value, old_carry };
-			}
+			if (!amount)
+				return { value, old_carry };
 
 			u8 bit_pos = (32 - amount);
 
 			u32 res = 0;
 
-			if (amount >= 32) {
-				u8 bit = CHECK_BIT(value, 31);
+			if (amount == 32)
+				return { 0, value & 1 };
 
-				for (u8 i = 0; i < 32; i++)
-					res |= (bit << i);
-			}
-			else
-				res = value << amount;
+			if (amount >= 32)
+				return { 0, false };
 
-			return { res, CHECK_BIT(value, bit_pos) * (amount < 33
-				&& amount) };
+			res = value << amount;
+
+			return { res, CHECK_BIT(value, bit_pos) };
 		}
 
 		template <bool Imm>
@@ -74,11 +70,22 @@ namespace GBA::cpu::thumb{
 
 			i32 res = 0;
 
-			if (amount < 32)
-				res = (i32)value >> amount;
+			if constexpr (Imm) {
+				if (amount < 32)
+					res = (i32)value >> amount;
+				else {
+					for (int8_t pos = 31; pos >= (int8_t)(32 - amount); pos--)
+						res |= (sign << pos);
+				}
+			}
 			else {
-				for (int8_t pos = 31; pos >= (int8_t)(32 - amount); pos--)
-					res |= (sign << pos);
+				if (amount >= 32) {
+					amount = 31;
+					bit_pos = 31;
+				}
+
+
+				res = (i32)value >> amount;
 			}
 
 			return { (u32)res, CHECK_BIT(value, bit_pos) };
@@ -133,19 +140,30 @@ namespace GBA::cpu::thumb{
 		}
 
 		void ADC(u8 dest_reg, u32 source, CPUContext& ctx) {
+
+			/*u8 carry_val = ctx.m_cpsr.carry;
+
+			uint64_t res = (uint64_t)first_op + value + carry_val;
+			u32 res32 = (u32)res;
+
+			ctx.m_regs.SetReg(dest, res32);*/
+
 			u32 reg_value = ctx.m_regs.GetReg(dest_reg);
 			u32 original = reg_value;
 
 			u8 carry = ctx.m_cpsr.carry;
 
-			reg_value += source + carry;
+			uint64_t res = (uint64_t)reg_value + source + carry;
+			u32 res32 = (u32)res;
 
-			ctx.m_regs.SetReg(dest_reg, reg_value);
+			//reg_value += source + carry;
 
-			ctx.m_cpsr.zero = !reg_value;
-			ctx.m_cpsr.sign = CHECK_BIT(reg_value, 31);
-			ctx.m_cpsr.CarryAdd(original, (uint64_t)source + carry);
-			ctx.m_cpsr.OverflowAdd(original, (uint64_t)source + carry);
+			ctx.m_regs.SetReg(dest_reg, res32);
+
+			ctx.m_cpsr.zero = !res32;
+			ctx.m_cpsr.sign = CHECK_BIT(res32, 31);
+			ctx.m_cpsr.carry = (res >> 32);
+			ctx.m_cpsr.overflow = (~(reg_value ^ source) & (source ^ (u32)res32)) >> 31;
 		}
 
 		void SBC(u8 dest_reg, u32 source, CPUContext& ctx) {

@@ -122,8 +122,8 @@ namespace GBA::memory {
 				}
 				else {
 					return_value = ReadOpenBus(address);
-					logging::Logger::Instance().LogInfo("Memory_bus",
-						" Accessing invalid/unused port {:x}", address);
+					//logging::Logger::Instance().LogInfo("Memory_bus",
+						//" Accessing invalid/unused port {:x}", address);
 				}
 				break;
 
@@ -231,8 +231,8 @@ namespace GBA::memory {
 					mmio->Write<Type>(addr_low, value);
 				}
 				else {
-					logging::Logger::Instance().LogInfo("Memory_bus",
-						" Accessing invalid/unused port {:x}", address);
+					//logging::Logger::Instance().LogInfo("Memory_bus",
+						//" Accessing invalid/unused port {:x}", address);
 				}
 
 				break;
@@ -251,6 +251,13 @@ namespace GBA::memory {
 
 			case MEMORY_RANGE::VRAM:
 				num_cycles = m_time.PushCycles<MEMORY_RANGE::VRAM, type_size>();
+
+				if (addr_low >= REGIONS_LEN[(u8)MEMORY_RANGE::VRAM]) {
+					logging::Logger::Instance().LogInfo("BUS", " Accessing outside of VRAM");
+				}
+
+				/*if constexpr (sizeof(Type) == 1)
+					logging::Logger::Instance().LogInfo("BUS", " Writing byte size to VRAM");*/
 
 				if constexpr (sizeof(Type) == 4)
 					num_cycles += m_time.PushCycles<MEMORY_RANGE::PAL, type_size>();

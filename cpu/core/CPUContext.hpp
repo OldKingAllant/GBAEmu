@@ -10,6 +10,7 @@ namespace GBA::cpu {
 		CPSR m_cpsr;
 		CPSR m_spsr[5];
 		Pipeline m_pipeline;
+		u32 m_old_pc;
 
 		void EnterException(ExceptionCode exc, u8 pc_offset);
 		void RestorePreviousMode(u32 old_pc);

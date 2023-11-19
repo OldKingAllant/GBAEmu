@@ -31,6 +31,7 @@ namespace GBA::cpu {
 		m_ctx.m_regs.SwitchMode(Mode::User);
 
 		m_ctx.m_pipeline.Bubble<InstructionMode::ARM>(0x08000000);
+		m_ctx.m_old_pc = 0x08000000;
 	}
 
 	u32 ARM7TDI::GetExceptVector(ExceptionCode const& mode) {
@@ -119,6 +120,8 @@ namespace GBA::cpu {
 			m_cpsr.fiq_disable = true;
 
 		u32 exc_vector = ARM7TDI::GetExceptVector(exc);
+
+		m_old_pc = m_regs.GetReg(15);
 
 		m_regs.SetReg(14, m_regs.GetReg(15) + pc_offset);
 		m_regs.SetReg(15, exc_vector);
@@ -236,6 +239,8 @@ namespace GBA::cpu {
 				m_ctx.m_regs.AddOffset(15, 0x2);
 			}
 		}
+
+		m_ctx.m_old_pc = m_ctx.m_regs.GetReg(15);
 
 		return 0;
 	}

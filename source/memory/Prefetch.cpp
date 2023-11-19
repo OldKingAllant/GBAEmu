@@ -6,6 +6,7 @@ namespace GBA::memory {
 	template <>
 	u16 Bus::Prefetch<u16>(u32 address, bool code, MEMORY_RANGE region, u32& cycles) {
 		u32 addr_low = address & 0x00FFFFFF;
+		addr_low &= ~1;
 
 		addr_low += (
 			region == MEMORY_RANGE::ROM_REG_1_SECOND ||
@@ -38,6 +39,7 @@ namespace GBA::memory {
 	template <>
 	u32 Bus::Prefetch<u32>(u32 address, bool code, MEMORY_RANGE region, u32& cycles) {
 		u32 addr_low = address & 0x00FFFFFF;
+		addr_low &= ~3;
 
 		addr_low += (
 			region == MEMORY_RANGE::ROM_REG_1_SECOND ||

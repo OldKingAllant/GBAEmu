@@ -66,7 +66,6 @@ namespace GBA::emulation {
 
 			u32 cycles = m_ctx.bus.m_time.PopCycles();
 
-			//m_ctx.ppu.ClockCycles(cycles);
 			m_ctx.timers.ClockCycles(cycles);
 		}
 	}

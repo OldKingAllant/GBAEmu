@@ -2,7 +2,7 @@
 
 #include "../../gamepack/backups/EEPROM.hpp"
 
-//#include "../../common/Logger.hpp"
+#include "../../common/Logger.hpp"
 
 namespace GBA::gamepack {
 
@@ -27,6 +27,11 @@ namespace GBA::gamepack {
 
 		m_rom = reinterpret_cast<u8*>(m_info.map_address);
 
+		common::u8* end = m_rom + m_info.file_size;
+
+		logging::Logger::Instance().LogInfo("Gamepak", " Mapping begin 0x{:x}", (uint64_t)m_rom);
+		logging::Logger::Instance().LogInfo("Gamepak", " Mapping end   0x{:x}", (uint64_t)end);
+
 		std::copy_n(m_rom, sizeof(GamePackHeader),
 			reinterpret_cast<u8*>(&m_head));
 
@@ -49,7 +54,13 @@ namespace GBA::gamepack {
 
 	u16 GamePack::Read(u32 address, u8 region) const {
 		if (region == 0x5 && address + 0xC000000 >= m_backup_address_start) {
+			//logging::Logger::Instance().LogInfo("Gamepak", " Accessing rom region 3");
+
 			return (u16)m_backup->Read(address);
+		}
+
+		if (address >= 0x01000000) {
+			logging::Logger::Instance().LogInfo("Gamepak", " Accessing high address");
 		}
 
 		return *reinterpret_cast<u16*>(m_rom + address);
@@ -78,6 +89,7 @@ namespace GBA::gamepack {
 	}
 
 	u8 GamePack::ReadSRAM(u32 address) const {
+		logging::Logger::Instance().LogInfo("Gamepak", " Reading SRAM");
 		return 0x00;
 	}
 
@@ -90,6 +102,7 @@ namespace GBA::gamepack {
 	}
 
 	void GamePack::WriteSRAM(u32 address, u8 value) {
+		logging::Logger::Instance().LogInfo("Gamepak", " Writing SRAM");
 		(void)address;
 		(void)value;
 	}

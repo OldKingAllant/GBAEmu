@@ -80,45 +80,46 @@ namespace GBA::cpu::arm{
 		void ADC(u8 dest, u32 first_op, u32 value, bool s_bit, CPUContext& ctx) {
 			u8 carry_val = ctx.m_cpsr.carry;
 
-			u32 res = first_op + value + carry_val;
+			uint64_t res = (uint64_t)first_op + value + carry_val;
+			u32 res32 = (u32)res;
 
-			ctx.m_regs.SetReg(dest, res);
+			ctx.m_regs.SetReg(dest, res32);
 
 			if (s_bit) {
-				ctx.m_cpsr.zero = !res;
+				ctx.m_cpsr.zero = !res32;
 				ctx.m_cpsr.sign = CHECK_BIT(res, 31);
-				ctx.m_cpsr.CarryAdd(first_op, (uint64_t)value + carry_val);
-				ctx.m_cpsr.OverflowAdd(first_op, (uint64_t)value + carry_val);
+				ctx.m_cpsr.carry = res >> 32;
+				ctx.m_cpsr.overflow = (~(first_op ^ value) & (value ^ (u32)res32)) >> 31;
 			}
 		}
 
 		void SBC(u8 dest, u32 first_op, u32 value, bool s_bit, CPUContext& ctx) {
-			u8 carry_val = ctx.m_cpsr.carry;
+			u8 carry_val = ctx.m_cpsr.carry ^ 1;
 
-			u32 res = first_op - value + carry_val - 1;
+			u32 res = first_op - value - carry_val;
 
 			ctx.m_regs.SetReg(dest, res);
 
 			if (s_bit) {
 				ctx.m_cpsr.zero = !res;
 				ctx.m_cpsr.sign = CHECK_BIT(res, 31);
-				ctx.m_cpsr.CarrySubtract((uint64_t)first_op + carry_val, (uint64_t)value + 1);
-				ctx.m_cpsr.OverflowSubtract((uint64_t)first_op + carry_val, (uint64_t)value + 1);
+				ctx.m_cpsr.carry = (uint64_t)first_op >= (uint64_t)value + (uint64_t)carry_val;
+				ctx.m_cpsr.overflow = ((first_op ^ value) & (first_op ^ res)) >> 31;
 			}
 		}
 
 		void RSC(u8 dest, u32 first_op, u32 value, bool s_bit, CPUContext& ctx) {
-			u8 carry_val = ctx.m_cpsr.carry;
+			u8 carry_val = ctx.m_cpsr.carry ^ 1;
 
-			u32 res = value - first_op + carry_val - 1;
+			u32 res = value - first_op - carry_val;
 
 			ctx.m_regs.SetReg(dest, res);
 
 			if (s_bit) {
 				ctx.m_cpsr.zero = !res;
 				ctx.m_cpsr.sign = CHECK_BIT(res, 31);
-				ctx.m_cpsr.CarrySubtract((uint64_t)value + carry_val, (uint64_t)first_op + 1);
-				ctx.m_cpsr.OverflowSubtract((uint64_t)value + carry_val, (uint64_t)first_op + 1);
+				ctx.m_cpsr.carry = (uint64_t)value >= (uint64_t)first_op + (uint64_t)carry_val;
+				ctx.m_cpsr.overflow = ((value ^ first_op) & (value ^ res)) >> 31;
 			}
 		}
 
@@ -182,8 +183,8 @@ namespace GBA::cpu::arm{
 			ctx.m_regs.SetReg(dest, res);
 
 			if (s_bit) {
-				ctx.m_cpsr.zero = !value;
-				ctx.m_cpsr.sign = CHECK_BIT(value, 31);
+				ctx.m_cpsr.zero = !res;
+				ctx.m_cpsr.sign = CHECK_BIT(res, 31);
 			}
 		}
 
@@ -374,26 +375,22 @@ namespace GBA::cpu::arm{
 
 		template <bool Imm>
 		std::pair<u32, bool> LSL(u32 value, u8 amount, u8 old_carry) {
-			if constexpr (!Imm) {
-				if (!amount)
-					return { value, old_carry };
-			}
+			if (!amount)
+				return { value, old_carry };
 
 			u8 bit_pos = (32 - amount);
 
 			u32 res = 0;
 
-			if (amount >= 32) {
-				u8 bit = CHECK_BIT(value, 31);
-				
-				for (u8 i = 0; i < 32; i++)
-					res |= (bit << i);
-			}
-			else
-				res = value << amount;
+			if (amount == 32)
+				return { 0, value & 1 };
 
-			return { res, CHECK_BIT(value, bit_pos) * (amount < 33
-				&& amount) };
+			if (amount >= 32)
+				return { 0, false };
+			
+			res = value << amount;
+
+			return { res, CHECK_BIT(value, bit_pos) };
 		}
 
 		template <bool Imm>
@@ -434,16 +431,23 @@ namespace GBA::cpu::arm{
 
 			i32 res = 0;
 
-			if (amount < 32)
-				res = (i32)value >> amount;
-			else {
-				for (int8_t pos = 31; pos >= (int8_t)(32 - amount); pos--)
-					res |= (sign << pos);
+			if constexpr (Imm) {
+				if (amount < 32)
+					res = (i32)value >> amount;
+				else {
+					for (int8_t pos = 31; pos >= (int8_t)(32 - amount); pos--)
+						res |= (sign << pos);
+				}
 			}
+			else {
+				if (amount >= 32) {
+					amount = 31;
+					bit_pos = 31;
+				}
+					
 
-			/*for (int8_t pos = 31; pos >= (int8_t)(32 - amount); pos--) {
-				res |= (sign << pos);
-			}*/
+				res = (i32)value >> amount;
+			}
 
 			return { (u32)res, CHECK_BIT(value, bit_pos) };
 		}
@@ -1002,7 +1006,7 @@ namespace GBA::cpu::arm{
 		}
 
 		u32 second_op = ctx.m_regs.GetReg(instr.second_operand_reg) + 12 * (instr.second_operand_reg == 15);
-		u32 shift_val = ctx.m_regs.GetReg(instr.shift_reg);
+		u32 shift_val = ctx.m_regs.GetReg(instr.shift_reg) & 0xFF;
 
 		std::pair<u32, bool> res{};
 
@@ -1359,8 +1363,14 @@ namespace GBA::cpu::arm{
 
 		if (instr.s_bit) {
 			ctx.m_cpsr.carry = false;
-			ctx.m_cpsr.zero = !res;
-			ctx.m_cpsr.sign = CHECK_BIT(res, 31);
+			ctx.m_cpsr.zero = (instr.opcode == 0 || instr.opcode == 1) ? !(u32)res : !res;
+			ctx.m_cpsr.sign = (instr.opcode == 0 || instr.opcode == 1) ? 
+				CHECK_BIT(res, 31) : CHECK_BIT(res, 63);
+		}
+
+		if (instr.dest_reg == 15) {
+			LOG_INFO("Writing to r15 with multiply!");
+			branch = true;
 		}
 
 		if (instr.opcode >= 4) {
@@ -1436,7 +1446,8 @@ namespace GBA::cpu::arm{
 				value = bus->Read<u8>(base);
 			else {
 				value = bus->Read<u32>(base);
-				value = std::rotr(value, (base & 3) * 8);
+				u8 shift = (base & 3) * 8;
+				value = (value >> shift) | (value << (32 - shift));
 			}
 
 			ctx.m_regs.SetReg(instr.dest_reg, value);

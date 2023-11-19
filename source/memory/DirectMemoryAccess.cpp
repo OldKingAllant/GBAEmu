@@ -4,6 +4,7 @@
 #include "../../memory/InterruptController.hpp"
 
 #include "../../common/Error.hpp"
+#include "../../common/Logger.hpp"
 
 namespace GBA::memory {
 	using namespace common;
@@ -72,6 +73,8 @@ namespace GBA::memory {
 				if (!enable_before && enable_after) {
 					u8 timing = (m_control >> 12) & 3;
 
+					//logging::Logger::Instance().LogInfo("DMA", " Writing DMA cnt {} timing {}", m_id, timing);
+
 					ResetState();
 
 					if (!timing) {
@@ -82,7 +85,13 @@ namespace GBA::memory {
 	}
 
 	void DMA::ResetState() {
-		m_curr_word_count = m_word_count ? m_word_count : 0xFFFF;
+		if (m_word_count) {
+			m_curr_word_count = m_word_count;
+		}
+		else {
+			m_word_count = m_id == 3 ? 0x10000 : 0x4000;
+		}
+		//m_curr_word_count = m_word_count ? m_word_count : 0xFFFF;
 		m_curr_address = 0;
 		m_curr_word_sz = CHECK_BIT(m_control, 10) ? 4 : 2;
 		m_curr_source = m_source_address;

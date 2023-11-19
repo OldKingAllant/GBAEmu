@@ -74,7 +74,7 @@ namespace GBA::ppu {
 			if constexpr (sizeof(Type) == 1) {
 				address &= ~1;
 				common::u16 new_val = value * 0x101;
-				reinterpret_cast<common::u16*>(m_palette_ram)[address] = new_val;
+				*reinterpret_cast<common::u16*>(m_palette_ram + address) = new_val;
 			}
 			else {
 				reinterpret_cast<Type*>(m_palette_ram)[address] = value;
@@ -94,8 +94,14 @@ namespace GBA::ppu {
 			address /= sizeof(Type);
 
 			if constexpr (sizeof(Type) == 1) {
-				//Write effect should depend on the area in the 
-				//VRAM, but I'll just ignore it 
+				common::u8 mode = m_ctx.m_control & 0x7;
+
+				if (address < 0x10000 || (mode >= 3 && address < 0x14000)) {
+					//Not OBJ, writes are not ignored
+					address &= ~1;
+					common::u16 new_val = value * 0x101;
+					*reinterpret_cast<common::u16*>(m_vram + address) = new_val;
+				}
 			}
 			else {
 				reinterpret_cast<Type*>(m_vram)[address] = value;
@@ -113,9 +119,10 @@ namespace GBA::ppu {
 		void WriteOAM(common::u32 address, Type value) {
 			address /= sizeof(Type);
 
-			if (sizeof(Type) != 1) {
+			if constexpr (sizeof(Type) != 1) {
 				reinterpret_cast<Type*>(m_oam)[address] = value;
 			}
+			//Else ignore writes
 		}
 
 		bool HasFrame() {

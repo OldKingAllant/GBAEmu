@@ -231,7 +231,8 @@ namespace GBA::memory {
 	}
 
 	u32 Bus::ReadBiosImpl(u32 address) {
-		if (m_processor->GetContext().m_regs.GetReg(15) > 0x3FFF)
+		if (m_processor->GetContext().m_old_pc > 0x3FFF && m_processor->GetContext().m_regs.GetReg(15) > 
+			0x3FFF)
 			return m_bios_latch;
 
 		m_bios_latch = *reinterpret_cast<u32*>(m_bios + address);
