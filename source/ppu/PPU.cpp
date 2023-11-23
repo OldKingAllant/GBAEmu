@@ -47,6 +47,8 @@ namespace GBA::ppu {
 	void NormalEventCallback(void* ppu_ptr);
 	void VblankEventCallback(void* ppu_ptr);
 	void ScanlineEventCallback(void* ppu_ptr);
+	void VblankHblankCallback(void* ppu_ptr);
+	void VblankEndCallback(void* ppu_ptr);
 
 	void HblankEventCallback(void* ppu_ptr) {
 		PPU& ppu = *reinterpret_cast<PPU*>( ppu_ptr );
@@ -100,7 +102,12 @@ namespace GBA::ppu {
 
 		ppu.m_ctx.m_vcount++;
 
-		if (ppu.m_ctx.m_vcount >= PPU::TOTAL_LINES) {
+		ppu.m_ctx.m_status &= ~2; //Clear HBLANK flag
+
+		ppu.m_sched->ScheduleAbsolute(ppu.m_last_event_timestamp + PPU::CYCLES_PER_SCANLINE,
+			EventType::HBLANK_IN_VBLANK, VblankHblankCallback, ppu_ptr);
+
+		/*if (ppu.m_ctx.m_vcount >= PPU::TOTAL_LINES) {
 			ppu.m_ctx.m_vcount = 0;
 			ppu.m_ctx.m_status &= ~1;
 
@@ -110,7 +117,7 @@ namespace GBA::ppu {
 		else {
 			ppu.m_sched->ScheduleAbsolute(ppu.m_last_event_timestamp + PPU::CYCLES_PER_SCANLINE,
 				EventType::SCANLINE_INC, ScanlineEventCallback, ppu_ptr, true);;
-		}
+		}*/
 
 		u8 lyc = (ppu.m_ctx.m_status >> 8) & 0xFF;
 
@@ -132,6 +139,18 @@ namespace GBA::ppu {
 
 		ppu.m_ctx.m_vcount++;
 
+		u8 lyc = (ppu.m_ctx.m_status >> 8) & 0xFF;
+
+		if (lyc == ppu.m_ctx.m_vcount) {
+			//Set VCOUNT flag
+			ppu.m_ctx.m_status |= (1 << 2);
+
+			if (CHECK_BIT(ppu.m_ctx.m_status, 5))
+				ppu.m_int_control->RequestInterrupt(memory::InterruptType::VCOUNT);
+		}
+		else
+			ppu.m_ctx.m_status &= ~(1 << 2);
+
 		ppu.m_ctx.m_status &= ~2;
 		ppu.m_ctx.m_status |= 1;
 
@@ -139,16 +158,78 @@ namespace GBA::ppu {
 			ppu.m_int_control->RequestInterrupt(memory::InterruptType::VBLANK);
 		}
 
-		ppu.m_sched->ScheduleAbsolute(ppu.m_last_event_timestamp + PPU::TOTAL_CYCLES_PER_LINE,
-			EventType::SCANLINE_INC, ScanlineEventCallback, ppu_ptr);
+		ppu.m_sched->ScheduleAbsolute(ppu.m_last_event_timestamp + PPU::CYCLES_PER_SCANLINE,
+			EventType::HBLANK_IN_VBLANK, VblankHblankCallback, ppu_ptr);
 
 		ppu.m_frame_ok = true;
 
-		ppu.m_last_event_timestamp += PPU::TOTAL_CYCLES_PER_LINE;
+		ppu.m_last_event_timestamp += PPU::CYCLES_PER_SCANLINE;
 
 		ppu.m_bus->TryTriggerDMA(memory::DMAFireType::VBLANK);
 
 		ppu.ResetFrameData();
+	}
+
+	//This event is very specific in the sense that
+	//it is called when an HBLANK occurs during
+	//VBLANK period
+	void VblankHblankCallback(void* ppu_ptr) {
+		PPU* ppu = reinterpret_cast<PPU*>(ppu_ptr);
+
+		if (CHECK_BIT(ppu->m_ctx.m_status, 4)) {
+			ppu->m_int_control->RequestInterrupt(memory::InterruptType::HBLANK);
+		}
+
+		ppu->m_ctx.m_status |= 2;
+
+		/*
+			Event flow:
+			During VBLANK, start with a normal scanline event
+			which lasts 960 cycles. After that, an HBLANK event
+			is triggered:
+				- If the current scanline is the end of the VBLANK
+				  period, schedule a "Vblank End" event
+				- Else, schedule a Scanline event
+		*/
+
+		if (ppu->m_ctx.m_vcount + 1 >= PPU::TOTAL_LINES) {
+			ppu->m_sched->ScheduleAbsolute(ppu->m_last_event_timestamp + PPU::CYCLES_PER_HBLANK,
+				EventType::END_VBLANK, VblankEndCallback, ppu_ptr);
+		}
+		else {
+			ppu->m_sched->ScheduleAbsolute(ppu->m_last_event_timestamp + PPU::CYCLES_PER_HBLANK,
+				EventType::SCANLINE_INC, ScanlineEventCallback, ppu_ptr);;
+		}
+
+		ppu->m_last_event_timestamp += PPU::CYCLES_PER_HBLANK;
+	}
+
+	void VblankEndCallback(void* ppu_ptr) {
+		PPU* ppu = reinterpret_cast<PPU*>(ppu_ptr);
+
+		ppu->m_ctx.m_vcount = 0;
+
+		u8 lyc = (ppu->m_ctx.m_status >> 8) & 0xFF;
+
+		if (lyc == ppu->m_ctx.m_vcount) {
+			//Set VCOUNT flag
+			ppu->m_ctx.m_status |= (1 << 2);
+
+			if (CHECK_BIT(ppu->m_ctx.m_status, 5))
+				ppu->m_int_control->RequestInterrupt(memory::InterruptType::VCOUNT);
+		}
+		else
+			ppu->m_ctx.m_status &= ~(1 << 2);
+
+		ppu->m_ctx.m_status &= ~1; //Clear VBLANK flag
+		ppu->m_ctx.m_status &= ~2; //Clear HBLANK flag
+
+		//Return to normal operation
+		//Next event is an HBLANK event
+		ppu->m_sched->ScheduleAbsolute(ppu->m_last_event_timestamp + PPU::CYCLES_PER_SCANLINE,
+			EventType::HBLANK, HblankEventCallback, ppu_ptr);
+
+		ppu->m_last_event_timestamp += PPU::CYCLES_PER_SCANLINE;
 	}
 
 	void PPU::SetScheduler(memory::EventScheduler* sched) {
@@ -172,21 +253,21 @@ namespace GBA::ppu {
 		mmio->AddRegister<u16>(0xE, true, true, &m_ctx.array[0xE], 0xFFFF);
 
 		//Normal backround scroll
-		mmio->AddRegister<u16>(0x10, true, true, &m_ctx.array[0x10], 0xFFFF);
-		mmio->AddRegister<u16>(0x12, true, true, &m_ctx.array[0x12], 0xFFFF);
+		mmio->AddRegister<u16>(0x10, false, true, &m_ctx.array[0x10], 0xFFFF);
+		mmio->AddRegister<u16>(0x12, false, true, &m_ctx.array[0x12], 0xFFFF);
 
-		mmio->AddRegister<u16>(0x14, true, true, &m_ctx.array[0x14], 0xFFFF);
-		mmio->AddRegister<u16>(0x16, true, true, &m_ctx.array[0x16], 0xFFFF);
+		mmio->AddRegister<u16>(0x14, false, true, &m_ctx.array[0x14], 0xFFFF);
+		mmio->AddRegister<u16>(0x16, false, true, &m_ctx.array[0x16], 0xFFFF);
 
-		mmio->AddRegister<u16>(0x18, true, true, &m_ctx.array[0x18], 0xFFFF);
-		mmio->AddRegister<u16>(0x1A, true, true, &m_ctx.array[0x1A], 0xFFFF);
+		mmio->AddRegister<u16>(0x18, false, true, &m_ctx.array[0x18], 0xFFFF);
+		mmio->AddRegister<u16>(0x1A, false, true, &m_ctx.array[0x1A], 0xFFFF);
 
-		mmio->AddRegister<u16>(0x1C, true, true, &m_ctx.array[0x1C], 0xFFFF);
-		mmio->AddRegister<u16>(0x1E, true, true, &m_ctx.array[0x1E], 0xFFFF);
+		mmio->AddRegister<u16>(0x1C, false, true, &m_ctx.array[0x1C], 0xFFFF);
+		mmio->AddRegister<u16>(0x1E, false, true, &m_ctx.array[0x1E], 0xFFFF);
 
 
 		//Affine BG scroll
-		mmio->AddRegister<u32>(0x28, true, true, &m_ctx.array[0x28], 0x0F'FF'FF'FF, 
+		mmio->AddRegister<u32>(0x28, false, true, &m_ctx.array[0x28], 0x0F'FF'FF'FF,
 			[this](u8 value, u16 offset) {
 				u8 shift_amount = (offset % 4) * 8;
 
@@ -200,7 +281,7 @@ namespace GBA::ppu {
 				m_internal_reference_x[0] = original_val;
 		});
 
-		mmio->AddRegister<u32>(0x2C, true, true, &m_ctx.array[0x2C], 0x0F'FF'FF'FF ,
+		mmio->AddRegister<u32>(0x2C, false, true, &m_ctx.array[0x2C], 0x0F'FF'FF'FF ,
 			[this](u8 value, u16 offset) {
 				u8 shift_amount = (offset % 4) * 8;
 
@@ -214,7 +295,7 @@ namespace GBA::ppu {
 				m_internal_reference_y[0] = original_val;
 		});
 
-		mmio->AddRegister<u32>(0x38, true, true, &m_ctx.array[0x38], 0x0F'FF'FF'FF,
+		mmio->AddRegister<u32>(0x38, false, true, &m_ctx.array[0x38], 0x0F'FF'FF'FF,
 			[this](u8 value, u16 offset) {
 				u8 shift_amount = (offset % 4) * 8;
 
@@ -228,7 +309,7 @@ namespace GBA::ppu {
 				m_internal_reference_x[1] = original_val;
 		});
 
-		mmio->AddRegister<u32>(0x3C, true, true, &m_ctx.array[0x3C], 0x0F'FF'FF'FF, 
+		mmio->AddRegister<u32>(0x3C, false, true, &m_ctx.array[0x3C], 0x0F'FF'FF'FF,
 			[this](u8 value, u16 offset) {
 				u8 shift_amount = (offset % 4) * 8;
 
@@ -243,22 +324,22 @@ namespace GBA::ppu {
 		});
 
 		//Affine BG parameters
-		mmio->AddRegister<u16>(0x20, true, true, &m_ctx.array[0x20], 0xFFFF);
-		mmio->AddRegister<u16>(0x22, true, true, &m_ctx.array[0x22], 0xFFFF);
-		mmio->AddRegister<u16>(0x24, true, true, &m_ctx.array[0x24], 0xFFFF);
-		mmio->AddRegister<u16>(0x26, true, true, &m_ctx.array[0x26], 0xFFFF);
+		mmio->AddRegister<u16>(0x20, false, true, &m_ctx.array[0x20], 0xFFFF);
+		mmio->AddRegister<u16>(0x22, false, true, &m_ctx.array[0x22], 0xFFFF);
+		mmio->AddRegister<u16>(0x24, false, true, &m_ctx.array[0x24], 0xFFFF);
+		mmio->AddRegister<u16>(0x26, false, true, &m_ctx.array[0x26], 0xFFFF);
 
-		mmio->AddRegister<u16>(0x30, true, true, &m_ctx.array[0x30], 0xFFFF);
-		mmio->AddRegister<u16>(0x32, true, true, &m_ctx.array[0x32], 0xFFFF);
-		mmio->AddRegister<u16>(0x34, true, true, &m_ctx.array[0x34], 0xFFFF);
-		mmio->AddRegister<u16>(0x36, true, true, &m_ctx.array[0x36], 0xFFFF);
+		mmio->AddRegister<u16>(0x30, false, true, &m_ctx.array[0x30], 0xFFFF);
+		mmio->AddRegister<u16>(0x32, false, true, &m_ctx.array[0x32], 0xFFFF);
+		mmio->AddRegister<u16>(0x34, false, true, &m_ctx.array[0x34], 0xFFFF);
+		mmio->AddRegister<u16>(0x36, false, true, &m_ctx.array[0x36], 0xFFFF);
 
 		//Windows
-		mmio->AddRegister<u16>(0x40, true, true, &m_ctx.array[0x40], 0xFFFF);
-		mmio->AddRegister<u16>(0x42, true, true, &m_ctx.array[0x42], 0xFFFF);
+		mmio->AddRegister<u16>(0x40, false, true, &m_ctx.array[0x40], 0xFFFF);
+		mmio->AddRegister<u16>(0x42, false, true, &m_ctx.array[0x42], 0xFFFF);
 
-		mmio->AddRegister<u16>(0x44, true, true, &m_ctx.array[0x44], 0xFFFF);
-		mmio->AddRegister<u16>(0x46, true, true, &m_ctx.array[0x46], 0xFFFF);
+		mmio->AddRegister<u16>(0x44, false, true, &m_ctx.array[0x44], 0xFFFF);
+		mmio->AddRegister<u16>(0x46, false, true, &m_ctx.array[0x46], 0xFFFF);
 
 		mmio->AddRegister<u16>(0x48, true, true, &m_ctx.array[0x48], 0xFFFF);
 		mmio->AddRegister<u16>(0x4A, true, true, &m_ctx.array[0x4A], 0xFFFF);
@@ -272,7 +353,7 @@ namespace GBA::ppu {
 				m_ctx.array[pos] = value;
 			});
 		mmio->AddRegister<u16>(0x52, true, true, &m_ctx.array[0x52], 0xFFFF);
-		mmio->AddRegister<u16>(0x54, true, true, &m_ctx.array[0x54], 0xFFFF);
+		mmio->AddRegister<u16>(0x54, false, true, &m_ctx.array[0x54], 0xFFFF);
 	}
 
 	void PPU::ResetFrameData() {

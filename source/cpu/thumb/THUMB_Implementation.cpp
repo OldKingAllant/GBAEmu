@@ -170,16 +170,19 @@ namespace GBA::cpu::thumb{
 			u32 reg_value = ctx.m_regs.GetReg(dest_reg);
 			u32 original = reg_value;
 
-			u8 carry = ctx.m_cpsr.carry;
+			u8 carry = ctx.m_cpsr.carry ^ 1;
 
-			reg_value = reg_value - source - !carry;
+			reg_value = reg_value - source - carry;
 
 			ctx.m_regs.SetReg(dest_reg, reg_value);
 
 			ctx.m_cpsr.zero = !reg_value;
 			ctx.m_cpsr.sign = CHECK_BIT(reg_value, 31);
-			ctx.m_cpsr.CarrySubtract(original, (uint64_t)source + !carry);
-			ctx.m_cpsr.OverflowSubtract(original, (uint64_t)source + !carry);
+			ctx.m_cpsr.carry = (uint64_t)original >= (uint64_t)source + (uint64_t)carry;
+			ctx.m_cpsr.overflow = ((original ^ source) & (original ^ reg_value)) >> 31;
+
+			//ctx.m_cpsr.CarrySubtract(original, (uint64_t)source + !carry);
+			//ctx.m_cpsr.OverflowSubtract(original, (uint64_t)source + !carry);
 		}
 
 		void TST(u8 dest_reg, u32 source, CPUContext& ctx) {
@@ -249,7 +252,7 @@ namespace GBA::cpu::thumb{
 
 			ctx.m_cpsr.zero = !reg_value;
 			ctx.m_cpsr.sign = CHECK_BIT(reg_value, 31);
-			ctx.m_cpsr.carry = false;
+			//ctx.m_cpsr.carry = false;
 		}
 
 		void BIC(u8 dest_reg, u32 source, CPUContext& ctx) {

@@ -52,6 +52,11 @@ namespace GBA::emulation {
 		m_ctx.all_dma[1]->SetMMIO(mmio);
 		m_ctx.all_dma[2]->SetMMIO(mmio);
 		m_ctx.all_dma[3]->SetMMIO(mmio);
+
+		m_ctx.apu.SetDma(m_ctx.all_dma[1], m_ctx.all_dma[2]);
+		m_ctx.apu.SetMMIO(mmio);
+
+		m_ctx.timers.SetAPU(&m_ctx.apu);
 	}
 
 	void Emulator::EmulateFor(u32 num_instructions) {

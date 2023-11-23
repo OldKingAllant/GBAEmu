@@ -8,6 +8,8 @@
 
 #include "../../common/Logger.hpp"
 
+#include "../../apu/APU.hpp"
+
 namespace GBA::timers {
 	LOG_CONTEXT(Timers);
 
@@ -16,7 +18,7 @@ namespace GBA::timers {
 	TimerChain::TimerChain() :
 		m_int_controller(nullptr), m_sched(nullptr), 
 		m_registers{}, m_timer_reload_val{},
-		m_timer_internal_counter{}
+		m_timer_internal_counter{}, m_apu(nullptr)
 	{}
 
 	void TimerChain::SetInterruptController(memory::InterruptController* int_control) {
@@ -134,6 +136,10 @@ namespace GBA::timers {
 			});
 	}
 
+	void TimerChain::SetAPU(apu::APU* apu) {
+		m_apu = apu;
+	}
+
 	void TimerChain::ClockCycles(u16 cycles) {
 		u8 timer_cnt_index = 0x2;
 		u8 timer_val_index = 0x0;
@@ -184,6 +190,8 @@ namespace GBA::timers {
 					u32 timer_difference = curr_timer_val - 0x10000;
 
 					curr_timer_val = m_timer_reload_val[index] + timer_difference;
+
+					m_apu->TimerOverflow(index);
 				}
 			}
 			else

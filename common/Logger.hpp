@@ -12,23 +12,23 @@ namespace GBA::logging {
 	class Logger {
 	public :
 		template <typename StringType, typename... Args>
-		void LogError(const char* context, StringType const& format_string, Args&&... args) {
+		void LogError(const char* context, StringType&& format_string, Args&&... args) {
 			std::string buf = "[" + std::string(context) + "]"
-				+ fmt::format(format_string, std::forward<Args>(args)...);
+				+ fmt::vformat(format_string, fmt::make_format_args(std::forward<Args>(args)...));
 			log_impl(buf);
 		}
 
 		template <typename StringType, typename... Args>
-		void LogWarning(const char* context, StringType const& format_string, Args&&... args) {
+		void LogWarning(const char* context, StringType&& format_string, Args&&... args) {
 			std::string buf = "[" + std::string(context) + "]"
-				+ fmt::format(format_string, std::forward<Args>(args)...);
+				+ fmt::vformat(format_string, fmt::make_format_args( std::forward<Args>(args)...) );
 			log_impl(buf);
 		}
 
 		template <typename StringType, typename... Args>
-		void LogInfo(const char* context, StringType const& format_string, Args&&... args) {
+		void LogInfo(const char* context, StringType&& format_string, Args&&... args) {
 			std::string buf = "[" + std::string(context) + "]"
-				+ fmt::format(format_string, std::forward<Args>(args)...);
+				+ fmt::vformat(format_string, fmt::make_format_args(std::forward<Args>(args)...));
 			log_impl(buf);
 		}
 

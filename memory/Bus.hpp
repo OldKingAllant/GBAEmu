@@ -117,11 +117,12 @@ namespace GBA::memory {
 			case MEMORY_RANGE::IO:
 				num_cycles = m_time.PushCycles<MEMORY_RANGE::IO, type_size>();
 
-				if (addr_low < IO_SIZE && !UNUSED_REGISTERS_MAP[addr_low]) {
+				if (addr_low < IO_SIZE && !UNUSED_REGISTERS_MAP[addr_low]
+					&& mmio->IsRegisterReadable(addr_low)) {
 					return_value = mmio->Read<Type>(addr_low);
 				}
 				else {
-					return_value = ReadOpenBus(address);
+					return_value = 0;
 					//logging::Logger::Instance().LogInfo("Memory_bus",
 						//" Accessing invalid/unused port {:x}", address);
 				}
@@ -361,14 +362,17 @@ namespace GBA::memory {
 			if (active_dmas_count >= 4) [[unlikely]]
 				error::DebugBreak();
 
-			u8 pos = active_dmas_count;
+			int pos = active_dmas_count - 1;
 
-			while (pos > 0) {
+			while (pos >= 0) {
 				if (active_dmas[pos] > id)
 					break;
 
 				pos--;
 			}
+
+			if (pos < 0)
+				pos = 0;
 
 			std::shift_right(active_dmas.begin() + pos, active_dmas.end(), 1);
 

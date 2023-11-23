@@ -1362,7 +1362,7 @@ namespace GBA::cpu::arm{
 		}
 
 		if (instr.s_bit) {
-			ctx.m_cpsr.carry = false;
+			//ctx.m_cpsr.carry = false;
 			ctx.m_cpsr.zero = (instr.opcode == 0 || instr.opcode == 1) ? !(u32)res : !res;
 			ctx.m_cpsr.sign = (instr.opcode == 0 || instr.opcode == 1) ? 
 				CHECK_BIT(res, 31) : CHECK_BIT(res, 63);

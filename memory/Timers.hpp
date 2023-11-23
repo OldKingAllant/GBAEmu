@@ -8,6 +8,10 @@ namespace GBA::memory {
 	class EventScheduler;
 }
 
+namespace GBA::apu {
+	class APU;
+}
+
 namespace GBA::timers {
 	class TimerChain {
 	public :
@@ -16,6 +20,7 @@ namespace GBA::timers {
 		void SetMMIO(memory::MMIO* mmio);
 		void SetInterruptController(memory::InterruptController* int_control);
 		void SetEventScheduler(memory::EventScheduler* ev_sched);
+		void SetAPU(apu::APU* apu);
 
 		void ClockCycles(common::u16 cycles);
 
@@ -34,5 +39,7 @@ namespace GBA::timers {
 
 		common::u16 m_timer_reload_val[4];
 		common::u32 m_timer_internal_counter[4];
+
+		apu::APU* m_apu;
 	};
 }

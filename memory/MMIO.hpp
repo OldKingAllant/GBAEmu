@@ -57,10 +57,10 @@ namespace GBA::memory {
 
 	using IOWriteFunction = std::function<void(common::u8, common::u16)>;
 
-	static constexpr common::u32 IO_SIZE = 0xFFF;
+	static constexpr common::u32 IO_SIZE = 0x1000;
 
-	static constexpr std::array<bool, 0xFFF> UNUSED_REGISTERS_MAP = []() {
-		std::array<bool, 0xFFF> unused_map{};
+	static constexpr std::array<bool, 0x1000> UNUSED_REGISTERS_MAP = []() {
+		std::array<bool, 0x1000> unused_map{};
 
 		unused_map[0x4E] = true;
 		unused_map[0x4F] = true;
@@ -230,6 +230,10 @@ namespace GBA::memory {
 					value >>= 8;
 				}
 			}
+		}
+
+		bool IsRegisterReadable(common::u16 offset) const {
+			return m_registers[offset].readable;
 		}
 
 		common::u8 DebuggerReadIO(common::u16 offset);

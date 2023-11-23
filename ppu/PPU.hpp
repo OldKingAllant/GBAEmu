@@ -141,6 +141,8 @@ namespace GBA::ppu {
 		friend void NormalEventCallback(void* ppu_ptr);
 		friend void VblankEventCallback(void* ppu_ptr);
 		friend void ScanlineEventCallback(void* ppu_ptr);
+		friend void VblankHblankCallback(void* ppu_ptr);
+		friend void VblankEndCallback(void* ppu_ptr);
 
 		~PPU();
 

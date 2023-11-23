@@ -13,7 +13,9 @@ namespace GBA::memory {
 		HBLANK,
 		VBLANK,
 		PPUNORMAL,
-		SCANLINE_INC
+		SCANLINE_INC,
+		HBLANK_IN_VBLANK,
+		END_VBLANK
 	};
 
 	struct Event {

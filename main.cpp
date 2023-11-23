@@ -10,9 +10,9 @@
 
 #include "video/renderers/OpenGL_Renderer.hpp"
 
-#include "memory/EventScheduler.hpp"
-
 #include <chrono>
+
+#include "audio_device/sdl/SdlAudioDevice.hpp"
 
 #ifdef main
 #undef main
@@ -20,14 +20,14 @@
 
 
 int main(int argc, char* argv[]) {
-	//std::string rom = "./testRoms/armwrestler/main.gba";
+	//std::string rom = "./testRoms/fuzzarm/THUMB_any.gba";
 	std::string rom = "./testRoms/SuperMarioWorld.gba";
 	std::string bios_path = "./testRoms/gba_bios.bin";
 
 	GBA::emulation::Emulator emu{rom, std::string_view(bios_path)};
 	emu.SkipBios();
 
-	if (SDL_Init(SDL_INIT_VIDEO)) {
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
 		std::cerr << SDL_GetError() << std::endl;
 
 		std::cin.get();
@@ -61,6 +61,9 @@ int main(int argc, char* argv[]) {
 	if (!opengl_rend.Init(3, 3)) {
 		std::exit(0);
 	}
+
+	GBA::audio::AudioDevice* audio = new GBA::audio::SdlAudioDevice();
+	audio->Start();
 
 	unsigned long long prev_second = 0;
 	unsigned tot_frames = 0;
@@ -103,6 +106,7 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
+	audio->Stop();
 
 	SDL_Quit();
 

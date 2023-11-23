@@ -141,12 +141,27 @@ namespace GBA::memory {
 	}
 
 	void DMA::Repeat() {
-		m_curr_word_count = m_word_count;
+		m_curr_address = 0;
+
+		if (m_word_count) {
+			m_curr_word_count = m_word_count;
+		}
+		else {
+			m_word_count = m_id == 3 ? 0x10000 : 0x4000;
+		}
 
 		u8 dest_control = (m_control >> 5) & 0x3;
 
 		if (dest_control == 3)
 			m_curr_dest = m_orig_dad;
+
+		u8 timing = (m_control >> 12) & 3;
+
+		if ((m_id == 1 || m_id == 2) && timing == 0x3) {
+			m_dad_inc = 0;
+			m_curr_word_count = 4;
+			m_curr_word_sz = 4;
+		}
 	}
 
 	bool DMA::IsEnabled() const {
@@ -213,7 +228,12 @@ namespace GBA::memory {
 		case GBA::memory::DMAFireType::VBLANK:
 			must_run = timing == 0x1;
 			break;
-		case GBA::memory::DMAFireType::FIFO:
+		case GBA::memory::DMAFireType::FIFO_A:
+			must_run = timing == 0x3 && m_dest_address == 0x40000A0;
+			break;
+		case GBA::memory::DMAFireType::FIFO_B:
+			must_run = timing == 0x3 && m_dest_address == 0x40000A4;
+			break;
 		case GBA::memory::DMAFireType::CAPTURE:
 			error::DebugBreak();
 			break;
