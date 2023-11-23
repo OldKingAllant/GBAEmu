@@ -253,7 +253,8 @@ namespace GBA::ppu {
 								pixel_id + OBJ_PALETTE_START);
 						}
 
-						if (color_id) {
+						if (color_id && 
+							(!obj_data[x].is_obj || obj_data[x].priority >= prio_to_bg)) {
 							obj_data[x].is_obj = true;
 							obj_data[x].priority = prio_to_bg;
 							obj_data[x].palette_id = color_id;
@@ -368,7 +369,8 @@ namespace GBA::ppu {
 								pixel_id + OBJ_PALETTE_START);
 						}
 
-						if (color_id) {
+						if (color_id &&
+							(!obj_data[x].is_obj || obj_data[x].priority >= prio_to_bg)) {
 							obj_data[x].is_obj = true;
 							obj_data[x].priority = prio_to_bg;
 							obj_data[x].palette_id = color_id;
