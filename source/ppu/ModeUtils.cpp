@@ -206,12 +206,13 @@ namespace GBA::ppu {
 
 				u16 color = 0;
 
-				if(bg_x % 2)
+				if(/*bg_x*/ x_offset_inside_tile % 2)
 					color = ((color_id >> 4) & 0xF) * 2;
 				else 
 					color = (color_id & 0xF) * 2;
 
 				backround_data[x].color = *reinterpret_cast<u16*>(m_palette_ram + pal_id + color);
+
 				backround_data[x].palette_id = color;
 			}
 
