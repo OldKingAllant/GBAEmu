@@ -22,6 +22,11 @@ namespace GBA::cpu::arm::detail{
 
 		u32 masked = 0;
 
+		masked = bits & ARMInstructionMask::BRANCH_EXCHANGE;
+
+		if (masked == ARMInstructionCode::BRANCH_EXCHANGE)
+			return ARMInstructionType::BRANCH_EXCHANGE;
+
 		masked = bits & ARMInstructionMask::BRANCH;
 
 		if (masked == ARMInstructionCode::BRANCH)
@@ -114,19 +119,6 @@ namespace GBA::cpu::arm::detail{
 	constexpr std::array<ARMInstructionType, 4096> arm_lookup_table = GenerateArmLut();
 
 	constexpr ARMInstructionType DecodeArmFast(u32 opcode) {
-		u32 masked = 0;
-
-		constexpr const u32 BRANCH_EXCHANGE_MASK =
-			0b00001111111111111111111111000000;
-
-		constexpr const u32 BRANCH_EXCHANGE_VALUE =
-			0b00000001001011111111111100000000;
-
-		masked = opcode & BRANCH_EXCHANGE_MASK;
-
-		if (masked == BRANCH_EXCHANGE_VALUE)
-			return ARMInstructionType::BRANCH_EXCHANGE;
-
 		u16 hash = ((opcode >> 16) & 0xFF0) | ((opcode >> 4) & 0xF);
 
 		return arm_lookup_table[hash];
