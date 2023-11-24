@@ -1188,6 +1188,8 @@ namespace GBA::cpu::thumb{
 		bus->m_time.access = Access::Seq;
 	}
 
+	ThumbFunc thumb_jump_table[1024];
+
 	void InitThumbJumpTable() {
 		for (u8 index = 0; index < 20; index++)
 			THUMB_JUMP_TABLE[index] = ThumbUndefined;
@@ -1211,6 +1213,10 @@ namespace GBA::cpu::thumb{
 		THUMB_JUMP_TABLE[16] = ThumbFormat17;
 		THUMB_JUMP_TABLE[17] = ThumbFormat18;
 		THUMB_JUMP_TABLE[18] = ThumbFormat19;
+
+		for (u16 code = 0; code < 1024; code++) {
+			thumb_jump_table[code] = THUMB_JUMP_TABLE[(u8)detail::thumb_lookup_table[code]];
+		}
 	}
 
 	THUMBInstructionType DecodeThumb(u16 opcode) {
@@ -1233,8 +1239,10 @@ namespace GBA::cpu::thumb{
 	void ExecuteThumb(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
 		u16 hash = (instr >> 6) & 0b1111111111;
 
-		THUMBInstructionType type = detail::thumb_lookup_table[hash];
+		/*THUMBInstructionType type = detail::thumb_lookup_table[hash];
 
-		THUMB_JUMP_TABLE[(u8)type](instr, bus, ctx, branch);
+		THUMB_JUMP_TABLE[(u8)type](instr, bus, ctx, branch);*/
+
+		thumb_jump_table[hash](instr, bus, ctx, branch);
 	}
 }
