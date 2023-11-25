@@ -18,6 +18,7 @@ namespace GBA::cpu {
 		m_ctx.m_regs.SetReg(Mode::User, 13, 0x03007F00);
 
 		thumb::InitThumbJumpTable();
+		arm::InitArmJumpTable();
 	}
 
 	void ARM7TDI::AttachBus(memory::Bus* bus) {

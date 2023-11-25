@@ -297,6 +297,12 @@ namespace GBA::cpu::arm {
 	};
 #pragma pack(pop)
 
+	using ArmExecutor = void(*)(ARMInstruction, CPUContext&, memory::Bus*, bool&);
+
+	extern ArmExecutor arm_jump_table[4096];
+
+	void InitArmJumpTable();
+
 	ARMInstructionType DecodeArm(u32 opcode);
 
 	void ExecuteArm(ARMInstruction instr, CPUContext& ctx,  memory::Bus* bus, bool& branch);

@@ -660,8 +660,11 @@ namespace GBA::cpu::arm{
 		return ARMInstructionType::UNDEFINED;
 	}
 
-	void Branch(ARMBranch instr, CPUContext& ctx,  memory::Bus* bus, bool& branch) {
+	void Branch(ARMInstruction instr_orig, CPUContext& ctx,  memory::Bus* bus, bool& branch) {
 		static_assert(sizeof(ARMBranch) == 4);
+
+		ARMBranch instr = instr_orig;
+
 		/*
 		* This takes 2S + 1N waitstates:
 		* 1S -> Prefetch
@@ -888,12 +891,9 @@ namespace GBA::cpu::arm{
 		bus->InternalCycles(1);
 	}
 
-	void BlockDataTransfer(ARMBlockTransfer instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
-		//The register list is 16 bits long, and 
-		//when a bit is 1 the corresponding register 
-		//r[n] is in the list
+	void BlockDataTransfer(ARMInstruction instr_orig, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+		ARMBlockTransfer instr = instr_orig;
 
-		//Get base register
 		u32 base = ctx.m_regs.GetReg(instr.base_reg);
 		u32 original_base = base;
 
@@ -959,13 +959,15 @@ namespace GBA::cpu::arm{
 	*/
 
 	template <typename InstructionT>
-	void DataProcessing(InstructionT instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {}
+	void DataProcessing(ARMInstruction instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {}
 
 	
 
 	template <>
-	void DataProcessing(ARM_ALUImmediate instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+	void DataProcessing<ARM_ALUImmediate>(ARMInstruction instr_orig, CPUContext& ctx, memory::Bus* bus, bool& branch) {
 		static_assert(sizeof(ARM_ALUImmediate) == 4);
+
+		ARM_ALUImmediate instr = instr_orig;
 		
 		u8 dest_reg = instr.dest_reg;
 		u8 first_op_reg = instr.first_op_reg;
@@ -992,8 +994,10 @@ namespace GBA::cpu::arm{
 	}
 
 	template <>
-	void DataProcessing(ARM_ALURegisterReg instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+	void DataProcessing<ARM_ALURegisterReg>(ARMInstruction instr_orig, CPUContext& ctx, memory::Bus* bus, bool& branch) {
 		static_assert(sizeof(ARM_ALURegisterReg) == 4);
+
+		ARM_ALURegisterReg instr = instr_orig;
 		
 		u8 dest_reg = instr.destination_reg;
 		u8 first_op_reg = instr.first_operand_reg;
@@ -1040,8 +1044,10 @@ namespace GBA::cpu::arm{
 	}
 
 	template <>
-	void DataProcessing(ARM_ALURegisterImm instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+	void DataProcessing<ARM_ALURegisterImm>(ARMInstruction instr_orig, CPUContext& ctx, memory::Bus* bus, bool& branch) {
 		static_assert(sizeof(ARM_ALURegisterImm) == 4);
+
+		ARM_ALURegisterImm instr = instr_orig;
 		
 		u8 dest_reg = instr.destination_reg;
 		u8 first_op_reg = instr.first_operand_reg;
@@ -1100,8 +1106,10 @@ namespace GBA::cpu::arm{
 		bus->m_time.access = Access::Seq;
 	}
 
-	void SingleHDSTransfer(ARM_SingleHDSTransfer instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+	void SingleHDSTransfer(ARMInstruction instr_orig, CPUContext& ctx, memory::Bus* bus, bool& branch) {
 		static_assert(sizeof(ARM_SingleHDSTransfer) == 4);
+
+		ARM_SingleHDSTransfer instr = instr_orig;
 		
 		u32 offset = 0;
 
@@ -1146,8 +1154,10 @@ namespace GBA::cpu::arm{
 		}
 	}
 
-	void BranchExchange(ARMBranchExchange instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+	void BranchExchange(ARMInstruction instr_orig, CPUContext& ctx, memory::Bus* bus, bool& branch) {
 		static_assert(sizeof(ARMBranchExchange) == 4);
+
+		ARMBranchExchange instr = instr_orig;
 		
 		if (instr.operand_reg == 0xF) [[unlikely]] {
 			LOG_ERROR("Using r15 with BX!");
@@ -1188,8 +1198,10 @@ namespace GBA::cpu::arm{
 		bus->m_time.access = Access::Seq;
 	}
 
-	void SingleDataSwap(ARMDataSwap instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+	void SingleDataSwap(ARMInstruction instr_orig, CPUContext& ctx, memory::Bus* bus, bool& branch) {
 		static_assert(sizeof(ARMDataSwap) == 4);
+
+		ARMDataSwap instr = instr_orig;
 		
 		u32 base = ctx.m_regs.GetReg( instr.base_reg );
 		u32 dest_reg = instr.dest_reg;
@@ -1257,8 +1269,11 @@ namespace GBA::cpu::arm{
 		return 4;
 	}
 
-	void Multiply(ARMMultiply instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+	void Multiply(ARMInstruction instr_orig, CPUContext& ctx, memory::Bus* bus, bool& branch) {
 		static_assert(sizeof(ARMMultiply) == 4);
+
+		ARMMultiply instr = instr_orig;
+
 		/*
 		* Execution times :
 		* 1S + (opcode dependent value)
@@ -1391,8 +1406,10 @@ namespace GBA::cpu::arm{
 	}
 
 	template <bool Imm>
-	void SingleDataTransfer(ARMSingleDataTransfer instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+	void SingleDataTransfer(ARMInstruction instr_orig, CPUContext& ctx, memory::Bus* bus, bool& branch) {
 		static_assert(sizeof(ARMSingleDataTransfer) == 4);
+
+		ARMSingleDataTransfer instr = instr_orig;
 		
 		u32 offset = 0;
 
@@ -1504,6 +1521,70 @@ namespace GBA::cpu::arm{
 		bus->m_time.access = Access::Seq;
 	}
 
+	ArmExecutor arm_jump_table[4096];
+
+	void InitArmJumpTable() {
+		auto get_instruction_ptr = [](ARMInstructionType type) {
+			switch (type)
+			{
+			case ARMInstructionType::BRANCH:
+				return Branch;
+				break;
+			case ARMInstructionType::BRANCH_EXCHANGE:
+				return BranchExchange;
+				break;
+			case ARMInstructionType::BLOCK_DATA_TRANSFER:
+				return BlockDataTransfer;
+				break;
+			case ARMInstructionType::DATA_PROCESSING_IMMEDIATE:
+				return DataProcessing<ARM_ALUImmediate>;
+				break;
+			case ARMInstructionType::DATA_PROCESSING_REGISTER_REG:
+				return DataProcessing<ARM_ALURegisterReg>;
+				break;
+			case ARMInstructionType::DATA_PROCESSING_REGISTER_IMM:
+				return DataProcessing<ARM_ALURegisterImm>;
+				break;
+			case ARMInstructionType::PSR_TRANSFER:
+				return PsrTransfer;
+				break;
+			case ARMInstructionType::SINGLE_HDS_TRANSFER:
+				return SingleHDSTransfer;
+				break;
+			case ARMInstructionType::SOFT_INTERRUPT:
+				return SoftwareInterrupt;
+				break;
+			case ARMInstructionType::SINGLE_DATA_SWAP:
+				return SingleDataSwap;
+				break;
+			case ARMInstructionType::MULTIPLY:
+				return Multiply;
+				break;
+			case ARMInstructionType::MULTIPLY_HALF:
+				return MultiplyHalf;
+				break;
+			case ARMInstructionType::SINGLE_DATA_TRANSFER_IMM:
+				return SingleDataTransfer<true>;
+				break;
+			case ARMInstructionType::SINGLE_DATA_TRANSFER:
+				return SingleDataTransfer<false>;
+				break;
+			case ARMInstructionType::UNDEFINED:
+				return Undefined;
+				break;
+			default:
+				return Undefined;
+				break;
+			}
+		};
+
+		for (u16 pos = 0; pos < 4096; pos++) {
+			ARMInstructionType type = detail::arm_lookup_table[pos];
+
+			arm_jump_table[pos] = get_instruction_ptr(type);
+		}
+	}
+
 	void ExecuteArm(ARMInstruction instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
 		static_assert(sizeof(ARMInstruction) == 4);
 		
@@ -1515,57 +1596,8 @@ namespace GBA::cpu::arm{
 			return;
 		}
 
-		ARMInstructionType type = detail::DecodeArmFast(instr.data);
+		u16 hash = ((instr.data >> 16) & 0xFF0) | ((instr.data >> 4) & 0xF);
 
-		switch (type)
-		{
-		case ARMInstructionType::BRANCH:
-			Branch(instr, ctx, bus, branch);
-			break;
-		case ARMInstructionType::BRANCH_EXCHANGE:
-			BranchExchange(instr, ctx, bus, branch);
-			break;
-		case ARMInstructionType::BLOCK_DATA_TRANSFER:
-			BlockDataTransfer(instr, ctx, bus, branch);
-			break;
-		case ARMInstructionType::DATA_PROCESSING_IMMEDIATE:
-			DataProcessing(ARM_ALUImmediate{ instr }, ctx, bus, branch);
-			break;
-		case ARMInstructionType::DATA_PROCESSING_REGISTER_REG:
-			DataProcessing(ARM_ALURegisterReg{ instr }, ctx, bus, branch);
-			break;
-		case ARMInstructionType::DATA_PROCESSING_REGISTER_IMM:
-			DataProcessing(ARM_ALURegisterImm{ instr }, ctx, bus, branch);
-			break;
-		case ARMInstructionType::PSR_TRANSFER:
-			PsrTransfer(instr, ctx, bus, branch);
-			break;
-		case ARMInstructionType::SINGLE_HDS_TRANSFER:
-			SingleHDSTransfer(instr, ctx, bus, branch);
-			break;
-		case ARMInstructionType::SOFT_INTERRUPT:
-			SoftwareInterrupt(instr, ctx, bus, branch);
-			break;
-		case ARMInstructionType::SINGLE_DATA_SWAP:
-			SingleDataSwap(instr, ctx, bus, branch);
-			break;
-		case ARMInstructionType::MULTIPLY:
-			Multiply(instr, ctx, bus, branch);
-			break;
-		case ARMInstructionType::MULTIPLY_HALF:
-			MultiplyHalf(instr, ctx, bus, branch);
-			break;
-		case ARMInstructionType::SINGLE_DATA_TRANSFER_IMM:
-			SingleDataTransfer<true>(instr, ctx, bus, branch);
-			break;
-		case ARMInstructionType::SINGLE_DATA_TRANSFER:
-			SingleDataTransfer<false>(instr, ctx, bus, branch);
-			break;
-		case ARMInstructionType::UNDEFINED:
-			Undefined(instr, ctx, bus, branch);
-			break;
-		default:
-			break;
-		}
+		arm_jump_table[hash](instr, ctx, bus, branch);
 	}
 }
