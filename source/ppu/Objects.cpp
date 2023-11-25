@@ -31,9 +31,6 @@ namespace GBA::ppu {
 		};
 	}
 
-	u16 line_sprites_ids[128] = {};
-	u8 line_sprites_count = 0;
-
 #define READ_16(arr, index) *reinterpret_cast<u16*>(arr + index)
 #define READ_32(arr, index) *reinterpret_cast<u32*>(arr + index)
 

@@ -200,6 +200,9 @@ namespace GBA::ppu {
 
 		memory::Bus* m_bus;
 
+		common::u16 line_sprites_ids[128];
+		common::u8 line_sprites_count;
+
 		static constexpr common::u32 CYCLES_PER_PIXEL = 4;
 		static constexpr common::u32 CYCLES_PER_SCANLINE = 960;
 		static constexpr common::u32 CYCLES_BEFORE_HBLANK_FLAG = 46;
