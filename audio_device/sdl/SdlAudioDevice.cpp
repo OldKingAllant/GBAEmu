@@ -15,16 +15,16 @@ namespace GBA::audio {
 	SdlAudioDevice::SdlAudioDevice() : 
 		m_buffer_mutex{}, m_buffer{nullptr},
 		m_spec{} {
-		m_buffer = new i8[4096];
+		m_buffer = new i16[4096];
 
 		SDL_AudioSpec wanted_audio{};
 
 		wanted_audio.channels = 2;
 		wanted_audio.userdata = std::bit_cast<void*>(this);
 		wanted_audio.callback = feed_callback;
-		wanted_audio.format = AUDIO_S8;
+		wanted_audio.format = AUDIO_S16;
 		wanted_audio.freq = 44100;
-		wanted_audio.samples = 4096;
+		wanted_audio.samples = 2048;
 
 	    m_dev_id = SDL_OpenAudioDevice(
 			nullptr, 0, &wanted_audio, &m_spec, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE
@@ -47,7 +47,7 @@ namespace GBA::audio {
 		SDL_CloseAudioDevice(m_dev_id);
 	}
 
-	void SdlAudioDevice::PushSamples(common::i8* samples) {
+	void SdlAudioDevice::PushSamples(common::i16* samples) {
 		std::scoped_lock<std::mutex> _lk{ m_buffer_mutex };
 
 		std::copy_n(samples, 4096, m_buffer);

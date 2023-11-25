@@ -12,6 +12,6 @@ namespace GBA::audio {
 		virtual void Start() = 0;
 		virtual void Stop() = 0;
 
-		virtual void PushSamples(common::i8* samples) = 0;
+		virtual void PushSamples(common::i16* samples) = 0;
 	};
 }

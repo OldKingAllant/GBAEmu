@@ -14,7 +14,17 @@ namespace GBA {
 namespace GBA::apu {
 	using namespace common;
 
-	using SampleCallback = std::function<void(i8*)>;
+	using SampleCallback = std::function<void(i16*)>;
+
+	enum class ChannelId {
+		FIFO_A,
+		FIFO_B
+	};
+
+	enum ChannelStep {
+		INC_LEFT = 1,
+		INC_RIGHT = 2
+	};
 
 	class APU {
 	public :
@@ -32,7 +42,7 @@ namespace GBA::apu {
 		~APU();
 
 	private :
-		i8* m_sample_buffer;
+		i16* m_sample_buffer;
 
 		memory::DMA* m_dma1;
 		memory::DMA* m_dma2;
@@ -92,6 +102,12 @@ namespace GBA::apu {
 
 			u16 raw;
 		} m_soundbias;
+
+		u32 m_interleaved_buffer_pos_l;
+		u32 m_interleaved_buffer_pos_r;
+
+		u8 QueueSample(i16 sample, ChannelId ch_id);
+		void BufferFull();
 
 		static_assert(sizeof(m_soundcnt_h) == 2);
 		static_assert(sizeof(m_soundcnt_x) == 1);

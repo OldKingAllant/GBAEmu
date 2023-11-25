@@ -20,8 +20,8 @@
 
 
 int main(int argc, char* argv[]) {
-	//std::string rom = "./testRoms/fuzzarm/THUMB_any.gba";
-	std::string rom = "./testRoms/SuperMarioWorld.gba";
+	std::string rom = "./testRoms/thumb/thumb.gba";
+	//std::string rom = "./testRoms/SuperMarioWorld.gba";
 	std::string bios_path = "./testRoms/gba_bios.bin";
 
 	GBA::emulation::Emulator emu{rom, std::string_view(bios_path)};
@@ -63,6 +63,13 @@ int main(int argc, char* argv[]) {
 	}
 
 	GBA::audio::AudioDevice* audio = new GBA::audio::SdlAudioDevice();
+	
+	ctx.apu.SetCallback(
+		[](GBA::common::i16*) {
+			bool tth = true;
+		}, 2048
+	);
+
 	audio->Start();
 
 	unsigned long long prev_second = 0;
