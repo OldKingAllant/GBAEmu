@@ -24,7 +24,7 @@ namespace GBA::ppu {
 		m_frame_ok{false}, m_int_control(nullptr),
 		m_sched(nullptr), m_last_event_timestamp{0},
 		m_bus(nullptr), line_sprites_ids{},
-		line_sprites_count(0)
+		line_sprites_count(0), m_line_data{}
 	{
 		m_palette_ram = new u8[0x400];
 		m_vram = new u8[0x18000];

@@ -144,9 +144,12 @@ namespace GBA::ppu {
 			tile_row_sz = 8;
 			tile_data_size = 0x40;
 		}
+
+		u16* u16_vram_ptr = std::bit_cast<u16*>(m_vram);
+		u16* u16_palette_ptr = std::bit_cast<u16*>(m_palette_ram);
 			
 
-		for (int x = 0; x < 240; x++) {
+		for (int x = 0; x < 240; /*x++*/) {
 			/*Find tilemap entry*/
 			bg_x = scroll_x + x;
 			bg_x %= bg_size_x;
@@ -169,7 +172,7 @@ namespace GBA::ppu {
 			u32 vram_offset = map_base_block + (tile_region_id * 2048) + 
 				(tile_y * 64) + tile_x * 2;
 
-			u16 tile_entry = *reinterpret_cast<u16*>(m_vram + vram_offset);
+			u16 tile_entry = u16_vram_ptr[vram_offset / 2] /**reinterpret_cast<u16*>(m_vram + vram_offset)*/;
 
 			u32 tile_id = tile_entry & 1023;
 			bool hflip = (tile_entry >> 10) & 1;
@@ -178,45 +181,67 @@ namespace GBA::ppu {
 
 			u32 real_y_offset_in_tile = y_offset_inside_tile;
 
-			if (hflip)
-				x_offset_inside_tile = 7 - x_offset_inside_tile;
-			
 			if (vflip)
 				real_y_offset_in_tile = 7 - y_offset_inside_tile;
 
 			vram_offset = char_base_block + tile_id * tile_data_size
 				+ (tile_row_sz * real_y_offset_in_tile);
 
-			if (pal_mode)
-				vram_offset += x_offset_inside_tile;
-			else
-				vram_offset += x_offset_inside_tile / 2;
+			int offset_inc = 1;
+			//int vram_offset_inc = 1;
 
-			u16 color_id = m_vram[vram_offset];
-
-			u16 color = 0;
-
-			if (pal_mode) {
-				color = *reinterpret_cast<u16*>(m_palette_ram + color_id * 2);
-				backround_data[x].color = color;
-				backround_data[x].palette_id = color_id;
+			if (hflip) {
+				x_offset_inside_tile = 7 - x_offset_inside_tile;
+				offset_inc = -1;
 			}
-			else {
-				pal_id *= 32;
+
+			int x_offset_inside_tile_int = x_offset_inside_tile;
+
+			pal_id *= 16;
+
+			while (x_offset_inside_tile_int >= 0 && x_offset_inside_tile_int < 8
+				&& x < 240) {
+				u32 end_vram_offset = vram_offset;
 
 				u16 color = 0;
 
-				if(/*bg_x*/ x_offset_inside_tile % 2)
-					color = ((color_id >> 4) & 0xF) * 2;
-				else 
-					color = (color_id & 0xF) * 2;
+				if (pal_mode) {
+					end_vram_offset += x_offset_inside_tile_int;
+					u16 color_id = m_vram[end_vram_offset];
+					color = u16_palette_ptr[color_id]/**reinterpret_cast<u16*>(m_palette_ram + color_id * 2)*/;
+					backround_data[x].color = color;
+					backround_data[x].palette_id = color_id;
+				}
+				else {
+					end_vram_offset += x_offset_inside_tile_int / 2;
 
-				backround_data[x].color = *reinterpret_cast<u16*>(m_palette_ram + pal_id + color);
+					u16 color_id = m_vram[end_vram_offset];
 
-				backround_data[x].palette_id = color;
+					u16 color = 0;
+
+					if (x_offset_inside_tile_int % 2)
+						color = ((color_id >> 4) & 0xF);
+					else
+						color = (color_id & 0xF);
+
+					backround_data[x].color = u16_palette_ptr[pal_id + color]/**reinterpret_cast<u16*>(m_palette_ram + pal_id + color)*/;
+
+					backround_data[x].palette_id = color;
+				}
+
+				u32 mos_end = x + mos_h_size - 1;
+
+				for (u32 pos = x; pos < mos_end && pos < 239; pos++, x++) {
+					backround_data[pos + 1] = backround_data[pos];
+					x_offset_inside_tile_int += offset_inc;
+				}
+
+				x++;
+				
+				x_offset_inside_tile_int += offset_inc;
 			}
 
-			backround_data[x].priority = bg_prio;
+			//backround_data[x].priority = bg_prio;
 		}
 
 		return backround_data;
@@ -329,7 +354,7 @@ namespace GBA::ppu {
 
 			backround_data[x].color = color;
 			backround_data[x].palette_id = color_id;
-			backround_data[x].priority = bg_prio;
+			//backround_data[x].priority = bg_prio;
 
 			curr_x += dx;
 			curr_y += dy;
@@ -476,17 +501,33 @@ namespace GBA::ppu {
 			u8 layer;
 		};
 
-		Priority priorities[] = {
+		Priority priorities[4] = {
 			Priority { static_cast<u16>(bg1_cnt & 3), 0 },
 			Priority { static_cast<u16>(bg2_cnt & 3), 1 },
 			Priority { static_cast<u16>(bg3_cnt & 3), 2 },
 			Priority { static_cast<u16>(bg4_cnt & 3), 3 }
 		};
 
+		u32 total_bgs = 0;
+
+		if (layer_enabled_global[0])
+			priorities[total_bgs++] = Priority{ static_cast<u16>(bg1_cnt & 3), 0 };
+
+		if (layer_enabled_global[1])
+			priorities[total_bgs++] = Priority{ static_cast<u16>(bg2_cnt & 3), 1 };
+
+		if (layer_enabled_global[2])
+			priorities[total_bgs++] = Priority{ static_cast<u16>(bg3_cnt & 3), 2 };
+
+		if (layer_enabled_global[3])
+			priorities[total_bgs++] = Priority{ static_cast<u16>(bg4_cnt & 3), 3 };
+
 		std::sort(
 			std::begin(priorities),
-			std::end(priorities),
-			[](auto const& p1, auto const& p2) { return p1.priority < p2.priority; });
+			std::begin(priorities) + total_bgs,
+			[&layer_enabled_global](auto const& p1, auto const& p2) { 
+				return p1.priority < p2.priority; 
+			});
 
 		u16 color_special_effects_reg = ReadRegister16(0x50 / 2);
 		u16 curr_effect = (color_special_effects_reg >> 6) & 3;
@@ -508,12 +549,12 @@ namespace GBA::ppu {
 
 			u8 curr_index = 0;
 
-			while (!candidate_found && curr_index < 4) {
+			while (!candidate_found && curr_index < total_bgs) {
 				u8 curr_layer = priorities[curr_index].layer;
 
 				candidate_found = !!backgrounds[curr_layer][x].palette_id
 					&& (window_id == 3 || windows[window_id].layer_enable[curr_layer])
-					&& layer_enabled_global[curr_layer];
+					/* && layer_enabled_global[curr_layer]*/;
 
 				if (!candidate_found)
 					curr_index++;
@@ -521,7 +562,7 @@ namespace GBA::ppu {
 
 			u8 layer = candidate_found ? priorities[curr_index].layer : 0;
 
-			if (backgrounds[4][x].is_obj && backgrounds[4][x].palette_id
+			if (backgrounds[4][x].is_present && backgrounds[4][x].palette_id
 				&& (window_id == 3 || windows[window_id].layer_enable[4])
 				&& layer_enabled_global[4]) {
 				if (!candidate_found || priorities[curr_index].priority >= backgrounds[4][x].priority) {
@@ -564,7 +605,7 @@ namespace GBA::ppu {
 
 					bool blend_fail = false;
 
-					if (layer < 4 && backgrounds[4][x].is_obj && backgrounds[4][x].priority
+					if (layer < 4 && backgrounds[4][x].is_present && backgrounds[4][x].priority
 						>= priorities[curr_index].priority 
 						&& (window_id == 3 || windows[window_id].layer_enable[4])
 						&& layer_enabled_global[4]
@@ -575,7 +616,7 @@ namespace GBA::ppu {
 						index = layer == 4 ? 0 : curr_index + 1;
 						u16 top_priority = layer == 4 ? merged[x].priority : priorities[curr_index].priority;
 
-						while (index < 4) {
+						while (index < total_bgs) {
 							u8 curr_layer = priorities[index].layer;
 
 							if (priorities[index].priority >= top_priority) {
@@ -593,7 +634,7 @@ namespace GBA::ppu {
 							}
 						}
 
-						if (index == 4)
+						if (index == total_bgs)
 							index = 6; //Layer in BGs not found,
 									   //set invalid index
 					}
@@ -822,7 +863,7 @@ namespace GBA::ppu {
 
 			u8 layer = 2;
 
-			if (sprites[x].is_obj && sprites[x].palette_id
+			if (sprites[x].is_present && sprites[x].palette_id
 				&& (window_id == 3 || windows[window_id].layer_enable[1])
 				&& layer_enabled_global[1]) {
 				candidate_found = true;

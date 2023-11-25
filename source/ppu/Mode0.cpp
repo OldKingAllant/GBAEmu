@@ -8,7 +8,6 @@ namespace GBA::ppu {
 		std::array<Pixel, 240> bg_1;
 		std::array<Pixel, 240> bg_2;
 		std::array<Pixel, 240> bg_3;
-		std::array<Pixel, 240> obj_data{};
 	}
 
 	void PPU::Mode0() {
@@ -26,7 +25,8 @@ namespace GBA::ppu {
 		mode0::bg_1 = {};
 		mode0::bg_2 = {};
 		mode0::bg_3 = {};
-		mode0::obj_data = {};
+
+		m_line_data[4] = {};
 
 		if (bg_1)
 			mode0::bg_0 = ProcessNormalBackground(0, curr_line);
@@ -41,11 +41,11 @@ namespace GBA::ppu {
 			mode0::bg_3 = ProcessNormalBackground(3, curr_line);
 
 		if (obj_enable)
-			mode0::obj_data = DrawSprites(curr_line);
+			DrawSprites(curr_line);
 
 		std::array<Pixel, 240> pixels = MergeBackrounds(
 			mode0::bg_0, mode0::bg_1, mode0::bg_2, mode0::bg_3,
-			mode0::obj_data
+			m_line_data[4]
 		);
 
 		u16 backdrop = *reinterpret_cast<u16*>(m_palette_ram);

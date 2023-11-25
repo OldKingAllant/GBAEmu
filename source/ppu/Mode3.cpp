@@ -57,9 +57,11 @@ namespace GBA::ppu {
 
 		bool obj_enable = (m_ctx.m_control >> 12) & 1;
 
+		m_line_data[4] = {};
+
 		if (obj_enable) {
-			auto sprites = DrawSprites(curr_line);
-			bg2 = MergeBitmap(bg2, sprites);
+			DrawSprites(curr_line);
+			bg2 = MergeBitmap(bg2, m_line_data[4]);
 		}
 
 		for (unsigned x = 0; x < 240; x++) {

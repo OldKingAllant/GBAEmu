@@ -34,10 +34,8 @@ namespace GBA::ppu {
 #define READ_16(arr, index) *reinterpret_cast<u16*>(arr + index)
 #define READ_32(arr, index) *reinterpret_cast<u32*>(arr + index)
 
-	std::array<Pixel, 240> PPU::DrawSprites(int lcd_y) {
+	void PPU::DrawSprites(int lcd_y) {
 		line_sprites_count = 0;
-
-		std::array<Pixel, 240> obj_data{};
 
 		/*
 		We can select and draw immediately the
@@ -251,12 +249,12 @@ namespace GBA::ppu {
 						}
 
 						if (color_id && 
-							(!obj_data[x].is_obj || obj_data[x].priority >= prio_to_bg)) {
-							obj_data[x].is_obj = true;
-							obj_data[x].priority = prio_to_bg;
-							obj_data[x].palette_id = color_id;
-							obj_data[x].color = color;
-							obj_data[x].is_bld_enabled = mode == 1;
+							(!m_line_data[4][x].is_present || m_line_data[4][x].priority >= prio_to_bg)) {
+							m_line_data[4][x].is_present = true;
+							m_line_data[4][x].priority = prio_to_bg;
+							m_line_data[4][x].palette_id = color_id;
+							m_line_data[4][x].color = color;
+							m_line_data[4][x].is_bld_enabled = mode == 1;
 						}
 					}
 				}
@@ -367,18 +365,16 @@ namespace GBA::ppu {
 						}
 
 						if (color_id &&
-							(!obj_data[x].is_obj || obj_data[x].priority >= prio_to_bg)) {
-							obj_data[x].is_obj = true;
-							obj_data[x].priority = prio_to_bg;
-							obj_data[x].palette_id = color_id;
-							obj_data[x].color = color;
-							obj_data[x].is_bld_enabled = mode == 1;
+							(!m_line_data[4][x].is_present || m_line_data[4][x].priority >= prio_to_bg)) {
+							m_line_data[4][x].is_present = true;
+							m_line_data[4][x].priority = prio_to_bg;
+							m_line_data[4][x].palette_id = color_id;
+							m_line_data[4][x].color = color;
+							m_line_data[4][x].is_bld_enabled = mode == 1;
 						}
 					}
 				}
 			}
 		}
-
-		return obj_data;
 	}
 }

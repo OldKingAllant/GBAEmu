@@ -15,7 +15,7 @@ namespace GBA::memory {
 
 namespace GBA::ppu {
 	struct Pixel {
-		bool is_obj;
+		bool is_present;
 		bool is_bld_enabled;
 		GBA::common::i16 palette_id;
 		GBA::common::u16 color;
@@ -154,7 +154,7 @@ namespace GBA::ppu {
 
 		void ResetFrameData();
 
-		std::array<Pixel, 240> DrawSprites(int lcd_y);
+		void DrawSprites(int lcd_y);
 
 #include "ModeUtils.inl"
 
@@ -202,6 +202,8 @@ namespace GBA::ppu {
 
 		common::u16 line_sprites_ids[128];
 		common::u8 line_sprites_count;
+
+		std::array<Pixel, 240> m_line_data[5];
 
 		static constexpr common::u32 CYCLES_PER_PIXEL = 4;
 		static constexpr common::u32 CYCLES_PER_SCANLINE = 960;

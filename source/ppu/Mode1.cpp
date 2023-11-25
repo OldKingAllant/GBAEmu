@@ -25,7 +25,8 @@ namespace GBA::ppu {
 		mode1::bg_2_data = {};
 		mode1::bg_3_data = {};
 		mode1::bg_4_data = {};
-		mode1::obj_data = {};
+
+		m_line_data[4] = {};
 
 		if (bg_1)
 			mode1::bg_1_data = ProcessNormalBackground(0, curr_line);
@@ -37,12 +38,12 @@ namespace GBA::ppu {
 			mode1::bg_3_data = ProcessAffineBackground(2, curr_line);
 
 		if (obj_enable)
-			mode1::obj_data = DrawSprites(curr_line);
+			DrawSprites(curr_line);
 
 
 		std::array<Pixel, 240> bg_data = MergeBackrounds(
 			mode1::bg_1_data, mode1::bg_2_data, mode1::bg_3_data, mode1::bg_4_data,
-			mode1::obj_data
+			m_line_data[4]
 		);
 
 		u16 backdrop = *reinterpret_cast<u16*>(m_palette_ram);
