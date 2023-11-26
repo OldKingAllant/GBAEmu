@@ -632,6 +632,7 @@ namespace GBA::cpu::thumb{
 		bus->m_time.access = Access::Seq;
 	}
 
+	template <u8 ShiftType>
 	void ThumbFormat1(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
 		//Execution time : 1S
 		u8 opcode = (instr >> 11) & 0x3;
@@ -646,23 +647,17 @@ namespace GBA::cpu::thumb{
 
 		u32 source_val = ctx.m_regs.GetReg(source);
 
-		switch (opcode)
-		{
-		case 0x0:
+		if constexpr (ShiftType == 0) {
 			res = detail::LSL<true>(source_val, shift, carry);
-			break;
-
-		case 0x1:
+		}
+		else if constexpr (ShiftType == 1) {
 			res = detail::LSR<true>(source_val, shift, carry);
-			break;
-
-		case 0x2:
+		}
+		else if constexpr (ShiftType == 2) {
 			res = detail::ASR<true>(source_val, shift, carry);
-			break;
-
-		default:
+		}
+		else {
 			error::Unreachable();
-			break;
 		}
 
 		ctx.m_regs.SetReg(dest, res.first);
@@ -674,6 +669,7 @@ namespace GBA::cpu::thumb{
 		bus->m_time.access = Access::Seq;
 	}
 
+	template <u8 Opcode>
 	void ThumbFormat2(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
 		//Execution time : 1S
 		u8 opcode = (instr >> 9) & 0x3;
@@ -687,7 +683,32 @@ namespace GBA::cpu::thumb{
 
 		u32 source = ctx.m_regs.GetReg(source_reg);
 
-		switch (opcode)
+		if constexpr (Opcode == 0) {
+			u32 operand = ctx.m_regs.GetReg(reg_or_imm);
+			res = source + operand;
+			ctx.m_cpsr.CarryAdd(source, operand);
+			ctx.m_cpsr.OverflowAdd(source, operand);
+		} 
+		else if constexpr (Opcode == 1) {
+			u32 operand = ctx.m_regs.GetReg(reg_or_imm);
+			res = source - operand;
+			ctx.m_cpsr.CarrySubtract(source, operand);
+			ctx.m_cpsr.OverflowSubtract(source, operand);
+		}
+		else if constexpr (Opcode == 2) {
+			u32 operand = reg_or_imm;
+			res = source + operand;
+			ctx.m_cpsr.CarryAdd(source, operand);
+			ctx.m_cpsr.OverflowAdd(source, operand);
+		}
+		else if constexpr (Opcode == 3) {
+			u32 operand = reg_or_imm;
+			res = source - operand;
+			ctx.m_cpsr.CarrySubtract(source, operand);
+			ctx.m_cpsr.OverflowSubtract(source, operand);
+		}
+
+		/*switch (opcode)
 		{
 		case 0x0: {
 			u32 operand = ctx.m_regs.GetReg(reg_or_imm);
@@ -724,7 +745,7 @@ namespace GBA::cpu::thumb{
 		default:
 			error::Unreachable();
 			break;
-		}
+		}*/
 
 		ctx.m_cpsr.zero = !res;
 		ctx.m_cpsr.sign = CHECK_BIT(res, 31);
@@ -1194,8 +1215,8 @@ namespace GBA::cpu::thumb{
 		for (u8 index = 0; index < 20; index++)
 			THUMB_JUMP_TABLE[index] = ThumbUndefined;
 
-		THUMB_JUMP_TABLE[0] = ThumbFormat1;
-		THUMB_JUMP_TABLE[1] = ThumbFormat2;
+		//THUMB_JUMP_TABLE[0] = ThumbFormat1;
+		//THUMB_JUMP_TABLE[1] = ThumbFormat2;
 		THUMB_JUMP_TABLE[2] = ThumbFormat3;
 		THUMB_JUMP_TABLE[3] = ThumbFormat4;
 		THUMB_JUMP_TABLE[4] = ThumbFormat5;
@@ -1215,7 +1236,61 @@ namespace GBA::cpu::thumb{
 		THUMB_JUMP_TABLE[18] = ThumbFormat19;
 
 		for (u16 code = 0; code < 1024; code++) {
-			thumb_jump_table[code] = THUMB_JUMP_TABLE[(u8)detail::thumb_lookup_table[code]];
+			auto type = detail::thumb_lookup_table[code];
+
+			ThumbFunc f_ptr = ThumbUndefined;
+
+			switch (type)
+			{
+			case GBA::cpu::thumb::THUMBInstructionType::FORMAT_01: {
+				u8 shift = (code >> 5) & 3;
+
+				switch (shift)
+				{
+				case 0:
+					f_ptr = ThumbFormat1<0>;
+					break;
+				case 1:
+					f_ptr = ThumbFormat1<1>;
+					break;
+				case 2:
+					f_ptr = ThumbFormat1<2>;
+					break;
+				default:
+					break;
+				}
+			}
+				break;
+
+			case THUMBInstructionType::FORMAT_02: {
+				u8 opcode = (code >> 3) & 3;
+
+				switch (opcode)
+				{
+				case 0:
+					f_ptr = ThumbFormat2<0>;
+					break;
+				case 1:
+					f_ptr = ThumbFormat2<1>;
+					break;
+				case 2:
+					f_ptr = ThumbFormat2<2>;
+					break;
+				case 3:
+					f_ptr = ThumbFormat2<3>;
+					break;
+				default:
+					break;
+				}
+			}
+				break;
+
+			default:
+				f_ptr = THUMB_JUMP_TABLE[(u8)type];
+				break;
+			}
+
+			thumb_jump_table[code] = f_ptr;
 		}
 	}
 
@@ -1238,10 +1313,6 @@ namespace GBA::cpu::thumb{
 
 	void ExecuteThumb(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
 		u16 hash = (instr >> 6) & 0b1111111111;
-
-		/*THUMBInstructionType type = detail::thumb_lookup_table[hash];
-
-		THUMB_JUMP_TABLE[(u8)type](instr, bus, ctx, branch);*/
 
 		thumb_jump_table[hash](instr, bus, ctx, branch);
 	}
