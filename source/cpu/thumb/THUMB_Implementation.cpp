@@ -277,15 +277,16 @@ namespace GBA::cpu::thumb{
 			ctx.m_cpsr.sign = CHECK_BIT(reg_value, 31);
 		}
 
+		template <bool LrPc>
 		void Push(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool&) {
-			bool lr_pc = CHECK_BIT(instr, 8);
+			//bool lr_pc = CHECK_BIT(instr, 8);
 			u8 rlist = instr & 0xFF;
 
 			u32 base = ctx.m_regs.GetReg(13);
 
 			base -= 4 * std::popcount(rlist);
 
-			if (lr_pc) {
+			if constexpr (LrPc) {
 				base -= 4;
 			}
 
@@ -305,7 +306,7 @@ namespace GBA::cpu::thumb{
 				rlist >>= 1;
 			}
 
-			if (lr_pc) {
+			if constexpr (LrPc) {
 				bus->Write<u32>(base, ctx.m_regs.GetReg(14));
 				base += 4;
 			}
@@ -315,8 +316,9 @@ namespace GBA::cpu::thumb{
 			ctx.m_regs.SetReg(13, new_base);
 		}
 
+		template <bool LrPc>
 		void Pop(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
-			bool lr_pc = CHECK_BIT(instr, 8);
+			//bool lr_pc = CHECK_BIT(instr, 8);
 
 			u8 rlist = instr & 0xFF;
 			u32 base = ctx.m_regs.GetReg(13);
@@ -336,7 +338,7 @@ namespace GBA::cpu::thumb{
 				rlist >>= 1;
 			}
 
-			if (lr_pc) {
+			if constexpr (LrPc) {
 				u32 value = bus->Read<u32>(base);
 				ctx.m_regs.SetReg(15, value);
 				base += 4;
@@ -560,11 +562,12 @@ namespace GBA::cpu::thumb{
 			
 	}
 
+	template <bool Sp>
 	void ThumbFormat12(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
 		//Execution time : 1S
 		u32 source = 0;
 
-		if (CHECK_BIT(instr, 11))
+		if constexpr (Sp)
 			source = ctx.m_regs.GetReg(13);
 		else
 			source = (ctx.m_regs.GetReg(15) + 4) & ~2;
@@ -577,14 +580,72 @@ namespace GBA::cpu::thumb{
 		bus->m_time.access = Access::Seq;
 	}
 
+	template <u8 Cond>
 	void ThumbFormat16(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
 		//Execution time :
 		//1S if cond is false
 		//2S + 1N if cond is true
-		u8 opcode = (instr >> 8) & 0xF;
 
-		if (!ctx.m_cpsr.CheckCondition(opcode)) {
-			bus->m_time.access = Access::Seq;
+		bus->m_time.access = Access::Seq;
+
+		if constexpr (Cond == 0) {
+			if (!ctx.m_cpsr.zero)
+				return;
+		} 
+		else if constexpr (Cond == 1) {
+			if (ctx.m_cpsr.zero)
+				return;
+		}
+		else if constexpr (Cond == 2) {
+			if (!ctx.m_cpsr.carry)
+				return;
+		}
+		else if constexpr (Cond == 3) {
+			if (ctx.m_cpsr.carry)
+				return;
+		}
+		else if constexpr (Cond == 4) {
+			if (!ctx.m_cpsr.sign)
+				return;
+		}
+		else if constexpr (Cond == 5) {
+			if (ctx.m_cpsr.sign)
+				return;
+		}
+		else if constexpr (Cond == 6) {
+			if (!ctx.m_cpsr.overflow)
+				return;
+		}
+		else if constexpr (Cond == 7) {
+			if (ctx.m_cpsr.overflow)
+				return;
+		}
+		else if constexpr (Cond == 8) {
+			if (!(ctx.m_cpsr.carry && !ctx.m_cpsr.zero))
+				return;
+		}
+		else if constexpr (Cond == 9) {
+			if (!(!ctx.m_cpsr.carry || ctx.m_cpsr.zero))
+				return;
+		}
+		else if constexpr (Cond == 0xA) {
+			if (!(ctx.m_cpsr.sign == ctx.m_cpsr.overflow))
+				return;
+		}
+		else if constexpr (Cond == 0xB) {
+			if (!(ctx.m_cpsr.sign != ctx.m_cpsr.overflow))
+				return;
+		}
+		else if constexpr (Cond == 0xC) {
+			if (!(!ctx.m_cpsr.zero && ctx.m_cpsr.sign == ctx.m_cpsr.overflow))
+				return;
+		}
+		else if constexpr (Cond == 0xD) {
+			if (!(ctx.m_cpsr.zero || ctx.m_cpsr.sign != ctx.m_cpsr.overflow))
+				return;
+		}
+		else if constexpr (Cond == 0xE) { }
+		else if constexpr (Cond == 0xF) {
 			return;
 		}
 
@@ -598,8 +659,6 @@ namespace GBA::cpu::thumb{
 		ctx.m_regs.AddOffset(15, 4 + offset);
 
 		branch = true;
-
-		bus->m_time.access = Access::Seq;
 	}
 
 	void ThumbFormat18(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
@@ -832,12 +891,11 @@ namespace GBA::cpu::thumb{
 		bus->m_time.access = Access::Seq;
 	}
 
+	template <bool Subtract>
 	void ThumbFormat13(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
-		bool opcode = CHECK_BIT(instr, 7);
-
 		u16 offset = (instr & 0x7F) * 4;
 
-		if (opcode)
+		if constexpr (Subtract)
 			ctx.m_regs.AddOffset(13, -offset);
 		else
 			ctx.m_regs.AddOffset(13, offset);
@@ -979,8 +1037,9 @@ namespace GBA::cpu::thumb{
 		}
 	}
 
+	template <u8 Opcode>
 	void ThumbFormat9(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
-		u8 type = (instr >> 11) & 0x3;
+		//u8 type = (instr >> 11) & 0x3;
 
 		u32 offset = (instr >> 6) & 0x1F;
 		u8 base_reg = (instr >> 3) & 0x7;
@@ -990,47 +1049,32 @@ namespace GBA::cpu::thumb{
 
 		bus->m_time.access = Access::NonSeq;
 
-		switch (type)
-		{
-		case 0x0: {
+		if constexpr (Opcode == 0) {
 			address += offset * 4;
 			u32 value = ctx.m_regs.GetReg(rd);
 			bus->Write<u32>(address, value);
 		}
-		break;
-
-		case 0x1: {
+		else if constexpr (Opcode == 1) {
 			address += offset * 4;
 			u32 value = bus->Read<u32>(address);
 			value = std::rotr(value, (address & 3) * 8);
 			ctx.m_regs.SetReg(rd, value);
 			bus->InternalCycles(1);
 		}
-		break;
-
-		case 0x2: {
+		else if constexpr (Opcode == 2) {
 			u32 value = ctx.m_regs.GetReg(rd);
 			bus->Write<u8>(address + offset, (u8)value);
 		}
-		break;
-
-		case 0x3: {
+		else if constexpr (Opcode == 3) {
 			u8 value = bus->Read<u8>(address + offset);
 
 			ctx.m_regs.SetReg(rd, value);
 			bus->InternalCycles(1);
 		}
-		break;
-
-		default:
-			error::DebugBreak();
-			break;
-		}
 	}
 
+	template <bool Load>
 	void ThumbFormat10(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
-		bool type = CHECK_BIT(instr, 11);
-
 		u32 offset = ((instr >> 6) & 0x1F) * 2;
 
 		u8 base_reg = (instr >> 3) & 0x7;
@@ -1040,7 +1084,7 @@ namespace GBA::cpu::thumb{
 
 		bus->m_time.access = Access::NonSeq;
 
-		if (!type) {
+		if constexpr (!Load) {
 			bus->Write<u16>(address, (u16)ctx.m_regs.GetReg(rd));
 		}
 		else {
@@ -1053,9 +1097,8 @@ namespace GBA::cpu::thumb{
 		}
 	}
 
+	template <bool Load>
 	void ThumbFormat11(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
-		bool type = CHECK_BIT(instr, 11);
-
 		u8 rd = (instr >> 8) & 0x7;
 
 		u16 offset = (instr & 0xFF) * 4;
@@ -1064,7 +1107,7 @@ namespace GBA::cpu::thumb{
 
 		bus->m_time.access = Access::NonSeq;
 
-		if (!type) {
+		if constexpr (!Load) {
 			u32 value = ctx.m_regs.GetReg(rd);
 			bus->Write<u32>(address, value);
 		}
@@ -1077,13 +1120,12 @@ namespace GBA::cpu::thumb{
 		}
 	}
 
+	template <bool Pop, bool PcLr>
 	void ThumbFormat14(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
-		bool type = CHECK_BIT(instr, 11);
-
-		if (type)
-			detail::Pop(instr, bus, ctx, branch);
+		if constexpr (Pop)
+			detail::Pop<PcLr>(instr, bus, ctx, branch);
 		else
-			detail::Push(instr, bus, ctx, branch);
+			detail::Push<PcLr>(instr, bus, ctx, branch);
 	}
 
 	void ThumbFormat15(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
@@ -1159,37 +1201,66 @@ namespace GBA::cpu::thumb{
 			}
 			break;
 
-			case THUMBInstructionType::FORMAT_09:
-				return ThumbFormat9;
-				break;
+			case THUMBInstructionType::FORMAT_09: {
+				constexpr u8 Opcode = (ShiftedInstr >> 11) & 3;
+				return ThumbFormat9<Opcode>;
+			}
+			break;
 
-			case THUMBInstructionType::FORMAT_10:
-				return ThumbFormat10;
-				break;
+			case THUMBInstructionType::FORMAT_10: {
+				constexpr bool Load = (ShiftedInstr >> 11) & 1;
+				return ThumbFormat10<Load>;
+			}
+			break;
 
-			case THUMBInstructionType::FORMAT_11:
-				return ThumbFormat11;
-				break;
+			case THUMBInstructionType::FORMAT_11: {
+				constexpr bool Load = (ShiftedInstr >> 11) & 1;
+				return ThumbFormat11<Load>;
+			}
+			break;
 
-			case THUMBInstructionType::FORMAT_12:
-				return ThumbFormat12;
-				break;
+			case THUMBInstructionType::FORMAT_12: {
+				constexpr bool Sp = (ShiftedInstr >> 11) & 1;
+				return ThumbFormat12<Sp>;
+			}
+			break;
 
-			case THUMBInstructionType::FORMAT_13:
-				return ThumbFormat13;
-				break;
+			case THUMBInstructionType::FORMAT_13: {
+				constexpr bool Subtract = (ShiftedInstr >> 7) & 1;
+				return ThumbFormat13<Subtract>;
+			}
+			break;
 
-			case THUMBInstructionType::FORMAT_14:
-				return ThumbFormat14;
-				break;
+			case THUMBInstructionType::FORMAT_14: {
+				constexpr bool Pop = (ShiftedInstr >> 11) & 1;
+				constexpr bool LrPc = (ShiftedInstr >> 8) & 1;
 
-			case THUMBInstructionType::FORMAT_15:
-				return ThumbFormat15;
-				break;
+				if constexpr (Pop) {
+					return detail::Pop<LrPc>;
+				}
+				else {
+					return detail::Push<LrPc>;
+				}
+			}
+			break;
 
-			case THUMBInstructionType::FORMAT_16:
-				return ThumbFormat16;
-				break;
+			case THUMBInstructionType::FORMAT_15: {
+				constexpr bool Load = (ShiftedInstr >> 11) & 1;
+
+				if constexpr (Load) {
+					return detail::LoadMultiple;
+				}
+				else {
+					return detail::StoreMultiple;
+				}
+			}
+			break;
+
+			case THUMBInstructionType::FORMAT_16: {
+				constexpr u8 Cond = (ShiftedInstr >> 8) & 0xF;
+				return ThumbFormat16<Cond>;
+			}
+			break;
 
 			case THUMBInstructionType::FORMAT_17:
 				return ThumbFormat17;
