@@ -453,30 +453,27 @@ namespace GBA::cpu::thumb{
 		bus->m_time.access = Access::Seq;
 	}
 
+	template <u8 Opcode>
 	void ThumbFormat3(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool&) {
 		//Execution time : 1S
 		u8 immediate = instr & 0xFF;
 		u8 dest_reg = (instr >> 8) & 0x7;
 
-		switch ((instr >> 11) & 0x3)
-		{
-		case 0x00: {
+		if constexpr (Opcode == 0) {
 			ctx.m_regs.SetReg(dest_reg, immediate);
 			ctx.m_cpsr.sign = CHECK_BIT(immediate, 7);
 			ctx.m_cpsr.zero = !immediate;
 		}
-			break;
-		case 0x01: {
+		else if constexpr (Opcode == 1) {
 			u32 reg_val = ctx.m_regs.GetReg(dest_reg);
 			u32 res = reg_val - immediate;
-			//Trash the result
+			
 			ctx.m_cpsr.sign = CHECK_BIT(res, 31);
 			ctx.m_cpsr.zero = !res;
 			ctx.m_cpsr.CarrySubtract(reg_val, immediate);
 			ctx.m_cpsr.OverflowSubtract(reg_val, immediate);
 		}
-			break;
-		case 0x02 : {
+		else if constexpr (Opcode == 2) {
 			u32 reg_val = ctx.m_regs.GetReg(dest_reg);
 			u32 res = reg_val + immediate;
 
@@ -487,8 +484,7 @@ namespace GBA::cpu::thumb{
 
 			ctx.m_regs.SetReg(dest_reg, res);
 		}
-			break;
-		case 0x03: {
+		else if constexpr (Opcode == 3) {
 			u32 reg_val = ctx.m_regs.GetReg(dest_reg);
 			u32 res = reg_val - immediate;
 
@@ -498,8 +494,6 @@ namespace GBA::cpu::thumb{
 			ctx.m_cpsr.OverflowSubtract(reg_val, immediate);
 
 			ctx.m_regs.SetReg(dest_reg, res);
-		}
-			break;
 		}
 
 		bus->m_time.access = Access::Seq;
@@ -707,45 +701,6 @@ namespace GBA::cpu::thumb{
 			ctx.m_cpsr.CarrySubtract(source, operand);
 			ctx.m_cpsr.OverflowSubtract(source, operand);
 		}
-
-		/*switch (opcode)
-		{
-		case 0x0: {
-			u32 operand = ctx.m_regs.GetReg(reg_or_imm);
-			res = source + operand;
-			ctx.m_cpsr.CarryAdd(source, operand);
-			ctx.m_cpsr.OverflowAdd(source, operand);
-		}
-		break;
-
-		case 0x1: {
-			u32 operand = ctx.m_regs.GetReg(reg_or_imm);
-			res = source - operand;
-			ctx.m_cpsr.CarrySubtract(source, operand);
-			ctx.m_cpsr.OverflowSubtract(source, operand);
-		}
-		break;
-
-		case 0x2: {
-			u32 operand = reg_or_imm;
-			res = source + operand;
-			ctx.m_cpsr.CarryAdd(source, operand);
-			ctx.m_cpsr.OverflowAdd(source, operand);
-		}
-		break;
-
-		case 0x3: {
-			u32 operand = reg_or_imm;
-			res = source - operand;
-			ctx.m_cpsr.CarrySubtract(source, operand);
-			ctx.m_cpsr.OverflowSubtract(source, operand);
-		}
-		break;
-
-		default:
-			error::Unreachable();
-			break;
-		}*/
 
 		ctx.m_cpsr.zero = !res;
 		ctx.m_cpsr.sign = CHECK_BIT(res, 31);
@@ -1217,7 +1172,7 @@ namespace GBA::cpu::thumb{
 
 		//THUMB_JUMP_TABLE[0] = ThumbFormat1;
 		//THUMB_JUMP_TABLE[1] = ThumbFormat2;
-		THUMB_JUMP_TABLE[2] = ThumbFormat3;
+		//THUMB_JUMP_TABLE[2] = ThumbFormat3;
 		THUMB_JUMP_TABLE[3] = ThumbFormat4;
 		THUMB_JUMP_TABLE[4] = ThumbFormat5;
 		THUMB_JUMP_TABLE[5] = ThumbFormat6;
@@ -1278,6 +1233,29 @@ namespace GBA::cpu::thumb{
 					break;
 				case 3:
 					f_ptr = ThumbFormat2<3>;
+					break;
+				default:
+					break;
+				}
+			}
+				break;
+
+			case THUMBInstructionType::FORMAT_03: {
+				u8 opcode = (code >> 5) & 3;
+
+				switch (opcode)
+				{
+				case 0:
+					f_ptr = ThumbFormat3<0>;
+					break;
+				case 1:
+					f_ptr = ThumbFormat3<1>;
+					break;
+				case 2:
+					f_ptr = ThumbFormat3<2>;
+					break;
+				case 3:
+					f_ptr = ThumbFormat3<3>;
 					break;
 				default:
 					break;
