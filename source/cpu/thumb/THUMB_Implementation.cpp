@@ -729,6 +729,7 @@ namespace GBA::cpu::thumb{
 		return 4;
 	}
 
+	template <u8 Opcode>
 	void ThumbFormat4(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
 		//Execution time :
 		//1S +
@@ -749,7 +750,94 @@ namespace GBA::cpu::thumb{
 
 		u32 dest_val = ctx.m_regs.GetReg(dest_reg);
 
-		switch (opcode)
+		if constexpr (Opcode == 0) {
+			detail::AND(dest_reg, source_val, ctx);
+		} 
+		else if constexpr (Opcode == 1) {
+			detail::EOR(dest_reg, source_val, ctx);
+		} 
+		else if constexpr (Opcode == 2) {
+			shift_res = detail::LSL<false>(dest_val, shift, carry);
+
+			ctx.m_regs.SetReg(dest_reg, shift_res.first);
+
+			ctx.m_cpsr.carry = shift_res.second;
+			ctx.m_cpsr.zero = !shift_res.first;
+			ctx.m_cpsr.sign = CHECK_BIT(shift_res.first, 31);
+
+			bus->InternalCycles(1);
+		}
+		else if constexpr (Opcode == 3) {
+			shift_res = detail::LSR<false>(dest_val, shift, carry);
+
+			ctx.m_regs.SetReg(dest_reg, shift_res.first);
+
+			ctx.m_cpsr.carry = shift_res.second;
+			ctx.m_cpsr.zero = !shift_res.first;
+			ctx.m_cpsr.sign = CHECK_BIT(shift_res.first, 31);
+
+			bus->InternalCycles(1);
+		}
+		else if constexpr (Opcode == 4) {
+			shift_res = detail::ASR<false>(dest_val, shift, carry);
+
+			ctx.m_regs.SetReg(dest_reg, shift_res.first);
+
+			ctx.m_cpsr.carry = shift_res.second;
+			ctx.m_cpsr.zero = !shift_res.first;
+			ctx.m_cpsr.sign = CHECK_BIT(shift_res.first, 31);
+
+			bus->InternalCycles(1);
+		}
+		else if constexpr (Opcode == 5) {
+			detail::ADC(dest_reg, source_val, ctx);
+		}
+		else if constexpr (Opcode == 6) {
+			detail::SBC(dest_reg, source_val, ctx);
+		}
+		else if constexpr (Opcode == 7) {
+			shift_res = detail::ROR<false>(dest_val, shift, carry);
+
+			ctx.m_regs.SetReg(dest_reg, shift_res.first);
+
+			ctx.m_cpsr.carry = shift_res.second;
+			ctx.m_cpsr.zero = !shift_res.first;
+			ctx.m_cpsr.sign = CHECK_BIT(shift_res.first, 31);
+
+			bus->InternalCycles(1);
+		}
+		else if constexpr (Opcode == 8) {
+			detail::TST(dest_reg, source_val, ctx);
+		}
+		else if constexpr (Opcode == 9) {
+			detail::NEG(dest_reg, source_val, ctx);
+		}
+		else if constexpr (Opcode == 0xA) {
+			detail::CMP(dest_reg, source_val, ctx);
+		}
+		else if constexpr (Opcode == 0xB) {
+			detail::CMN(dest_reg, source_val, ctx);
+		}
+		else if constexpr (Opcode == 0xC) {
+			detail::ORR(dest_reg, source_val, ctx);
+		}
+		else if constexpr (Opcode == 0xD) {
+			detail::MUL(dest_reg, source_val, ctx);
+
+			u8 cycles = CountZeroOneBytes(
+				ctx.m_regs.GetReg(dest_reg)
+			);
+
+			bus->InternalCycles(cycles);
+		}
+		else if constexpr (Opcode == 0xE) {
+			detail::BIC(dest_reg, source_val, ctx);
+		}
+		else if constexpr (Opcode == 0xF) {
+			detail::MVN(dest_reg, source_val, ctx);
+		}
+
+		/*switch (opcode)
 		{
 		case 0x0:
 			detail::AND(dest_reg, source_val, ctx);
@@ -861,7 +949,7 @@ namespace GBA::cpu::thumb{
 		default:
 			error::Unreachable();
 			break;
-		}
+		}*/
 
 		bus->m_time.access = Access::Seq;
 	}
@@ -1164,113 +1252,126 @@ namespace GBA::cpu::thumb{
 		bus->m_time.access = Access::Seq;
 	}
 
-	ThumbFunc thumb_jump_table[1024];
+	template <u16 Instr>
+	struct Decoder {
+		static constexpr THUMBInstructionType type = detail::DecodeThumbConstexpr(Instr << 6);
 
-	void InitThumbJumpTable() {
-		for (u8 index = 0; index < 20; index++)
-			THUMB_JUMP_TABLE[index] = ThumbUndefined;
-
-		//THUMB_JUMP_TABLE[0] = ThumbFormat1;
-		//THUMB_JUMP_TABLE[1] = ThumbFormat2;
-		//THUMB_JUMP_TABLE[2] = ThumbFormat3;
-		THUMB_JUMP_TABLE[3] = ThumbFormat4;
-		THUMB_JUMP_TABLE[4] = ThumbFormat5;
-		THUMB_JUMP_TABLE[5] = ThumbFormat6;
-		THUMB_JUMP_TABLE[6] = ThumbFormat7;
-		THUMB_JUMP_TABLE[7] = ThumbFormat8;
-		THUMB_JUMP_TABLE[8] = ThumbFormat9;
-		THUMB_JUMP_TABLE[9] = ThumbFormat10;
-		THUMB_JUMP_TABLE[10] = ThumbFormat11;
-		THUMB_JUMP_TABLE[11] = ThumbFormat12;
-		THUMB_JUMP_TABLE[12] = ThumbFormat13;
-		THUMB_JUMP_TABLE[13] = ThumbFormat14;
-		THUMB_JUMP_TABLE[14] = ThumbFormat15;
-		THUMB_JUMP_TABLE[15] = ThumbFormat16;
-		THUMB_JUMP_TABLE[16] = ThumbFormat17;
-		THUMB_JUMP_TABLE[17] = ThumbFormat18;
-		THUMB_JUMP_TABLE[18] = ThumbFormat19;
-
-		for (u16 code = 0; code < 1024; code++) {
-			auto type = detail::thumb_lookup_table[code];
-
-			ThumbFunc f_ptr = ThumbUndefined;
+		static ThumbFunc GetFunctionPointer() {
+			constexpr u16 ShiftedInstr = (Instr << 6);
 
 			switch (type)
 			{
-			case GBA::cpu::thumb::THUMBInstructionType::FORMAT_01: {
-				u8 shift = (code >> 5) & 3;
-
-				switch (shift)
-				{
-				case 0:
-					f_ptr = ThumbFormat1<0>;
-					break;
-				case 1:
-					f_ptr = ThumbFormat1<1>;
-					break;
-				case 2:
-					f_ptr = ThumbFormat1<2>;
-					break;
-				default:
-					break;
-				}
+			case THUMBInstructionType::FORMAT_01: {
+				constexpr u8 ShiftType = (ShiftedInstr >> 11) & 0x3;
+				return ThumbFormat1<ShiftType>;
 			}
-				break;
+			break;
 
 			case THUMBInstructionType::FORMAT_02: {
-				u8 opcode = (code >> 3) & 3;
-
-				switch (opcode)
-				{
-				case 0:
-					f_ptr = ThumbFormat2<0>;
-					break;
-				case 1:
-					f_ptr = ThumbFormat2<1>;
-					break;
-				case 2:
-					f_ptr = ThumbFormat2<2>;
-					break;
-				case 3:
-					f_ptr = ThumbFormat2<3>;
-					break;
-				default:
-					break;
-				}
+				constexpr u8 Opcode = (ShiftedInstr >> 9) & 0x3;
+				return ThumbFormat2<Opcode>;
 			}
-				break;
+			break;
 
 			case THUMBInstructionType::FORMAT_03: {
-				u8 opcode = (code >> 5) & 3;
-
-				switch (opcode)
-				{
-				case 0:
-					f_ptr = ThumbFormat3<0>;
-					break;
-				case 1:
-					f_ptr = ThumbFormat3<1>;
-					break;
-				case 2:
-					f_ptr = ThumbFormat3<2>;
-					break;
-				case 3:
-					f_ptr = ThumbFormat3<3>;
-					break;
-				default:
-					break;
-				}
+				constexpr u8 Opcode = (ShiftedInstr >> 11) & 0x3;
+				return ThumbFormat3<Opcode>;
 			}
+			break;
+
+			case THUMBInstructionType::FORMAT_04: {
+				constexpr u8 Opcode = (ShiftedInstr >> 6) & 0xF;
+				return ThumbFormat4<Opcode>;
+			}
+			break;
+
+			case THUMBInstructionType::FORMAT_05:
+				return ThumbFormat5;
+				break;
+
+			case THUMBInstructionType::FORMAT_06:
+				return ThumbFormat6;
+				break;
+
+			case THUMBInstructionType::FORMAT_07:
+				return ThumbFormat7;
+				break;
+
+			case THUMBInstructionType::FORMAT_08:
+				return ThumbFormat8;
+				break;
+
+			case THUMBInstructionType::FORMAT_09:
+				return ThumbFormat9;
+				break;
+
+			case THUMBInstructionType::FORMAT_10:
+				return ThumbFormat10;
+				break;
+
+			case THUMBInstructionType::FORMAT_11:
+				return ThumbFormat11;
+				break;
+
+			case THUMBInstructionType::FORMAT_12:
+				return ThumbFormat12;
+				break;
+
+			case THUMBInstructionType::FORMAT_13:
+				return ThumbFormat13;
+				break;
+
+			case THUMBInstructionType::FORMAT_14:
+				return ThumbFormat14;
+				break;
+
+			case THUMBInstructionType::FORMAT_15:
+				return ThumbFormat15;
+				break;
+
+			case THUMBInstructionType::FORMAT_16:
+				return ThumbFormat16;
+				break;
+
+			case THUMBInstructionType::FORMAT_17:
+				return ThumbFormat17;
+				break;
+
+			case THUMBInstructionType::FORMAT_18:
+				return ThumbFormat18;
+				break;
+
+			case THUMBInstructionType::FORMAT_19:
+				return ThumbFormat19;
 				break;
 
 			default:
-				f_ptr = THUMB_JUMP_TABLE[(u8)type];
 				break;
 			}
 
-			thumb_jump_table[code] = f_ptr;
+			return ThumbUndefined;
 		}
-	}
+	};
+
+	struct DecodeSeqHelper {
+		template <std::size_t... Seq>
+		static std::array<ThumbFunc, sizeof...(Seq)> GetTable(std::index_sequence<Seq...>) {
+			return {
+				Decoder<Seq>::GetFunctionPointer()...
+			};
+		}
+	};
+
+	template <std::size_t Max>
+	struct DecodeSeq {
+		static std::array<ThumbFunc, 1024> CreateTable() {
+			return DecodeSeqHelper::GetTable(
+				std::make_index_sequence<Max>{}
+			);
+		}
+	};
+
+	std::array<ThumbFunc, 1024> thumb_jump_table = DecodeSeq<1024>::CreateTable();
 
 	THUMBInstructionType DecodeThumb(u16 opcode) {
 		for (u8 i = 0; i < 19; i++) {

@@ -36,9 +36,7 @@ namespace GBA::cpu::thumb{
 	using ThumbFunc = void(*)(THUMBInstruction instr,
 		memory::Bus* bus, CPUContext& ctx, bool& branch);
 
-	extern ThumbFunc thumb_jump_table[1024];
-
-	void InitThumbJumpTable();
+	extern std::array<ThumbFunc, 1024> thumb_jump_table;
 
 	THUMBInstructionType DecodeThumb(u16 opcode);
 
