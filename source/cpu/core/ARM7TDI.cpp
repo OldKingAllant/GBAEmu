@@ -16,8 +16,6 @@ namespace GBA::cpu {
 		m_ctx.m_regs.SetReg(Mode::SWI, 13, 0x03007FE0);
 		m_ctx.m_regs.SetReg(Mode::IRQ, 13, 0x03007FA0);
 		m_ctx.m_regs.SetReg(Mode::User, 13, 0x03007F00);
-
-		arm::InitArmJumpTable();
 	}
 
 	void ARM7TDI::AttachBus(memory::Bus* bus) {

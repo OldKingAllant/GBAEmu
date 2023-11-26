@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Instruction.hpp"
+#include <array>
 
 namespace GBA::cpu {
 	struct CPUContext;
@@ -299,9 +300,7 @@ namespace GBA::cpu::arm {
 
 	using ArmExecutor = void(*)(ARMInstruction, CPUContext&, memory::Bus*, bool&);
 
-	extern ArmExecutor arm_jump_table[4096];
-
-	void InitArmJumpTable();
+	extern std::array<ArmExecutor, 4096> arm_jump_table;
 
 	ARMInstructionType DecodeArm(u32 opcode);
 

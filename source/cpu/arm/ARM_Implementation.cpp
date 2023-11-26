@@ -1521,10 +1521,11 @@ namespace GBA::cpu::arm{
 		bus->m_time.access = Access::Seq;
 	}
 
-	ArmExecutor arm_jump_table[4096];
+	template <u16 Instr>
+	struct Decoder {
+		static constexpr ARMInstructionType type = detail::arm_lookup_table[Instr];
 
-	void InitArmJumpTable() {
-		auto get_instruction_ptr = [](ARMInstructionType type) {
+		static constexpr ArmExecutor GetFunctionPointer() {
 			switch (type)
 			{
 			case ARMInstructionType::BRANCH:
@@ -1576,14 +1577,28 @@ namespace GBA::cpu::arm{
 				return Undefined;
 				break;
 			}
-		};
-
-		for (u16 pos = 0; pos < 4096; pos++) {
-			ARMInstructionType type = detail::arm_lookup_table[pos];
-
-			arm_jump_table[pos] = get_instruction_ptr(type);
 		}
-	}
+	};
+
+	struct DecodeSeqHelper {
+		template <std::size_t... Seq>
+		static constexpr std::array<ArmExecutor, sizeof...(Seq)> GetTable(std::index_sequence<Seq...>) {
+			return {
+				Decoder<Seq>::GetFunctionPointer()...
+			};
+		}
+	};
+
+	template <std::size_t Max>
+	struct DecodeSeq {
+		static constexpr std::array<ArmExecutor, Max> CreateTable() {
+			return DecodeSeqHelper::GetTable(
+				std::make_index_sequence<Max>{}
+			);
+		}
+	};
+
+	std::array<ArmExecutor, 4096> arm_jump_table = DecodeSeq<4096>::CreateTable();
 
 	void ExecuteArm(ARMInstruction instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
 		static_assert(sizeof(ARMInstruction) == 4);
