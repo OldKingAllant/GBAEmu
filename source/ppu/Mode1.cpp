@@ -21,30 +21,22 @@ namespace GBA::ppu {
 		bool bg_3 = (m_ctx.m_control >> 10) & 1;
 		bool obj_enable = (m_ctx.m_control >> 12) & 1;
 
-		mode1::bg_1_data = {};
-		mode1::bg_2_data = {};
-		mode1::bg_3_data = {};
-		mode1::bg_4_data = {};
-
 		m_line_data[4] = {};
 
 		if (bg_1)
-			mode1::bg_1_data = ProcessNormalBackground(0, curr_line);
+			ProcessNormalBackground(0, curr_line);
 
 		if (bg_2)
-			mode1::bg_2_data = ProcessNormalBackground(1, curr_line);
+			ProcessNormalBackground(1, curr_line);
 
 		if (bg_3)
-			mode1::bg_3_data = ProcessAffineBackground(2, curr_line);
+			m_line_data[2] = ProcessAffineBackground(2, curr_line);
 
 		if (obj_enable)
 			DrawSprites(curr_line);
 
 
-		std::array<Pixel, 240> bg_data = MergeBackrounds(
-			mode1::bg_1_data, mode1::bg_2_data, mode1::bg_3_data, mode1::bg_4_data,
-			m_line_data[4]
-		);
+		std::array<Pixel, 240> bg_data = MergeBackrounds();
 
 		u16 backdrop = *reinterpret_cast<u16*>(m_palette_ram);
 

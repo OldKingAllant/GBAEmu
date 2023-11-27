@@ -20,8 +20,8 @@
 
 
 int main(int argc, char* argv[]) {
-	std::string rom = "./testRoms/thumb/thumb.gba";
-	//std::string rom = "./testRoms/SuperMarioWorld.gba";
+	//std::string rom = "./testRoms/Doom.gba";
+	std::string rom = "./testRoms/SuperMarioWorld.gba";
 	std::string bios_path = "./testRoms/gba_bios.bin";
 
 	GBA::emulation::Emulator emu{rom, std::string_view(bios_path)};

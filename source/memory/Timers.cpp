@@ -140,7 +140,7 @@ namespace GBA::timers {
 		m_apu = apu;
 	}
 
-	void TimerChain::ClockCycles(u16 cycles) {
+	/*__declspec(noinline)*/  void TimerChain::ClockCycles(u16 cycles) {
 		u8 timer_cnt_index = 0x2;
 		u8 timer_val_index = 0x0;
 

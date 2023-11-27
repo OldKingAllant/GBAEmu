@@ -89,7 +89,7 @@ namespace GBA::gamepack {
 	}
 
 	u8 GamePack::ReadSRAM(u32 address) const {
-		logging::Logger::Instance().LogInfo("Gamepak", " Reading SRAM");
+		//logging::Logger::Instance().LogInfo("Gamepak", " Reading SRAM");
 		return 0x00;
 	}
 
@@ -102,7 +102,7 @@ namespace GBA::gamepack {
 	}
 
 	void GamePack::WriteSRAM(u32 address, u8 value) {
-		logging::Logger::Instance().LogInfo("Gamepak", " Writing SRAM");
+		//logging::Logger::Instance().LogInfo("Gamepak", " Writing SRAM");
 		(void)address;
 		(void)value;
 	}
