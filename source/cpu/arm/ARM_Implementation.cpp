@@ -199,175 +199,146 @@ namespace GBA::cpu::arm{
 			}
 		}
 
+		template <u8 Opcode, bool S>
 		void DataProcessingCommon(u8 dest, u32 first_op, u8 opcode, u32 value, bool s_bit,
 			CPUContext& ctx, bool& branch, bool shift_carry) {
-			bool old_s_bit = s_bit;
-
 			if (dest == 15 && s_bit)
 				s_bit = false;
 
-			switch (opcode)
-			{
-			case 0x00:
+			if constexpr (Opcode == 0) {
 				AND(dest, first_op, value, s_bit, ctx);
-				if(s_bit)
+				if (s_bit)
 					ctx.m_cpsr.carry = shift_carry;
-				break;
-			case 0x01:
+			}
+			else if constexpr (Opcode == 1) {
 				EOR(dest, first_op, value, s_bit, ctx);
 				if (s_bit)
 					ctx.m_cpsr.carry = shift_carry;
-				break;
-			case 0x02:
+			}
+			else if constexpr (Opcode == 2) {
 				SUB(dest, first_op, value, s_bit, ctx);
-				break;
-			case 0x03:
+			}
+			else if constexpr (Opcode == 3) {
 				RSB(dest, first_op, value, s_bit, ctx);
-				break;
-			case 0x04:
+			}
+			else if constexpr (Opcode == 4) {
 				ADD(dest, first_op, value, s_bit, ctx);
-				break;
-			case 0x05:
+			}
+			else if constexpr (Opcode == 5) {
 				ADC(dest, first_op, value, s_bit, ctx);
-				break;
-			case 0x06:
+			}
+			else if constexpr (Opcode == 6) {
 				SBC(dest, first_op, value, s_bit, ctx);
-				break;
-			case 0x07:
+			}
+			else if constexpr (Opcode == 7) {
 				RSC(dest, first_op, value, s_bit, ctx);
-				break;
-			case 0x08:
+			}
+			else if constexpr (Opcode == 8) {
 				TST(dest, first_op, value, s_bit, ctx);
 				if (s_bit)
 					ctx.m_cpsr.carry = shift_carry;
-				break;
-			case 0x09:
+			}
+			else if constexpr (Opcode == 9) {
 				TEQ(dest, first_op, value, s_bit, ctx);
 				if (s_bit)
 					ctx.m_cpsr.carry = shift_carry;
-				break;
-			case 0x0A:
+			}
+			else if constexpr (Opcode == 0xA) {
 				CMP(dest, first_op, value, s_bit, ctx);
-				break;
-			case 0x0B:
+			}
+			else if constexpr (Opcode == 0xB) {
 				CMN(dest, first_op, value, s_bit, ctx);
-				break;
-			case 0x0C:
+			}
+			else if constexpr (Opcode == 0xC) {
 				ORR(dest, first_op, value, s_bit, ctx);
 				if (s_bit)
 					ctx.m_cpsr.carry = shift_carry;
-				break;
-			case 0x0D:
+			}
+			else if constexpr (Opcode == 0xD) {
 				MOV(dest, first_op, value, s_bit, ctx);
 				if (s_bit)
 					ctx.m_cpsr.carry = shift_carry;
-				break;
-			case 0x0E:
+			}
+			else if constexpr (Opcode == 0xE) {
 				BIC(dest, first_op, value, s_bit, ctx);
 				if (s_bit)
 					ctx.m_cpsr.carry = shift_carry;
-				break;
-			case 0x0F:
+			}
+			else if constexpr (Opcode == 0xF) {
 				MVN(dest, first_op, value, s_bit, ctx);
 				if (s_bit)
 					ctx.m_cpsr.carry = shift_carry;
-				break;
-			default:
-				break;
 			}
 
 			if (dest != 15)
 				return;
 
-			if (old_s_bit) {
+			if constexpr (S) {
 				if (ctx.m_cpsr.mode != Mode::User &&
 					ctx.m_cpsr.mode != Mode::SYS) {
 					ctx.RestorePreviousMode(ctx.m_regs.GetReg(15));
 				}
 			}
 
-			if(opcode <= 0x7 || opcode > 0xB)
+			if constexpr (Opcode <= 0x7 || Opcode > 0xB)
 				branch = true;
 			//Else, bad CMP/CMN... instruction
 		}
 
-		u32 HDSTransfer(i32 base, u8 reg, u8 opcode,
-			CPUContext& ctx, memory::Bus* bus, bool& branch) {
-			if (reg == 15) {
-				LOG_INFO("HDS with r15");
+		template <bool Load, u8 Opcode>
+		inline u32 HDSTransfer(i32 base, u8 reg, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+			if constexpr (!Load) {
+				if constexpr (Opcode == 0x1) {
+					u32 to_write = ctx.m_regs.GetReg(reg);
+					to_write += 12 * (reg == 15);
+
+					bus->m_time.access = Access::NonSeq;
+
+					bus->Write<u16>(base, to_write);
+				}
+				else if constexpr (Opcode == 2) {
+					LOG_ERROR("LDRD not implemented");
+					error::DebugBreak();
+				}
+				else if constexpr (Opcode == 3) {
+					LOG_ERROR("STRD not implemented");
+					error::DebugBreak();
+				}
 			}
+			else {
+				if constexpr (Opcode == 1) {
+					bus->m_time.access = Access::NonSeq;
 
-			switch (opcode)
-			{
-			case 0b001: {
-				u32 to_write = ctx.m_regs.GetReg(reg);
-				to_write += 12 * (reg == 15);
+					u32 value = bus->Read<u16>(base);
 
-				bus->m_time.access = Access::NonSeq;
-				
-				bus->Write<u16>(base, to_write);
-			}
-			break;
+					value = std::rotr(value, 8 * (base & 1));
 
-			case 0b010:
-				LOG_ERROR("LDRD not implemented");
-				error::DebugBreak();
-				break;
+					ctx.m_regs.SetReg(reg, value);
 
-			case 0b011:
-				LOG_ERROR("STRD not implemented");
-				error::DebugBreak();
-				break;
+					bus->InternalCycles(1);
+				}
+				else if constexpr (Opcode == 2) {
+					bus->m_time.access = Access::NonSeq;
 
-			case 0b101: {
-				bus->m_time.access = Access::NonSeq;
+					int32_t value = (int8_t)bus->Read<u8>(base);
+					ctx.m_regs.SetReg(reg, value);
 
-				u32 value = bus->Read<u16>(base);
+					bus->InternalCycles(1);
+				}
+				else if constexpr (Opcode == 3) {
+					int32_t value = 0;
 
-				value = std::rotr(value, 8 * (base & 1));
+					bus->m_time.access = Access::NonSeq;
 
-				ctx.m_regs.SetReg(reg, value);
+					if (base & 1)
+						value = (int8_t)bus->Read<u8>(base);
+					else
+						value = (int16_t)bus->Read<u16>(base);
 
-				//bus->m_time.access = Access::Seq;
+					ctx.m_regs.SetReg(reg, value);
 
-				bus->InternalCycles(1);
-			}
-			break;
-
-			case 0b110: {
-				bus->m_time.access = Access::NonSeq;
-				
-				int32_t value = (int8_t)bus->Read<u8>(base);
-				ctx.m_regs.SetReg(reg, value);
-
-				//bus->m_time.access = Access::Seq;
-
-				bus->InternalCycles(1);
-			}
-			break;
-
-			case 0b111: {
-				int32_t value = 0;
-
-				bus->m_time.access = Access::NonSeq;
-
-				if (base & 1)
-					value = (int8_t)bus->Read<u8>(base);
-				else
-					value = (int16_t)bus->Read<u16>(base);
-
-				ctx.m_regs.SetReg(reg, value);
-
-				//bus->m_time.access = Access::Seq;
-
-				bus->InternalCycles(1);
-			}
-			break;
-
-			default:
-				LOG_INFO(" Invalid HDS transer type");
-				error::DebugBreak();
-				break;
+					bus->InternalCycles(1);
+				}
 			}
 
 			return base;
@@ -478,10 +449,15 @@ namespace GBA::cpu::arm{
 			return { res, CHECK_BIT(value, bit_pos) };
 		}
 
-		void MrsTransfer(ARMPsrTransferMRS instr, CPUContext& ctx) {
+		template <bool Imm, bool Spsr>
+		void MrsTransfer(ARMInstruction instr_orig, CPUContext& ctx, memory::Bus* bus, bool&) {
 			static_assert(sizeof(ARMPsrTransferMRS) == 4);
 
-			if (instr.psr) {
+			ARMPsrTransferMRS instr = instr_orig;
+
+			bus->m_time.access = Access::Seq;
+
+			if constexpr (Spsr) {
 				if (ctx.m_cpsr.mode == Mode::User ||
 					ctx.m_cpsr.mode == Mode::SYS) [[unlikely]] {
 				
@@ -498,12 +474,17 @@ namespace GBA::cpu::arm{
 					ctx.m_cpsr);
 		}
 
-		void MsrTransfer(ARMPsrTransferMSR instr, CPUContext& ctx) {
+		template <bool Imm, bool Spsr>
+		void MsrTransfer(ARMInstruction instr_orig, CPUContext& ctx, memory::Bus* bus, bool&) {
 			static_assert(sizeof(ARMPsrTransferMSR) == 4);
+
+			ARMPsrTransferMSR instr = instr_orig;
+
+			bus->m_time.access = Access::Seq;
 
 			u32 value = 0;
 
-			if (instr.immediate) {
+			if constexpr (Imm) {
 				value = instr.data & 0xFF;
 				u8 shift = (instr.data >> 8) & 0xF;
 				shift *= 2;
@@ -526,7 +507,7 @@ namespace GBA::cpu::arm{
 
 			value &= mask;
 
-			if (instr.psr) {
+			if constexpr (Spsr) {
 				if (ctx.m_cpsr.mode == Mode::User ||
 					ctx.m_cpsr.mode == Mode::SYS)
 					return;
@@ -660,6 +641,7 @@ namespace GBA::cpu::arm{
 		return ARMInstructionType::UNDEFINED;
 	}
 
+	template <bool Bl>
 	void Branch(ARMInstruction instr_orig, CPUContext& ctx,  memory::Bus* bus, bool& branch) {
 		static_assert(sizeof(ARMBranch) == 4);
 
@@ -674,7 +656,7 @@ namespace GBA::cpu::arm{
 		*/
 		branch = true;
 
-		if (instr.type) {
+		if constexpr (Bl) {
 			//BL
 			ctx.m_regs.SetReg(14, ctx.m_regs.GetReg(15) + 4);
 		}
@@ -689,6 +671,7 @@ namespace GBA::cpu::arm{
 		bus->m_time.access = Access::Seq;
 	}
 
+	template <bool PreInc, bool AddOffset, bool Psr, bool Writeback>
 	void inline StoreBlock(ARMBlockTransfer instr, CPUContext& ctx,  memory::Bus* bus, bool& branch, u32 base, u32 new_base) {
 		static_assert(sizeof(ARMBlockTransfer) == 4);
 
@@ -708,14 +691,14 @@ namespace GBA::cpu::arm{
 			//with an offset of 0x40
 			i8 offset = 0;
 
-			if (!instr.increment) {
-				if (instr.pre_increment)
+			if constexpr (!AddOffset) {
+				if constexpr (PreInc)
 					offset = -0x3C;
 				else
 					offset = -0x40;
 			}
 			else {
-				if (!instr.pre_increment)
+				if constexpr (!PreInc)
 					offset = 0x0;
 				else
 					offset = 0x4;
@@ -725,7 +708,7 @@ namespace GBA::cpu::arm{
 
 			instr.writeback = true;
 			
-			if (instr.increment)
+			if constexpr (AddOffset)
 				base += 0x40;
 			else
 				base -= 0x40;
@@ -735,8 +718,8 @@ namespace GBA::cpu::arm{
 			return;
 		}
 
-		u8 pre_increment = 4 * instr.pre_increment;
-		u8 post_increment = 4 * !instr.pre_increment;
+		u8 pre_increment = PreInc ? 4 : 0;
+		u8 post_increment = !PreInc ? 4 : 0;
 
 		u32 reg_value = 0;
 
@@ -747,8 +730,8 @@ namespace GBA::cpu::arm{
 
 		u8 first_reg_id = reg_id;
 
-		if (instr.s_bit) {
-			if (instr.writeback) [[unlikely]] {
+		if constexpr (Psr) {
+			if constexpr (Writeback) {
 				//Writeback with S bit set is not allowed
 				LOG_ERROR("Writeback with S bit is not allowed");
 				error::DebugBreak();
@@ -800,6 +783,8 @@ namespace GBA::cpu::arm{
 		bus->m_time.access = Access::NonSeq;
 	}
 
+
+	template <bool PreInc, bool AddOffset, bool Psr, bool Writeback>
 	void inline LoadBlock(ARMBlockTransfer instr, CPUContext& ctx,  memory::Bus* bus, bool& branch, u32 base) {
 		u16 list = instr.rlist;
 
@@ -812,14 +797,14 @@ namespace GBA::cpu::arm{
 		if (list == 0) {
 			i8 offset = 0;
 
-			if (!instr.increment) {
-				if (instr.pre_increment)
+			if constexpr (!AddOffset) {
+				if constexpr (PreInc)
 					offset = -0x3C;
 				else
 					offset = -0x40;
 			}
 			else {
-				if (!instr.pre_increment)
+				if constexpr (!PreInc)
 					offset = 0x0;
 				else
 					offset = 0x4;
@@ -831,7 +816,7 @@ namespace GBA::cpu::arm{
 
 			instr.writeback = true;
 
-			if (instr.increment)
+			if constexpr (AddOffset)
 				base += 0x40;
 			else
 				base -= 0x40;
@@ -843,10 +828,10 @@ namespace GBA::cpu::arm{
 			return;
 		}
 
-		u8 pre_increment = 4 * instr.pre_increment;
-		u8 post_increment = 4 * !instr.pre_increment;
+		u8 pre_increment = PreInc ? 4 : 0;
+		u8 post_increment = !PreInc ? 4 : 0;
 
-		if (instr.s_bit) {
+		if constexpr (Psr) {
 			while (list) {
 				if (list & 1) {
 					base += pre_increment;
@@ -882,7 +867,7 @@ namespace GBA::cpu::arm{
 		if (CHECK_BIT(instr.rlist, 15)) {
 			branch = true;
 
-			if (instr.s_bit)
+			if constexpr (Psr)
 				ctx.RestorePreviousMode(ctx.m_regs.GetReg(15));
 		}
 
@@ -891,22 +876,25 @@ namespace GBA::cpu::arm{
 		bus->InternalCycles(1);
 	}
 
+	template <bool PreInc, bool AddOffset, bool Psr, bool Writeback, bool Ldm>
 	void BlockDataTransfer(ARMInstruction instr_orig, CPUContext& ctx, memory::Bus* bus, bool& branch) {
 		ARMBlockTransfer instr = instr_orig;
 
 		u32 base = ctx.m_regs.GetReg(instr.base_reg);
 		u32 original_base = base;
 
-		if (instr.s_bit && (ctx.m_cpsr.mode == Mode::User ||
-			ctx.m_cpsr.mode == Mode::SYS)) {
-			return;
+		if constexpr (Psr) {
+			if (ctx.m_cpsr.mode == Mode::User ||
+				ctx.m_cpsr.mode == Mode::SYS) [[unlikely]] {
+					return;
+			}
 		}
 
 		u8 popcnt = std::popcount(instr.rlist);
 
 		u32 new_base = 0;
 
-		if (!instr.increment) {
+		if constexpr (!AddOffset) {
 			//Registers are processed in increasing
 			//addresses, which means that if we
 			//are decrementing the address after
@@ -915,32 +903,42 @@ namespace GBA::cpu::arm{
 			instr.pre_increment = !instr.pre_increment;
 			base -= popcnt * 4;
 			new_base = base;
+
+			constexpr bool NewInc = !PreInc;
+
+			if constexpr (Ldm) {
+				LoadBlock<NewInc, AddOffset, Psr, Writeback>(instr, ctx, bus, branch, base);
+			}
+			else {
+				StoreBlock<NewInc, AddOffset, Psr, Writeback>(instr, ctx, bus, branch, base, new_base);
+			}
 		}
 		else {
 			new_base = base + popcnt * 4;
-		}
 
-		//ctx.m_regs.SetReg(instr.base_reg, base);
-
-		if (instr.load) {
-			LoadBlock(instr, ctx, bus, branch, base);
-			//Load from memory
-		}
-		else {
-			StoreBlock(instr, ctx, bus, branch, base, new_base);
-			//Write to memory
+			if constexpr (Ldm) {
+				LoadBlock<PreInc, AddOffset, Psr, Writeback>(instr, ctx, bus, branch, base);
+			}
+			else {
+				StoreBlock<PreInc, AddOffset, Psr, Writeback>(instr, ctx, bus, branch, base, new_base);
+			}
 		}
 
 		if ((instr.rlist >> instr.base_reg) & 1) {
 			//Rb is in reg list
 			
-			if (instr.load)
+			if constexpr (Ldm)
 				instr.writeback = false;
 		}
 		
 		if (!instr.writeback) {
-			if (!CHECK_BIT(instr.rlist, instr.base_reg) || !instr.load)
+			if constexpr (!Ldm) {
 				ctx.m_regs.SetReg(instr.base_reg, original_base);
+			}
+			else {
+				if (!CHECK_BIT(instr.rlist, instr.base_reg))
+					ctx.m_regs.SetReg(instr.base_reg, original_base);
+			}
 		}
 		else if (instr.rlist)
 			ctx.m_regs.SetReg(instr.base_reg, new_base);
@@ -963,8 +961,8 @@ namespace GBA::cpu::arm{
 
 	
 
-	template <>
-	void DataProcessing<ARM_ALUImmediate>(ARMInstruction instr_orig, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+	template <u8 Opcode, bool S>
+	void DataProcessingImm(ARMInstruction instr_orig, CPUContext& ctx, memory::Bus* bus, bool& branch) {
 		static_assert(sizeof(ARM_ALUImmediate) == 4);
 
 		ARM_ALUImmediate instr = instr_orig;
@@ -988,13 +986,13 @@ namespace GBA::cpu::arm{
 
 		u32 first_op = ctx.m_regs.GetReg(first_op_reg) + 8 * (first_op_reg == 15);
 
-		detail::DataProcessingCommon(dest_reg, first_op, real_opcode, value, instr.s_bit, ctx, branch, carry_shift);
+		detail::DataProcessingCommon<Opcode, S>(dest_reg, first_op, real_opcode, value, instr.s_bit, ctx, branch, carry_shift);
 
 		bus->m_time.access = Access::Seq;
 	}
 
-	template <>
-	void DataProcessing<ARM_ALURegisterReg>(ARMInstruction instr_orig, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+	template <u8 Opcode, bool S, u8 ShiftType>
+	void DataProcessingRegReg(ARMInstruction instr_orig, CPUContext& ctx, memory::Bus* bus, bool& branch) {
 		static_assert(sizeof(ARM_ALURegisterReg) == 4);
 
 		ARM_ALURegisterReg instr = instr_orig;
@@ -1014,37 +1012,32 @@ namespace GBA::cpu::arm{
 
 		std::pair<u32, bool> res{};
 
-		switch (instr.shift_type)
-		{
-		case 0x00:
+		if constexpr (ShiftType == 0) {
 			res = detail::LSL<false>(second_op, shift_val, ctx.m_cpsr.carry);
-			break;
-		case 0x01:
+		}
+		else if constexpr (ShiftType == 1) {
 			res = detail::LSR<false>(second_op, shift_val, ctx.m_cpsr.carry);
-			break;
-		case 0x02:
+		}
+		else if constexpr (ShiftType == 2) {
 			res = detail::ASR<false>(second_op, shift_val, ctx.m_cpsr.carry);
-			break;
-		case 0x03:
+		}
+		else if constexpr (ShiftType == 3) {
 			res = detail::ROR<false>(second_op, shift_val, ctx.m_cpsr.carry);
-			break;
-		default:
-			break;
 		}
 
 		u32 first_op = ctx.m_regs.GetReg(first_op_reg) + 12 * (first_op_reg == 15);
 
 		bus->InternalCycles(1);
 
-		detail::DataProcessingCommon(dest_reg, first_op,
+		detail::DataProcessingCommon<Opcode, S>(dest_reg, first_op,
 			real_opcode, res.first, instr.s_bit, ctx,
 			branch, res.second);
 
 		bus->m_time.access = Access::Seq;
 	}
 
-	template <>
-	void DataProcessing<ARM_ALURegisterImm>(ARMInstruction instr_orig, CPUContext& ctx, memory::Bus* bus, bool& branch) {
+	template <u8 Opcode, bool S, u8 ShiftType>
+	void DataProcessingRegImm(ARMInstruction instr_orig, CPUContext& ctx, memory::Bus* bus, bool& branch) {
 		static_assert(sizeof(ARM_ALURegisterImm) == 4);
 
 		ARM_ALURegisterImm instr = instr_orig;
@@ -1061,51 +1054,34 @@ namespace GBA::cpu::arm{
 
 		u8 shift_amount = instr.shift_amount_lo | 
 			(instr.shift_amount_hi << 1);
-		u8 shift_type = instr.shift_type;
+		//u8 shift_type = instr.shift_type;
 		u32 second_op = ctx.m_regs.GetReg( instr.second_operand_reg ) + 8 * (instr.second_operand_reg == 15);
 
 		std::pair<u32, bool> res{};
 
-		switch (shift_type)
-		{
-		case 0x00:
+		if constexpr (ShiftType == 0) {
 			res = detail::LSL<true>(second_op, shift_amount, ctx.m_cpsr.carry);
-			break;
-		case 0x01:
+		}
+		else if constexpr (ShiftType == 1) {
 			res = detail::LSR<true>(second_op, shift_amount, ctx.m_cpsr.carry);
-			break;
-		case 0x02:
+		}
+		else if constexpr (ShiftType == 2) {
 			res = detail::ASR<true>(second_op, shift_amount, ctx.m_cpsr.carry);
-			break;
-		case 0x03:
+		}
+		else if constexpr (ShiftType == 3) {
 			res = detail::ROR<true>(second_op, shift_amount, ctx.m_cpsr.carry);
-			break;
-		default:
-			break;
 		}
 
 		u32 first_op = ctx.m_regs.GetReg(first_op_reg) + 8 * (first_op_reg == 15);
 
-		detail::DataProcessingCommon(dest_reg, first_op,
+		detail::DataProcessingCommon<Opcode, S>(dest_reg, first_op,
 			real_opcode, res.first, instr.s_bit, ctx,
 			branch, res.second);
 
 		bus->m_time.access = Access::Seq;
 	}
 
-	void PsrTransfer(ARMInstruction instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
-		/*
-		* Execution time :
-		* 1S -> Prefetch
-		*/
-		if (CHECK_BIT(instr.data, 21))
-			detail::MsrTransfer(instr, ctx);
-		else
-			detail::MrsTransfer(instr, ctx);
-
-		bus->m_time.access = Access::Seq;
-	}
-
+	template <bool PreInc, bool Add, bool Imm, bool Writeback, bool Load, u8 Opcode>
 	void SingleHDSTransfer(ARMInstruction instr_orig, CPUContext& ctx, memory::Bus* bus, bool& branch) {
 		static_assert(sizeof(ARM_SingleHDSTransfer) == 4);
 
@@ -1113,7 +1089,7 @@ namespace GBA::cpu::arm{
 		
 		u32 offset = 0;
 
-		if (instr.immediate_offset)
+		if constexpr (Imm)
 			offset = instr.offset_low | (instr.offset_hi << 4);
 		else
 			offset = ctx.m_regs.GetReg(instr.offset_low);
@@ -1123,34 +1099,39 @@ namespace GBA::cpu::arm{
 		if (instr.base_reg == 15)
 			base += 8;
 
-		if (instr.base_reg == 15) {
-			LOG_INFO("HDS with r15");
-		}
-
 		u8 dest = instr.source_dest_reg;
 
-		u8 opcode = ((u8)instr.load << 2) | instr.opcode;
-
-		if (instr.pre_inc) {
-			if (instr.increment)
+		if constexpr (PreInc) {
+			if constexpr (Add)
 				base += offset;
 			else
 				base -= offset;
 		}
 
-		base = detail::HDSTransfer(base, dest, opcode,
+		base = detail::HDSTransfer<Load, Opcode>(base, dest,
 			ctx, bus, branch);
 
-		if (!instr.pre_inc) {
-			if (instr.increment)
+		if constexpr (!PreInc) {
+			if constexpr (Add)
 				base += offset;
 			else
 				base -= offset;
 		}
 
-		if (instr.writeback || !instr.pre_inc) {
-			if (!instr.load || (instr.base_reg != instr.source_dest_reg))
+		if constexpr (Writeback || !PreInc) {
+			if constexpr (!Load) {
 				ctx.m_regs.SetReg(instr.base_reg, base);
+			}
+			else {
+				if (instr.base_reg != instr.source_dest_reg)
+					ctx.m_regs.SetReg(instr.base_reg, base);
+			}
+		}
+
+		if constexpr (Load) {
+			if (dest == 15) {
+				branch = true;
+			}
 		}
 	}
 
@@ -1198,6 +1179,7 @@ namespace GBA::cpu::arm{
 		bus->m_time.access = Access::Seq;
 	}
 
+	template <bool SwapByte>
 	void SingleDataSwap(ARMInstruction instr_orig, CPUContext& ctx, memory::Bus* bus, bool& branch) {
 		static_assert(sizeof(ARMDataSwap) == 4);
 
@@ -1211,7 +1193,7 @@ namespace GBA::cpu::arm{
 
 		bus->m_time.access = Access::NonSeq;
 		
-		if (instr.swap_byte) {
+		if constexpr (SwapByte) {
 			u32 mem_value = bus->Read<u8>(base);
 			ctx.m_regs.SetReg(dest_reg, mem_value);
 			bus->Write<u8>(base, (u8)reg_value);
@@ -1225,8 +1207,6 @@ namespace GBA::cpu::arm{
 			ctx.m_regs.SetReg(dest_reg, mem_value);
 			bus->Write<u32>(base, reg_value);
 		}
-
-		//bus->m_time.access = Access::Seq;
 
 		bus->InternalCycles(1);
 	}
@@ -1269,6 +1249,7 @@ namespace GBA::cpu::arm{
 		return 4;
 	}
 
+	template <u8 Opcode, bool S>
 	void Multiply(ARMInstruction instr_orig, CPUContext& ctx, memory::Bus* bus, bool& branch) {
 		static_assert(sizeof(ARMMultiply) == 4);
 
@@ -1315,27 +1296,20 @@ namespace GBA::cpu::arm{
 		uint64_t rs = ctx.m_regs.GetReg(instr.operand_reg2);
 		uint64_t rm = ctx.m_regs.GetReg(instr.operand_reg1);
 
-		switch (instr.opcode)
-		{
-		case 0x0:
+		if constexpr (Opcode == 0) {
 			res = rm * rs;
 			icycles = CountZeroOneBytes((u32)rs);
-			break;
-
-		case 0x1:
+		}
+		else if constexpr (Opcode == 1) {
 			res = rm * rs;
-
 			res += (uint64_t)ctx.m_regs.GetReg(instr.accumul_reg);
-
 			icycles = CountZeroOneBytes((u32)rs) + 1;
-			break;
-
-		case 0x4:
+		}
+		else if constexpr (Opcode == 4) {
 			res = rm * rs;
 			icycles = CountZeroBytes((u32)rs) + 1;
-			break;
-
-		case 0x5: {
+		}
+		else if constexpr (Opcode == 5) {
 			res = rm * rs;
 
 			icycles = CountZeroBytes((u32)rs) + 2;
@@ -1345,19 +1319,15 @@ namespace GBA::cpu::arm{
 
 			res += op2 | (op1 << 32);
 		}
-		break;
-
-		case 0x6: {
+		else if constexpr (Opcode == 6) {
 			int32_t op1 = ctx.m_regs.GetReg(instr.operand_reg1);
 			int32_t op2 = ctx.m_regs.GetReg(instr.operand_reg2);
-			
+
 			res = (int64_t)op1 * op2;
 
 			icycles = CountZeroOneBytes(op2) + 1;
 		}
-		break;
-
-		case 0x7: {
+		else if constexpr (Opcode == 7) {
 			int32_t op1 = ctx.m_regs.GetReg(instr.operand_reg1);
 			int32_t op2 = ctx.m_regs.GetReg(instr.operand_reg2);
 
@@ -1370,13 +1340,8 @@ namespace GBA::cpu::arm{
 
 			res = (int64_t)res + (int64_t)(acc2 | (acc1 << 32));
 		}
-		break;
 
-		default:
-			error::Unreachable();
-		}
-
-		if (instr.s_bit) {
+		if constexpr (S) {
 			//ctx.m_cpsr.carry = false;
 			ctx.m_cpsr.zero = (instr.opcode == 0 || instr.opcode == 1) ? !(u32)res : !res;
 			ctx.m_cpsr.sign = (instr.opcode == 0 || instr.opcode == 1) ? 
@@ -1388,7 +1353,7 @@ namespace GBA::cpu::arm{
 			branch = true;
 		}
 
-		if (instr.opcode >= 4) {
+		if constexpr (Opcode >= 4) {
 			ctx.m_regs.SetReg(instr.accumul_reg,
 				(u32)res);
 			ctx.m_regs.SetReg(instr.dest_reg,
@@ -1405,9 +1370,14 @@ namespace GBA::cpu::arm{
 		error::DebugBreak();
 	}
 
-	template <bool Imm>
+	template <bool Imm, bool PreInc, bool Add, bool Byte, bool TW, bool Load, u8 ShiftType>
 	void SingleDataTransfer(ARMInstruction instr_orig, CPUContext& ctx, memory::Bus* bus, bool& branch) {
 		static_assert(sizeof(ARMSingleDataTransfer) == 4);
+
+		if constexpr (!PreInc && TW) {
+			LOG_INFO(" Unimplemented: T bit in single data transfer");
+			error::DebugBreak();
+		}
 
 		ARMSingleDataTransfer instr = instr_orig;
 		
@@ -1420,24 +1390,21 @@ namespace GBA::cpu::arm{
 
 			offset = ctx.m_regs.GetReg(offset_reg);
 
-			switch ((instr.data >> 5) & 0x3)
-			{
-			case 0x0:
-				offset = detail::LSL<true>(offset, shift_amount, 
+			if constexpr (ShiftType == 0) {
+				offset = detail::LSL<true>(offset, shift_amount,
 					ctx.m_cpsr.carry).first;
-				break;
-			case 0x1:
+			}
+			else if constexpr (ShiftType == 1) {
 				offset = detail::LSR<true>(offset, shift_amount,
 					ctx.m_cpsr.carry).first;
-				break;
-			case 0x2:
+			}
+			else if constexpr (ShiftType == 2) {
 				offset = detail::ASR<true>(offset, shift_amount,
 					ctx.m_cpsr.carry).first;
-				break;
-			case 0x3:
+			}
+			else if constexpr (ShiftType == 3) {
 				offset = detail::ROR<true>(offset, shift_amount,
 					ctx.m_cpsr.carry).first;
-				break;
 			}
 		}
 		else {
@@ -1447,19 +1414,19 @@ namespace GBA::cpu::arm{
 		u32 base = ctx.m_regs.GetReg(instr.base_reg) + 
 			8 * (instr.base_reg == 15);
 
-		if (instr.pre_incre) {
-			if (instr.increment)
+		if constexpr (PreInc) {
+			if constexpr (Add)
 				base += offset;
 			else
 				base -= offset;
 		}
 
-		if (instr.load) {
+		if constexpr (Load) {
 			u32 value = 0;
 
 			bus->m_time.access = Access::NonSeq;
 
-			if (instr.move_byte)
+			if constexpr (Byte)
 				value = bus->Read<u8>(base);
 			else {
 				value = bus->Read<u32>(base);
@@ -1470,8 +1437,6 @@ namespace GBA::cpu::arm{
 			ctx.m_regs.SetReg(instr.dest_reg, value);
 
 			bus->InternalCycles(1);
-
-			//bus->m_time.access = Access::Seq;
 		}
 		else {
 			u32 value = ctx.m_regs.GetReg(instr.dest_reg) +
@@ -1479,26 +1444,33 @@ namespace GBA::cpu::arm{
 
 			bus->m_time.access = Access::NonSeq;
 
-			if (instr.move_byte)
+			if constexpr (Byte)
 				bus->Write<u8>(base, value & 0xFF);
 			else
 				bus->Write<u32>(base, value);
 		}
 
-		if (!instr.pre_incre) {
-			if (instr.increment)
+		if constexpr (!PreInc) {
+			if constexpr (Add)
 				base += offset;
 			else
 				base -= offset;
 		}
 
-		if (instr.writeback_or_t || !instr.pre_incre) {
-			if(!instr.load || (instr.base_reg != instr.dest_reg))
+		if constexpr (TW || !PreInc) {
+			if constexpr (!Load) {
 				ctx.m_regs.SetReg(instr.base_reg, base);
+			}
+			else {
+				if (instr.base_reg != instr.dest_reg)
+					ctx.m_regs.SetReg(instr.base_reg, base);
+			}
 		}
-		
-		if (instr.dest_reg == 15 && instr.load)
-			branch = true;
+
+		if constexpr (Load) {
+			if (instr.dest_reg == 15)
+				branch = true;
+		}
 	}
 
 	void Undefined(ARMInstruction instr, CPUContext& ctx, memory::Bus* bus, bool& branch) {
@@ -1526,50 +1498,110 @@ namespace GBA::cpu::arm{
 		static constexpr ARMInstructionType type = detail::arm_lookup_table[Instr];
 
 		static constexpr ArmExecutor GetFunctionPointer() {
+			constexpr u32 Low = Instr & 0xF;
+			constexpr u32 High = Instr & 0xFF0;
+
+			constexpr u32 Instruction = (High << 16) | (Low << 4);
+
 			switch (type)
 			{
-			case ARMInstructionType::BRANCH:
-				return Branch;
-				break;
-			case ARMInstructionType::BRANCH_EXCHANGE:
+			case ARMInstructionType::BRANCH: {
+				constexpr bool Bl = (Instruction >> 24) & 1;
+				return Branch<Bl>;
+			}
+			break;
+			case ARMInstructionType::BRANCH_EXCHANGE: {
 				return BranchExchange;
-				break;
-			case ARMInstructionType::BLOCK_DATA_TRANSFER:
-				return BlockDataTransfer;
-				break;
-			case ARMInstructionType::DATA_PROCESSING_IMMEDIATE:
-				return DataProcessing<ARM_ALUImmediate>;
-				break;
-			case ARMInstructionType::DATA_PROCESSING_REGISTER_REG:
-				return DataProcessing<ARM_ALURegisterReg>;
-				break;
-			case ARMInstructionType::DATA_PROCESSING_REGISTER_IMM:
-				return DataProcessing<ARM_ALURegisterImm>;
-				break;
-			case ARMInstructionType::PSR_TRANSFER:
-				return PsrTransfer;
-				break;
-			case ARMInstructionType::SINGLE_HDS_TRANSFER:
-				return SingleHDSTransfer;
-				break;
+			}
+			break;
+			case ARMInstructionType::BLOCK_DATA_TRANSFER: {
+				constexpr bool PreInc = (Instruction >> 24) & 1;
+				constexpr bool AddOffset = (Instruction >> 23) & 1;
+				constexpr bool Psr = (Instruction >> 22) & 1;
+				constexpr bool Writeback = (Instruction >> 21) & 1;
+				constexpr bool Ldm = (Instruction >> 20) & 1;
+
+				return BlockDataTransfer<PreInc, AddOffset, Psr, Writeback, Ldm>;
+			}
+			break;
+			case ARMInstructionType::DATA_PROCESSING_IMMEDIATE: {
+				constexpr u8 Opcode = (Instruction >> 21) & 0xF;
+				constexpr bool S = (Instruction >> 20) & 1;
+				return DataProcessingImm<Opcode, S>;
+			}
+			break;
+			case ARMInstructionType::DATA_PROCESSING_REGISTER_REG: {
+				constexpr u8 Opcode = (Instruction >> 21) & 0xF;
+				constexpr bool S = (Instruction >> 20) & 1;
+				constexpr u8 Shift = (Instruction >> 5) & 0x3;
+				return DataProcessingRegReg<Opcode, S, Shift>;
+			}
+			break;
+			case ARMInstructionType::DATA_PROCESSING_REGISTER_IMM: {
+				constexpr u8 Opcode = (Instruction >> 21) & 0xF;
+				constexpr bool S = (Instruction >> 20) & 1;
+				constexpr u8 Shift = (Instruction >> 5) & 0x3;
+				return DataProcessingRegImm<Opcode, S, Shift>;
+			}
+			break;
+			case ARMInstructionType::PSR_TRANSFER: {
+				constexpr bool Imm = (Instruction >> 25) & 1;
+				constexpr bool Spsr = (Instruction >> 22) & 1;
+				constexpr bool Opcode = (Instruction >> 21) & 1;
+
+				if constexpr (Opcode)
+					return detail::MsrTransfer<Imm, Spsr>;
+				else
+					return detail::MrsTransfer<Imm, Spsr>;
+			}
+			break;
+			case ARMInstructionType::SINGLE_HDS_TRANSFER: {
+				constexpr bool PreInc = (Instruction >> 24) & 1;
+				constexpr bool Add = (Instruction >> 23) & 1;
+				constexpr bool Imm = (Instruction >> 22) & 1;
+				constexpr bool Writeback = (Instruction >> 21) & 1;
+				constexpr bool Load = (Instruction >> 20) & 1;
+				constexpr u8 Opcode = (Instruction >> 5) & 0x3;
+				return SingleHDSTransfer<PreInc, Add, Imm, Writeback, Load, Opcode>;
+			}
+			break;
 			case ARMInstructionType::SOFT_INTERRUPT:
 				return SoftwareInterrupt;
 				break;
-			case ARMInstructionType::SINGLE_DATA_SWAP:
-				return SingleDataSwap;
-				break;
-			case ARMInstructionType::MULTIPLY:
-				return Multiply;
-				break;
+			case ARMInstructionType::SINGLE_DATA_SWAP: {
+				constexpr bool SwpByte = (Instruction >> 22) & 1;
+				return SingleDataSwap<SwpByte>;
+			}
+			break;
+			case ARMInstructionType::MULTIPLY: {
+				constexpr bool S = (Instruction >> 20) & 1;
+				constexpr u8 Opcode = (Instruction >> 21) & 0x7;
+				return Multiply<Opcode, S>;
+			}
+			break;
 			case ARMInstructionType::MULTIPLY_HALF:
 				return MultiplyHalf;
 				break;
-			case ARMInstructionType::SINGLE_DATA_TRANSFER_IMM:
-				return SingleDataTransfer<true>;
-				break;
-			case ARMInstructionType::SINGLE_DATA_TRANSFER:
-				return SingleDataTransfer<false>;
-				break;
+			case ARMInstructionType::SINGLE_DATA_TRANSFER_IMM: {
+				constexpr bool Pre = (Instruction >> 24) & 1;
+				constexpr bool Add = (Instruction >> 23) & 1;
+				constexpr bool Byte = (Instruction >> 22) & 1;
+				constexpr bool TW = (Instruction >> 21) & 1;
+				constexpr bool Load = (Instruction >> 20) & 1;
+				constexpr u8 Shift = (Instruction >> 5) & 0x3;
+				return SingleDataTransfer<true, Pre, Add, Byte, TW, Load, Shift>;
+			}
+			break;
+			case ARMInstructionType::SINGLE_DATA_TRANSFER: {
+				constexpr bool Pre = (Instruction >> 24) & 1;
+				constexpr bool Add = (Instruction >> 23) & 1;
+				constexpr bool Byte = (Instruction >> 22) & 1;
+				constexpr bool TW = (Instruction >> 21) & 1;
+				constexpr bool Load = (Instruction >> 20) & 1;
+				constexpr u8 Shift = (Instruction >> 5) & 0x3;
+				return SingleDataTransfer<false, Pre, Add, Byte, TW, Load, Shift>;
+			}
+			break;
 			case ARMInstructionType::UNDEFINED:
 				return Undefined;
 				break;
