@@ -30,7 +30,7 @@ namespace GBA::ppu {
 			ProcessNormalBackground(1, curr_line);
 
 		if (bg_3)
-			m_line_data[2] = ProcessAffineBackground(2, curr_line);
+			ProcessAffineBackground(2, curr_line);
 
 		if (obj_enable)
 			DrawSprites(curr_line);

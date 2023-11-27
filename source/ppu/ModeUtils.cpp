@@ -85,9 +85,9 @@ namespace GBA::ppu {
 		y -= (y % v_size);
 	}
 
-	void PPU::ProcessNormalBackground(int bg_id, int lcd_y) {
-		//std::array<Pixel, 240> backround_data{};
+	std::array<std::array<Pixel, 240>, 5> backgrounds{};
 
+	void PPU::ProcessNormalBackground(int bg_id, int lcd_y) {
 		u16 bg_control = ReadRegister16(detail::bg_control_reg[bg_id] / 2);
 
 		u8 bg_prio = bg_control & 3;
@@ -208,8 +208,8 @@ namespace GBA::ppu {
 					end_vram_offset += x_offset_inside_tile_int;
 					u16 color_id = m_vram[end_vram_offset];
 					color = u16_palette_ptr[color_id];
-					m_line_data[bg_id][x].color = color;
-					m_line_data[bg_id][x].palette_id = color_id;
+					backgrounds[bg_id][x].color = color;
+					backgrounds[bg_id][x].palette_id = color_id;
 				}
 				else {
 					end_vram_offset += x_offset_inside_tile_int / 2;
@@ -223,14 +223,14 @@ namespace GBA::ppu {
 					else
 						color = (color_id & 0xF);
 
-					m_line_data[bg_id][x].color = u16_palette_ptr[pal_id + color];
-					m_line_data[bg_id][x].palette_id = color;
+					backgrounds[bg_id][x].color = u16_palette_ptr[pal_id + color];
+					backgrounds[bg_id][x].palette_id = color;
 				}
 
 				u32 mos_end = x + mos_h_size - 1;
 
 				for (u32 pos = x; pos < mos_end && pos < 239; pos++, x++) {
-					m_line_data[bg_id][pos + 1] = m_line_data[bg_id][pos];
+					backgrounds[bg_id][pos + 1] = backgrounds[bg_id][pos];
 					x_offset_inside_tile_int += offset_inc;
 				}
 
@@ -241,9 +241,7 @@ namespace GBA::ppu {
 		}
 	}
 
-	std::array<Pixel, 240> PPU::ProcessAffineBackground(int bg_id, int lcd_y) {
-		std::array<Pixel, 240> backround_data{};
-
+	void PPU::ProcessAffineBackground(int bg_id, int lcd_y) {
 		u16 bg_control = ReadRegister16(detail::bg_control_reg[bg_id] / 2);
 
 		u8 bg_prio = bg_control & 3;
@@ -305,6 +303,7 @@ namespace GBA::ppu {
 				else {
 					curr_x += dx;
 					curr_y += dy;
+					backgrounds[bg_id][x].palette_id = 0;
 					continue;
 				}
 			}
@@ -314,6 +313,7 @@ namespace GBA::ppu {
 				&& !area_overflow) {
 				curr_x += dx;
 				curr_y += dy;
+				backgrounds[bg_id][x].palette_id = 0;
 				continue;
 			}
 
@@ -346,9 +346,8 @@ namespace GBA::ppu {
 
 			u16 color = *reinterpret_cast<u16*>(m_palette_ram + color_id * 2);
 
-			backround_data[x].color = color;
-			backround_data[x].palette_id = color_id;
-			//backround_data[x].priority = bg_prio;
+			backgrounds[bg_id][x].color = color;
+			backgrounds[bg_id][x].palette_id = color_id;
 
 			curr_x += dx;
 			curr_y += dy;
@@ -356,19 +355,12 @@ namespace GBA::ppu {
 		
 		m_internal_reference_x[bg_id - 2] = (i32)m_internal_reference_x[bg_id - 2] + dmx;
 		m_internal_reference_y[bg_id - 2] = (i32)m_internal_reference_y[bg_id - 2] + dmy;
-
-		return backround_data;
 	}
-
-	std::array<std::array<Pixel, 240>, 5> backgrounds{};
 
 	std::array<Pixel, 240> PPU::MergeBackrounds() {
 		std::array<Pixel, 240> merged{};
 
-		backgrounds = {
-			m_line_data[0], m_line_data[1], m_line_data[2], 
-			m_line_data[3], m_line_data[4]
-		};
+		backgrounds[4] = m_line_data[4];
 
 		u16 bg1_cnt = ReadRegister16(0x8 / 2);
 		u16 bg2_cnt = ReadRegister16(0xA / 2);
