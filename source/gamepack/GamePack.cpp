@@ -1,6 +1,7 @@
 #include "../../gamepack/GamePack.hpp"
 
 #include "../../gamepack/backups/EEPROM.hpp"
+#include "../../gamepack/backups/Database.hpp"
 
 #include "../../common/Logger.hpp"
 
@@ -35,17 +36,41 @@ namespace GBA::gamepack {
 		std::copy_n(m_rom, sizeof(GamePackHeader),
 			reinterpret_cast<u8*>(&m_head));
 
-		m_backup = new backups::EEPROM(m_info.file_size, 0x400);
+		const char* title = std::bit_cast<const char*>((char*)m_head.title);
 
-		m_backup_address_start = m_backup->GetStartAddress();
+		std::string game_name = std::string(title, 12);
 
-		(void)m_backup->Load("test.save");
+		backups::BackupTypeSize tpsz = backups::BackupDatabase::GetBackupTypeAndSize("rom_db.txt", game_name);
+
+		switch (tpsz)
+		{
+		default:
+		case GBA::gamepack::backups::BackupTypeSize::NONE:
+			m_backup_address_start = 0xFFFF'FFFF;
+			break;
+		case GBA::gamepack::backups::BackupTypeSize::EEPROM_8K:
+			m_backup = new backups::EEPROM(m_info.file_size, 0x400);
+			m_backup_address_start = m_backup->GetStartAddress();
+			break;
+		case GBA::gamepack::backups::BackupTypeSize::EEPROM_512:
+			m_backup = new backups::EEPROM(m_info.file_size, 0x40);
+			m_backup_address_start = m_backup->GetStartAddress();
+			break;
+		case GBA::gamepack::backups::BackupTypeSize::FLASH_512:
+			break;
+		case GBA::gamepack::backups::BackupTypeSize::FLASH_1M:
+			break;
+		}
 
 		return true;
 	}
 
 	bool GamePack::LoadBackup(fs::path const& from) {
-		return true;
+		if (m_backup) {
+			return m_backup->Load(from);
+		}
+
+		return false;
 	}
 
 	backups::BackupType GamePack::BackupType() const {
@@ -54,13 +79,7 @@ namespace GBA::gamepack {
 
 	u16 GamePack::Read(u32 address, u8 region) const {
 		if (region == 0x5 && address + 0xC000000 >= m_backup_address_start) {
-			//logging::Logger::Instance().LogInfo("Gamepak", " Accessing rom region 3");
-
 			return (u16)m_backup->Read(address);
-		}
-
-		if (address >= 0x01000000) {
-			logging::Logger::Instance().LogInfo("Gamepak", " Accessing high address");
 		}
 
 		return *reinterpret_cast<u16*>(m_rom + address);
