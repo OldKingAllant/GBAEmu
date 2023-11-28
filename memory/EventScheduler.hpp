@@ -15,7 +15,11 @@ namespace GBA::memory {
 		PPUNORMAL,
 		SCANLINE_INC,
 		HBLANK_IN_VBLANK,
-		END_VBLANK
+		END_VBLANK,
+		TIMER_0_INC,
+		TIMER_1_INC,
+		TIMER_2_INC,
+		TIMER_3_INC
 	};
 
 	struct Event {
@@ -43,7 +47,7 @@ namespace GBA::memory {
 
 		void Advance(common::u32 cycles);
 
-		static constexpr std::size_t MAX_EVENTS = 16;
+		static constexpr std::size_t MAX_EVENTS = 20;
 
 	private :
 		Event m_events[MAX_EVENTS];

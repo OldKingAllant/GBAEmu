@@ -22,7 +22,7 @@ namespace GBA::timers {
 		void SetEventScheduler(memory::EventScheduler* ev_sched);
 		void SetAPU(apu::APU* apu);
 
-		void ClockCycles(common::u16 cycles);
+		void Update();
 
 		static constexpr common::u32 TIMER_REG_BASE = 0x100;
 		static constexpr common::u32 CPU_FREQ = 16'780'000;
@@ -41,5 +41,15 @@ namespace GBA::timers {
 		common::u32 m_timer_internal_counter[4];
 
 		apu::APU* m_apu;
+
+		uint64_t m_last_read_timestamp[4];
+		uint64_t m_last_event_timestamp[4];
+
+		void RecalculateEvents(common::u8 timer_id, common::u8 new_cnt);
+
+		template <common::u8 Id>
+		friend void TimerIncremented(void* _timers);
+
+		void TimerOverfow(common::u8 timer_id);
 	};
 }

@@ -25,7 +25,7 @@ namespace GBA::memory {
 		m_bios(nullptr), m_sched(nullptr),
 		active_dmas_count{}, active_dmas{},
 		dmas{}, m_post_boot{}, m_halt_cnt{},
-		m_mem_control{}
+		m_mem_control{}, m_timers(nullptr)
 	{
 		m_wram = new u8[0x40000];
 		m_iwram = new u8[0x8000];

@@ -39,6 +39,8 @@ namespace GBA::emulation {
 		m_ctx.timers.SetInterruptController(m_ctx.int_controller);
 		m_ctx.timers.SetEventScheduler(&m_ctx.scheduler);
 
+		m_ctx.bus.SetTimers(&m_ctx.timers);
+
 		m_ctx.all_dma[0] = new memory::DMA(&m_ctx.bus, (u8)0, m_ctx.int_controller);
 		m_ctx.all_dma[1] = new memory::DMA(&m_ctx.bus, (u8)1, m_ctx.int_controller);
 		m_ctx.all_dma[2] = new memory::DMA(&m_ctx.bus, (u8)2, m_ctx.int_controller);
@@ -71,7 +73,7 @@ namespace GBA::emulation {
 
 			u32 cycles = m_ctx.bus.m_time.PopCycles();
 
-			m_ctx.timers.ClockCycles(cycles);
+			/*m_ctx.timers.ClockCycles(cycles); */
 		}
 	}
 

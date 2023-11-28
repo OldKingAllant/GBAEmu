@@ -14,30 +14,6 @@ namespace GBA::memory {
 		uint64_t next_timestamp = m_timestamp + cycles;
 
 		return ScheduleAbsolute(next_timestamp, type, callback, userdata, recursive);
-		
-		/*if (!recursive && std::find_if(m_events, m_events + m_num_events,
-			[type](Event const& ev) {
-				return ev.type == type;
-			}
-		) != m_events + m_num_events)
-			return false;
-
-		if (m_num_events == MAX_EVENTS)
-			return false;
-
-		uint64_t next_timestamp = m_timestamp + cycles;
-
-		m_events[m_num_events++] = Event{
-			m_timestamp, next_timestamp, type, callback, userdata
-		};
-
-		std::push_heap(m_events, m_events + m_num_events, 
-			[](Event const& ev1, Event const& ev2) {
-				return ev1.trigger_timestamp > ev2.trigger_timestamp;
-			}
-		);
-
-		return true;*/
 	}
 
 	bool EventScheduler::ScheduleAbsolute(uint64_t timestamp, EventType type, Callback callback, void* userdata, bool recursive) {

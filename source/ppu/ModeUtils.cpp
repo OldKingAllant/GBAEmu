@@ -155,9 +155,6 @@ namespace GBA::ppu {
 			bg_x %= bg_size_x;
 			bg_x -= (bg_x % mos_h_size);
 
-			if ((i32)bg_x < 0)
-				bg_x = 0;
-
 			x_offset_inside_tile = bg_x % detail::TILE_X_SIZE;
 			tile_x = bg_x / detail::TILE_X_SIZE;
 

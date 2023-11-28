@@ -15,6 +15,8 @@
 
 #include "../common/Logger.hpp"
 
+#include "../memory/Timers.hpp"
+
 namespace GBA::gamepack {
 	class GamePack;
 }
@@ -25,6 +27,10 @@ namespace GBA::cpu {
 
 namespace GBA::ppu {
 	class PPU;
+}
+
+namespace GBA::timers {
+	class TimerChain;
 }
 
 namespace GBA::memory {
@@ -119,6 +125,7 @@ namespace GBA::memory {
 
 				if (addr_low < IO_SIZE && !UNUSED_REGISTERS_MAP[addr_low]
 					&& mmio->IsRegisterReadable(addr_low)) {
+					m_timers->Update();
 					return_value = mmio->Read<Type>(addr_low);
 				}
 				else {
@@ -349,6 +356,10 @@ namespace GBA::memory {
 			m_ppu = ppu;
 		}
 
+		void SetTimers(timers::TimerChain* timers) {
+			m_timers = timers;
+		}
+
 		void LoadBIOS(std::string const& location);
 		void LoadBiosResetOpcode();
 
@@ -446,5 +457,7 @@ namespace GBA::memory {
 		u8 m_post_boot;
 		u8 m_halt_cnt;
 		u32 m_mem_control;
+
+		timers::TimerChain* m_timers;
 	};
 }
