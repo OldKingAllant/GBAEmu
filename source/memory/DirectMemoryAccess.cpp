@@ -89,7 +89,7 @@ namespace GBA::memory {
 			m_curr_word_count = m_word_count;
 		}
 		else {
-			m_word_count = m_id == 3 ? 0x10000 : 0x4000;
+			m_curr_word_count = m_id == 3 ? 0x10000 : 0x4000;
 		}
 		//m_curr_word_count = m_word_count ? m_word_count : 0xFFFF;
 		m_curr_address = 0;
@@ -147,7 +147,7 @@ namespace GBA::memory {
 			m_curr_word_count = m_word_count;
 		}
 		else {
-			m_word_count = m_id == 3 ? 0x10000 : 0x4000;
+			m_curr_word_count = m_id == 3 ? 0x10000 : 0x4000;
 		}
 
 		u8 dest_control = (m_control >> 5) & 0x3;

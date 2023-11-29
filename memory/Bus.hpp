@@ -373,10 +373,10 @@ namespace GBA::memory {
 			if (active_dmas_count >= 4) [[unlikely]]
 				error::DebugBreak();
 
-			int pos = active_dmas_count - 1;
+			int pos = active_dmas_count;
 
-			while (pos >= 0) {
-				if (active_dmas[pos] > id)
+			while (pos > 0) {
+				if (active_dmas[pos - 1] > id)
 					break;
 
 				pos--;
