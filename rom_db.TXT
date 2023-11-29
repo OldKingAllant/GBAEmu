@@ -1,2 +1,5 @@
 [SUPER MARIOB]
 backup_type = EEPROM_8K
+
+[POKEMON EMER]
+backup_type = FLASH_1M

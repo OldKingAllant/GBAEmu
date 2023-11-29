@@ -1,6 +1,7 @@
 #include "../../gamepack/GamePack.hpp"
 
 #include "../../gamepack/backups/EEPROM.hpp"
+#include "../../gamepack/backups/Flash.hpp"
 #include "../../gamepack/backups/Database.hpp"
 
 #include "../../common/Logger.hpp"
@@ -57,8 +58,12 @@ namespace GBA::gamepack {
 			m_backup_address_start = m_backup->GetStartAddress();
 			break;
 		case GBA::gamepack::backups::BackupTypeSize::FLASH_512:
+			m_backup = new backups::Flash(false, m_info.file_size);
+			m_backup_address_start = m_backup->GetStartAddress();
 			break;
 		case GBA::gamepack::backups::BackupTypeSize::FLASH_1M:
+			m_backup = new backups::Flash(true, m_info.file_size);
+			m_backup_address_start = m_backup->GetStartAddress();
 			break;
 		}
 
@@ -108,7 +113,9 @@ namespace GBA::gamepack {
 	}
 
 	u8 GamePack::ReadSRAM(u32 address) const {
-		//logging::Logger::Instance().LogInfo("Gamepak", " Reading SRAM");
+		if(m_backup)
+			return m_backup->Read(address);
+
 		return 0x00;
 	}
 
@@ -121,9 +128,8 @@ namespace GBA::gamepack {
 	}
 
 	void GamePack::WriteSRAM(u32 address, u8 value) {
-		//logging::Logger::Instance().LogInfo("Gamepak", " Writing SRAM");
-		(void)address;
-		(void)value;
+		if (m_backup)
+			m_backup->Write(address, value);
 	}
 
 	GamePack::~GamePack() {
