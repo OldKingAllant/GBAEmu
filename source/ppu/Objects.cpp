@@ -101,7 +101,8 @@ namespace GBA::ppu {
 			u8 mode = (attr_0 >> 10) & 0x3;
 
 			if (mode > 1) {
-				error::DebugBreak();
+				//error::DebugBreak();
+				continue;
 			}
 
 			u8 shape = (attr_0 >> 14) & 0x3;
@@ -193,7 +194,7 @@ namespace GBA::ppu {
 				else
 					vram_tile_y_id = tile_y * 32;
 
-				u32 vram_y_offset = (vram_tile_y_id * 0x20) +
+				u32 vram_y_offset = (vram_tile_y_id * tile_size) +
 					(y_offset * line_size);
 
 				if ((int)end >= 0) {
@@ -216,7 +217,7 @@ namespace GBA::ppu {
 							x_offset /= 2;
 
 						u32 vram_offset = start_offset + vram_y_offset
-							+ (tile_x * 0x20)
+							+ (tile_x * tile_size /*0x20*/)
 							+ x_offset;
 
 						vram_offset %= 0x8000;
