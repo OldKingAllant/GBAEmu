@@ -24,7 +24,8 @@ namespace GBA::ppu {
 		m_frame_ok{false}, m_int_control(nullptr),
 		m_sched(nullptr), m_last_event_timestamp{0},
 		m_bus(nullptr), line_sprites_ids{},
-		line_sprites_count(0), m_line_data{}
+		line_sprites_count(0), m_line_data{},
+		m_obj_window_pixels{}
 	{
 		m_palette_ram = new u8[0x400];
 		m_vram = new u8[0x18000];
@@ -53,6 +54,8 @@ namespace GBA::ppu {
 
 	void HblankEventCallback(void* ppu_ptr) {
 		PPU& ppu = *reinterpret_cast<PPU*>( ppu_ptr );
+
+		ppu.m_obj_window_pixels = {};
 
 		ppu.Normal();
 

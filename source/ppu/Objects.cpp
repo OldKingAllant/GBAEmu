@@ -99,11 +99,7 @@ namespace GBA::ppu {
 			u16 attr_2 = READ_16(m_oam, index + 4);
 
 			u8 mode = (attr_0 >> 10) & 0x3;
-
-			if (mode > 1) {
-				//error::DebugBreak();
-				continue;
-			}
+			bool obj_window = mode == 2;
 
 			u8 shape = (attr_0 >> 14) & 0x3;
 			u8 size_type = (attr_1 >> 14) & 0x3;
@@ -249,13 +245,17 @@ namespace GBA::ppu {
 								pixel_id + OBJ_PALETTE_START);
 						}
 
-						if (color_id && 
-							(!m_line_data[4][x].is_present || m_line_data[4][x].priority >= prio_to_bg)) {
-							m_line_data[4][x].is_present = true;
-							m_line_data[4][x].priority = prio_to_bg;
-							m_line_data[4][x].palette_id = color_id;
-							m_line_data[4][x].color = color;
-							m_line_data[4][x].is_bld_enabled = mode == 1;
+						if (color_id) {
+							if (obj_window) {
+								m_obj_window_pixels[x] = true;
+							}
+							else if (!m_line_data[4][x].is_present || m_line_data[4][x].priority >= prio_to_bg) {
+								m_line_data[4][x].is_present = true;
+								m_line_data[4][x].priority = prio_to_bg;
+								m_line_data[4][x].palette_id = color_id;
+								m_line_data[4][x].color = color;
+								m_line_data[4][x].is_bld_enabled = mode == 1;
+							}
 						}
 					}
 				}
@@ -365,13 +365,17 @@ namespace GBA::ppu {
 								pixel_id + OBJ_PALETTE_START);
 						}
 
-						if (color_id &&
-							(!m_line_data[4][x].is_present || m_line_data[4][x].priority >= prio_to_bg)) {
-							m_line_data[4][x].is_present = true;
-							m_line_data[4][x].priority = prio_to_bg;
-							m_line_data[4][x].palette_id = color_id;
-							m_line_data[4][x].color = color;
-							m_line_data[4][x].is_bld_enabled = mode == 1;
+						if (color_id) {
+							if (obj_window) {
+								m_obj_window_pixels[x] = true;
+							}
+							else if (!m_line_data[4][x].is_present || m_line_data[4][x].priority >= prio_to_bg) {
+								m_line_data[4][x].is_present = true;
+								m_line_data[4][x].priority = prio_to_bg;
+								m_line_data[4][x].palette_id = color_id;
+								m_line_data[4][x].color = color;
+								m_line_data[4][x].is_bld_enabled = mode == 1;
+							}
 						}
 					}
 				}

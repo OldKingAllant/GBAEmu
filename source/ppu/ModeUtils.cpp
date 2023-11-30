@@ -383,8 +383,9 @@ namespace GBA::ppu {
 
 		bool win0_en = (m_ctx.m_control >> 13) & 1;
 		bool win1_en = (m_ctx.m_control >> 14) & 1;
+		bool winobj_en = (m_ctx.m_control >> 15) & 1;
 
-		bool win_enabled = win0_en || win1_en;
+		bool win_enabled = win0_en || win1_en || winobj_en;
 
 		u16 winin_cnt = ReadRegister16(0x48 / 2);
 		u16 winout_cnt = ReadRegister16(0x4A / 2);
@@ -392,6 +393,7 @@ namespace GBA::ppu {
 		bool win0_obj_enable = (winin_cnt >> 4) & 1;
 		bool win1_obj_enable = (winin_cnt >> 12) & 1;
 		bool winout_obj_enable = (winout_cnt >> 4) & 1;
+		bool winobj_obj_enable = (winout_cnt >> 12) & 1;
 
 		u16 win0_h = ReadRegister16(0x40 / 2);
 		u16 win1_h = ReadRegister16(0x42 / 2);
@@ -433,7 +435,7 @@ namespace GBA::ppu {
 			int enable_special_effects;
 		};
 
-		WindowInfo windows[4] = {
+		WindowInfo windows[5] = {
 			WindowInfo { win0_en, win0_left, win0_right, win0_top, win0_bottom, {
 				winin_cnt & 1, (winin_cnt >> 1) & 1,
 				(winin_cnt >> 2) & 1, (winin_cnt >> 3) & 1,
@@ -450,7 +452,14 @@ namespace GBA::ppu {
 				winout_obj_enable
 			}, (winout_cnt >> 5) & 1 },
 			WindowInfo { true, 0, 0, 0, 0, {
-			}, true }
+			}, true },
+			WindowInfo {
+				winobj_en, 0, 0, 0, 0, {
+					(winout_cnt >> 8) & 1, (winout_cnt >> 9) & 1,
+					(winout_cnt >> 10) & 1, (winout_cnt >> 1) & 1,
+					winobj_obj_enable
+				}, (winout_cnt >> 13) & 1
+			}
 		};
 
 		u16 curr_line = m_ctx.m_vcount;
@@ -462,6 +471,8 @@ namespace GBA::ppu {
 
 		auto get_current_window_id = [&](u16 x_pos) {
 			if (!curr_line_has_window) {
+				if (windows[4].enabled && m_obj_window_pixels[x_pos])
+					return 4;
 				if (windows[2].enabled)
 					return 2;
 				return 3;
@@ -471,6 +482,8 @@ namespace GBA::ppu {
 				return 0;
 			else if (x_pos >= windows[1].left && x_pos < windows[1].right && window1_line)
 				return 1;
+			else if (windows[4].enabled && m_obj_window_pixels[x_pos])
+				return 4;
 			return 2;
 		};
 
@@ -558,7 +571,7 @@ namespace GBA::ppu {
 			}
 
 			if ((window_id == 3 || windows[window_id].enable_special_effects)
-				&& CHECK_BIT(first_target, layer)) {
+				&& (CHECK_BIT(first_target, layer) || merged[x].is_bld_enabled)) {
 				u16 special_effect_select = curr_effect;
 				u16 real_effect_select = curr_effect;
 
@@ -599,7 +612,8 @@ namespace GBA::ppu {
 							if (priorities[index].priority >= top_priority) {
 								if ((window_id == 3 || windows[window_id].layer_enable[4])
 									&& layer_enabled_global[layer]
-									&& CHECK_BIT(second_target, curr_layer)) {
+									&& CHECK_BIT(second_target, curr_layer)
+									&& backgrounds[curr_layer][x].palette_id) {
 									break;
 								}
 

@@ -204,6 +204,7 @@ namespace GBA::ppu {
 		common::u8 line_sprites_count;
 
 		std::array<Pixel, 240> m_line_data[5];
+		std::array<bool, 240> m_obj_window_pixels;
 
 		static constexpr common::u32 CYCLES_PER_PIXEL = 4;
 		static constexpr common::u32 CYCLES_PER_SCANLINE = 960;
