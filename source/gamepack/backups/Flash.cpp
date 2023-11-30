@@ -3,6 +3,10 @@
 #include "../../../common/Defs.hpp"
 #include "../../../common/Error.hpp"
 
+#include "../../../common/Logger.hpp"
+
+#include <fstream>
+
 namespace GBA::gamepack::backups {
 	using namespace common;
 
@@ -24,11 +28,37 @@ namespace GBA::gamepack::backups {
 	}
 
 	bool Flash::Load(std::filesystem::path const& from) {
-		return false;
+		std::streamsize req_size = m_total_banks * 64 * 1024;
+
+		if (!std::filesystem::exists(from) || !std::filesystem::is_regular_file(from))
+			return false;
+
+		if (std::filesystem::file_size(from) != req_size)
+			return false;
+
+		std::ifstream save_file(from, std::ios::in | std::ios::binary);
+
+		if (!save_file.is_open())
+			return false;
+
+		save_file.read(reinterpret_cast<char*>(m_data), req_size);
+
+		return true;
 	}
 
 	bool Flash::Store(std::filesystem::path const& to) {
-		return false;
+		std::ofstream save_file(to, std::ios::out);
+
+		if (!save_file.is_open())
+			return false;
+
+		save_file.close();
+
+		save_file.open(to, std::ios::out | std::ios::binary);
+
+		save_file.write(reinterpret_cast<char*>(m_data), m_total_banks * 64 * 1024);
+
+		return true;
 	}
 
 	u32 Flash::Read(u32 address) {
@@ -41,7 +71,10 @@ namespace GBA::gamepack::backups {
 			}
 		}
 
-		return m_data[address & 0xFFFF];
+		//logging::Logger::Instance().LogInfo("FLASH", " Reading address 0x{:x}  -> 0x{:x}",
+			//address, m_data[address & 0xFFFF]);
+
+		return m_data[(address & 0xFFFF) + (m_curr_bank * 64 * 1024)];
 	}
 
 	void Flash::NormalMode_ProcessPacket(u32 address, u8 data) {
@@ -67,8 +100,14 @@ namespace GBA::gamepack::backups {
 					m_status = FlashStatus::WAITING_PRE_COMMAND0;
 					m_mode = FlashMode::BANK_SWITCH;
 				}
-				else
-					error::DebugBreak();
+				else if (data == 0x80) {
+					m_status = FlashStatus::WAITING_PRE_COMMAND0;
+					m_mode = FlashMode::ERASE;
+				}
+				else if (data == 0xA0) {
+					m_status = FlashStatus::WAITING_PRE_COMMAND0;
+					m_mode = FlashMode::WRITE_BYTE;
+				}
 			}
 			else
 				error::DebugBreak();
@@ -125,6 +164,61 @@ namespace GBA::gamepack::backups {
 			error::DebugBreak();
 	}
 
+	void Flash::Erase_ProcessPacket(u32 address, u8 data) {
+		switch (m_status)
+		{
+		case GBA::gamepack::backups::FlashStatus::WAITING_PRE_COMMAND0: {
+			if (address == 0x5555 && data == 0xAA)
+				m_status = FlashStatus::WAITING_PRE_COMMAND1;
+		}
+		break;
+		case GBA::gamepack::backups::FlashStatus::WAITING_PRE_COMMAND1: {
+			if (address == 0x2AAA && data == 0x55)
+				m_status = FlashStatus::WAITING_COMMAND;
+		}
+		break;
+		case GBA::gamepack::backups::FlashStatus::WAITING_COMMAND: {
+			if (address == 0x5555) {
+				if (data == 0xF0) {
+					m_status = FlashStatus::WAITING_PRE_COMMAND0;
+					m_mode = FlashMode::NORMAL;
+				}
+				else if (data == 0x10) {
+					m_status = FlashStatus::WAITING_PRE_COMMAND0;
+					m_mode = FlashMode::NORMAL;
+					//Erase entire chip
+					std::fill_n(m_data, 64 * 1024 * m_total_banks, 0xFF);
+				}
+				else
+					error::DebugBreak();
+			}
+			else {
+				if ((address & 0xFFF) == 0 && data == 0x30) {
+					u32 sector_n = address & 0xF000;
+
+					std::fill_n(m_data + (m_curr_bank * 64 * 1024) + sector_n, 0x1000, 0xFF);
+				}
+
+				m_status = FlashStatus::WAITING_PRE_COMMAND0;
+				m_mode = FlashMode::NORMAL;
+			}
+		}
+		break;
+		default:
+			error::Unreachable();
+			break;
+		}
+	}
+
+	void Flash::Write_ProcessPacket(u32 address, u8 data) {
+		if (address != 0x5555 || data != 0xF0) {
+			m_data[(m_curr_bank * 64 * 1024) + address] = data;
+		}
+
+		m_mode = FlashMode::NORMAL;
+		m_status = FlashStatus::WAITING_PRE_COMMAND0;
+	}
+
 	void Flash::Write(u32 address, u32 value) {
 		address &= 0xFFFF;
 		value &= 0xFF;
@@ -139,6 +233,12 @@ namespace GBA::gamepack::backups {
 			break;
 		case GBA::gamepack::backups::FlashMode::BANK_SWITCH:
 			BankSwitch_ProcessPacket(address, value);
+			break;
+		case GBA::gamepack::backups::FlashMode::ERASE:
+			Erase_ProcessPacket(address, value);
+			break;
+		case GBA::gamepack::backups::FlashMode::WRITE_BYTE:
+			Write_ProcessPacket(address, value);
 			break;
 		default:
 			break;

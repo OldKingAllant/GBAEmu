@@ -12,7 +12,9 @@ namespace GBA::gamepack::backups {
 	enum class FlashMode {
 		NORMAL,
 		ID_MODE,
-		BANK_SWITCH
+		BANK_SWITCH,
+		ERASE,
+		WRITE_BYTE
 	};
 
 	// 09C2h  Macronix   128K
@@ -38,10 +40,12 @@ namespace GBA::gamepack::backups {
 		FlashMode m_mode;
 
 		u32 m_curr_bank;
-		u8 m_total_banks;
+		uint64_t m_total_banks;
 
 		void NormalMode_ProcessPacket(common::u32 address, common::u8 data);
 		void IdMode_ProcessPacket(common::u32 address, common::u8 data);
 		void BankSwitch_ProcessPacket(common::u32 address, common::u8 data);
+		void Erase_ProcessPacket(common::u32 address, common::u8 data);
+		__declspec(noinline) void Write_ProcessPacket(common::u32 address, common::u8 data);
 	};
 }

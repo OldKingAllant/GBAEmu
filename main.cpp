@@ -43,6 +43,8 @@ int main(int argc, char* argv[]) {
 
 	auto& ctx = emu.GetContext();
 
+	ctx.pack.LoadBackup("test.save");
+
 	GBA::debugger::Debugger debugger{ emu };
 
 	GBA::debugger::DebugWindow debug_window{ debugger };
