@@ -19,7 +19,8 @@ namespace GBA::memory {
 		TIMER_0_INC,
 		TIMER_1_INC,
 		TIMER_2_INC,
-		TIMER_3_INC
+		TIMER_3_INC,
+		APU_SAMPLE_OUT
 	};
 
 	struct Event {

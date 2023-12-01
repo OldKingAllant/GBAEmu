@@ -8,13 +8,14 @@ namespace GBA {
 	namespace memory {
 		class DMA;
 		class MMIO;
+		class EventScheduler;
 	}
 }
 
 namespace GBA::apu {
 	using namespace common;
 
-	using SampleCallback = std::function<void(i16*)>;
+	using SampleCallback = std::function<void(i16, i16)>;
 
 	enum class ChannelId {
 		FIFO_A,
@@ -36,8 +37,11 @@ namespace GBA::apu {
 		void Clock(u32 num_cycles);
 
 		void SetMMIO(memory::MMIO* mmio);
+		void SetScheduler(memory::EventScheduler* sched);
 
 		void TimerOverflow(u8 id);
+
+		void SetFreq(u32 freq);
 
 		~APU();
 
@@ -55,6 +59,12 @@ namespace GBA::apu {
 		i8 m_internal_B_buffer[32];
 		i8 m_A_pos;
 		i8 m_B_pos;
+
+		u32 m_freq;
+		u32 m_cycles_before_output;
+
+		i16 m_curr_ch_samples[6];
+		u32 m_curr_ch_sample_accum[6];
 		
 		union {
 			struct {
@@ -106,11 +116,17 @@ namespace GBA::apu {
 		u32 m_interleaved_buffer_pos_l;
 		u32 m_interleaved_buffer_pos_r;
 
-		u8 QueueSample(i16 sample, ChannelId ch_id);
+		memory::EventScheduler* m_sched;
+
+		void MixSample(i16& sample_l, i16& sample_r, ChannelId ch_id);
 		void BufferFull();
 
 		static_assert(sizeof(m_soundcnt_h) == 2);
 		static_assert(sizeof(m_soundcnt_x) == 1);
 		static_assert(sizeof(m_soundbias) == 2);
+
+		static constexpr uint64_t CPU_FREQ = 16'780'000;
+
+		friend void output_sample(void* userdata);
 	};
 }

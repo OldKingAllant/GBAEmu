@@ -67,10 +67,11 @@ int main(int argc, char* argv[]) {
 	GBA::audio::AudioDevice* audio = new GBA::audio::SdlAudioDevice();
 	
 	ctx.apu.SetCallback(
-		[](GBA::common::i16*) {
-			bool tth = true;
-		}, 2048
+		[audio](GBA::common::i16 sample_l, GBA::common::i16 sample_r) {
+			audio->PushSample(sample_l, sample_r);
+		}, 1024
 	);
+	ctx.apu.SetFreq(44100);
 
 	audio->Start();
 

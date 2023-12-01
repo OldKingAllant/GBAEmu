@@ -4,21 +4,29 @@
 #include "../../common/BitManip.hpp"
 
 #include "../../memory/DirectMemoryAccess.hpp"
+#include "../../memory/EventScheduler.hpp"
 
 #include "../../common/Error.hpp"
 
 #include <bit>
+#include <algorithm>
 
 namespace GBA::apu {
+	void output_sample(void* userdata);
+
 	APU::APU() :
 		m_sample_buffer{nullptr}, m_dma1{nullptr},
 		m_dma2{nullptr}, m_buffer_callback{},
 		m_curr_samples{}, m_req_samples{}, 
 		m_internal_A_buffer{}, m_internal_B_buffer{},
-		m_A_pos{}, m_B_pos{}, m_soundcnt_h{},
+		m_A_pos{}, m_B_pos {},
+		m_soundcnt_h{},
 		m_soundcnt_x{}, m_soundbias{},
 		m_interleaved_buffer_pos_l{}, 
-		m_interleaved_buffer_pos_r{}
+		m_interleaved_buffer_pos_r{},
+		m_freq{}, m_cycles_before_output{},
+		m_curr_ch_samples{}, m_curr_ch_sample_accum{},
+		m_sched(nullptr)
 	{}
 
 	void APU::SetDma(memory::DMA* _1, memory::DMA* _2) {
@@ -45,7 +53,7 @@ namespace GBA::apu {
 		mmio->AddRegister<u32>(0xA0, false, true, a_buf, 0xFFFF,
 			[this](u8 data, u16 offset) {
 				offset -= 0xA0;
-				if(m_A_pos < 31)
+				if (m_A_pos < 32)
 					m_internal_A_buffer[m_A_pos++] = data;
 		});
 
@@ -54,7 +62,7 @@ namespace GBA::apu {
 		mmio->AddRegister<u32>(0xA4, false, true, b_buf, 0xFFFF,
 			[this](u8 data, u16 offset) {
 				offset -= 0xA4;
-				if(m_B_pos < 31)
+				if(m_B_pos < 32)
 					m_internal_B_buffer[m_B_pos++] = data;
 		});
 
@@ -84,6 +92,9 @@ namespace GBA::apu {
 		mmio->AddRegister<u8>(0x84, true, true, master_control, 0x80,
 			[this](u8 data, u16 pos) {
 				m_soundcnt_x.master_en = CHECK_BIT(data, 7);
+
+				if (!m_soundcnt_x.master_en)
+					std::fill_n(m_curr_ch_samples, 6, 0x0);
 			});
 
 		u8* bias_cnt = std::bit_cast<u8*>(&m_soundbias);
@@ -91,32 +102,38 @@ namespace GBA::apu {
 		mmio->AddRegister<u16>(0x88, true, true, bias_cnt, 0xFFFF);
 	}
 
-	u8 APU::QueueSample(i16 sample, ChannelId ch_id) {
-		u8 step = 0;
+	void APU::SetFreq(u32 freq) {
+		m_freq = freq;
+		m_cycles_before_output = CPU_FREQ / 32768;
 
+		m_sched->Schedule(256, memory::EventType::APU_SAMPLE_OUT,
+			output_sample, std::bit_cast<void*>(this));
+	}
+
+	void APU::SetScheduler(memory::EventScheduler* sched) {
+		m_sched = sched;
+	}
+
+	void APU::MixSample(i16& sample_l, i16& sample_r, ChannelId ch_id) {
 		switch (ch_id)
 		{
 		case GBA::apu::ChannelId::FIFO_A: {
 			if (m_soundcnt_h.fifo_a_left) {
-				step |= ChannelStep::INC_LEFT;
-				m_sample_buffer[m_interleaved_buffer_pos_l] += sample;
+				sample_l += m_curr_ch_samples[0];
 			}
 
 			if (m_soundcnt_h.fifo_a_right) {
-				step |= ChannelStep::INC_RIGHT;
-				m_sample_buffer[m_interleaved_buffer_pos_r] += sample;
+				sample_r += m_curr_ch_samples[0];
 			}
 		}
 			break;
 		case GBA::apu::ChannelId::FIFO_B: {
 			if (m_soundcnt_h.fifo_b_left) {
-				step |= ChannelStep::INC_LEFT;
-				m_sample_buffer[m_interleaved_buffer_pos_l] += sample;
+				sample_l += m_curr_ch_samples[1];
 			}
 
 			if (m_soundcnt_h.fifo_b_right) {
-				step |= ChannelStep::INC_RIGHT;
-				m_sample_buffer[m_interleaved_buffer_pos_r] += sample;
+				sample_r += m_curr_ch_samples[1];
 			}
 		}
 			break;
@@ -124,8 +141,6 @@ namespace GBA::apu {
 			error::DebugBreak();
 			break;
 		}
-
-		return step;
 	}
 
 	void APU::BufferFull() {
@@ -137,12 +152,6 @@ namespace GBA::apu {
 		if (!m_sample_buffer)
 			return;
 
-		u32 bias = m_soundbias.bias_low | (m_soundbias.bias_high << 7);
-
-		for (u32 pos = 0; pos < m_req_samples; pos++)
-			m_sample_buffer[pos] += bias;
-
-		m_buffer_callback(m_sample_buffer);
 		m_curr_samples = 0;
 		m_interleaved_buffer_pos_l = 0;
 		m_interleaved_buffer_pos_r = 0;
@@ -152,19 +161,20 @@ namespace GBA::apu {
 		if (!m_soundcnt_x.master_en)
 			return;
 
-		u8 step = 0;
-
-		if (m_soundcnt_h.fifo_a_timer_sel == id && m_A_pos) {
+		if (m_soundcnt_h.fifo_a_timer_sel == id) {
 			if (m_sample_buffer) {
-				i16 sample = m_A_pos ? m_internal_A_buffer[m_A_pos] : 0x0;
+				i16 sample = m_A_pos ? m_internal_A_buffer[0] : 0x0;
 
 				if (!m_soundcnt_h.fifo_a_volume)
 					sample >>= 2;
 
-				step = QueueSample(sample, ChannelId::FIFO_A);
-			}
+				m_curr_ch_samples[0] = sample;
 
-			m_A_pos--;
+				std::shift_left(std::begin(m_internal_A_buffer),
+					std::end(m_internal_A_buffer), 1);
+
+				m_A_pos--;
+			}
 
 			if (m_A_pos <= 16) {
 				m_dma1->TriggerDMA(memory::DMAFireType::FIFO_A);
@@ -172,37 +182,62 @@ namespace GBA::apu {
 			}
 		}
 		
-		if (m_soundcnt_h.fifo_b_timer_sel == id && m_B_pos) {
+		if (m_soundcnt_h.fifo_b_timer_sel == id) {
 			if (m_sample_buffer) {
-				i16 sample = m_B_pos ? m_internal_B_buffer[m_B_pos] : 0x0;
+				i16 sample = m_B_pos ? m_internal_B_buffer[0] : 0x0;
 
 				if (!m_soundcnt_h.fifo_b_volume)
 					sample >>= 2;
 
-				step |= QueueSample(sample, ChannelId::FIFO_B);
-			}
+				m_curr_ch_samples[1] = sample;
 
-			m_B_pos--;
+				std::shift_left(std::begin(m_internal_B_buffer),
+					std::end(m_internal_B_buffer), 1);
+
+				m_B_pos--;
+			}
 
 			if (m_B_pos <= 16) {
 				m_dma1->TriggerDMA(memory::DMAFireType::FIFO_B);
 				m_dma2->TriggerDMA(memory::DMAFireType::FIFO_B);
 			}
 		}
+	}
 
-		if (step) {
-			//if (step & ChannelStep::INC_LEFT)
-				m_interleaved_buffer_pos_l += 2;
+	void output_sample(void* userdata) {
+		APU* apu = std::bit_cast<APU*>(userdata);
 
-			//if (step & ChannelStep::INC_RIGHT)
-				m_interleaved_buffer_pos_r += 2;
+		i16 left_sample = 0;
+		i16 right_sample = 0;
 
-			m_curr_samples++;
+		apu->MixSample(left_sample, right_sample, ChannelId::FIFO_A);
+		apu->MixSample(left_sample, right_sample, ChannelId::FIFO_B);
 
-			if (m_curr_samples >= m_req_samples) {
-				BufferFull();
-			}
+		u32 bias = apu->m_soundbias.bias_low | (apu->m_soundbias.bias_high << 7);
+
+		left_sample += 0x200;
+		left_sample = std::clamp(left_sample, (i16)0x0, (i16)0x3FF);
+		left_sample -= 0x200;
+		left_sample *= 128;
+
+		right_sample += 0x200;
+		right_sample = std::clamp(right_sample, (i16)0x0, (i16)0x3FF);
+		right_sample -= 0x200;
+		right_sample *= 128;
+
+		//apu->m_buffer_callback(left_sample, right_sample);
+
+		apu->m_curr_samples++;
+
+		if (apu->m_curr_samples == apu->m_req_samples) {
+			apu->BufferFull();
 		}
+
+		u32 cycles = 512 -
+			(apu->m_sched->GetTimestamp() & 511);
+
+		apu->m_sched->Schedule(cycles, memory::EventType::APU_SAMPLE_OUT,
+			output_sample, userdata, true);
 	}
 
 	APU::~APU() {

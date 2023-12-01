@@ -57,6 +57,7 @@ namespace GBA::emulation {
 
 		m_ctx.apu.SetDma(m_ctx.all_dma[1], m_ctx.all_dma[2]);
 		m_ctx.apu.SetMMIO(mmio);
+		m_ctx.apu.SetScheduler(&m_ctx.scheduler);
 
 		m_ctx.timers.SetAPU(&m_ctx.apu);
 	}
