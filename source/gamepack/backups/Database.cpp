@@ -1,6 +1,7 @@
 #include "../../../gamepack/backups/Database.hpp"
 
 #include <filesystem>
+#include <sstream>
 
 #include "../../../thirdparty/mini/ini.h"
 
@@ -32,5 +33,52 @@ namespace GBA::gamepack::backups {
 			return BackupTypeSize::FLASH_1M;
 
 		return BackupTypeSize::NONE;
+	}
+
+	std::map<GpioDevices, PinConnections> BackupDatabase::GetGpioDevices(std::string_view db_path, std::string rom_name) {
+		if (!std::filesystem::exists(db_path) || !std::filesystem::is_regular_file(db_path))
+		{
+			return {};
+		}
+
+		mINI::INIFile db_file(db_path.data());
+
+		mINI::INIStructure database;
+
+		db_file.read(database);
+
+		if (!database.has(rom_name) || !database.get(rom_name).has("gpio"))
+			return {};
+
+		auto const& rom_data = database.get(rom_name);
+
+		std::string gpios = rom_data
+			.get("gpio");
+
+		gpios.erase(gpios.find_first_of('\"'), 1);
+		gpios.erase(gpios.find_last_of('\"'), 1);
+
+		std::istringstream stream{ gpios };
+		std::string dev = "";
+
+		std::map<GpioDevices, PinConnections> devs{};
+
+		while (std::getline(stream, dev, ';')) {
+			if(dev == "RTC") {
+				std::string connections = rom_data.get("rtc");
+
+				PinConnections conns{};
+
+				for (uint8_t pos = 0; pos < 4; pos++) {
+					char pin = connections.at(pos);
+
+					conns.conns[pos] = pin == '4' ? -1 : (pin - '0');
+				}
+
+				devs.insert({ GpioDevices::RTC, conns });
+			}
+		}
+
+		return devs;
 	}
 }

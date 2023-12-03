@@ -7,6 +7,10 @@
 #include "mapping/FileMapping.hpp"
 #include "Header.hpp"
 
+namespace GBA::gamepack::gpio {
+	class Gpio;
+}
+
 namespace GBA::gamepack {
 	using namespace common;
 
@@ -48,5 +52,7 @@ namespace GBA::gamepack {
 		GamePackHeader m_head;
 		
 		u32 m_backup_address_start;
+
+		gpio::Gpio* m_gpio;
 	};
 }

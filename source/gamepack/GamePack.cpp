@@ -3,6 +3,7 @@
 #include "../../gamepack/backups/EEPROM.hpp"
 #include "../../gamepack/backups/Flash.hpp"
 #include "../../gamepack/backups/Database.hpp"
+#include "../../gamepack/gpio/Gpio.hpp"
 
 #include "../../common/Logger.hpp"
 
@@ -13,7 +14,7 @@ namespace GBA::gamepack {
 	GamePack::GamePack() :
 		m_rom(nullptr), m_backup(nullptr),
 		m_path(), m_info{}, m_head{},
-		m_backup_address_start{} {}
+		m_backup_address_start{}, m_gpio(nullptr) {}
 
 	bool GamePack::LoadFrom(fs::path const& path) {
 		if (!fs::exists(path))
@@ -67,6 +68,15 @@ namespace GBA::gamepack {
 			break;
 		}
 
+		auto gpio = backups::BackupDatabase::GetGpioDevices("rom_db.txt", game_name);
+
+		if (gpio.size() > 0) {
+			m_gpio = new gpio::Gpio();
+
+			for (auto const& [dev, conns] : gpio)
+				m_gpio->AddDevice(dev, conns);
+		}
+
 		return true;
 	}
 
@@ -87,12 +97,48 @@ namespace GBA::gamepack {
 			return (u16)m_backup->Read(address);
 		}
 
+		if (address >= 0x00000C4 && address <= 0x00000C9) [[unlikely]] {
+			switch (address)
+			{
+			case 0x00000C4:
+				return m_gpio->ReadPorts();
+				break;
+			case 0x00000C6:
+				return m_gpio->ReadDirs();
+				break;
+			case 0x00000C8:
+				return m_gpio->ReadControl();
+				break;
+			default:
+				logging::Logger::Instance().LogInfo("Cartridge", " Misaligned GPIO access at 0x{:x}", address);
+				break;
+			}
+		}
+
 		return *reinterpret_cast<u16*>(m_rom + address);
 	}
 
 	void GamePack::Write(u32 address, u16 value, u8 region) {
 		if (address >= m_backup_address_start)
 			m_backup->Write(address - m_backup_address_start, value);
+
+		if (address >= 0x80000C4 && address <= 0x80000C9) {
+			switch (address)
+			{
+			case 0x80000C4:
+				m_gpio->WritePorts((u8)value);
+				break;
+			case 0x80000C6:
+				m_gpio->WriteDirs((u8)value);
+				break;
+			case 0x80000C8:
+				m_gpio->WriteControl((u8)value);
+				break;
+			default:
+				logging::Logger::Instance().LogInfo("Cartridge", " Misaligned GPIO access at 0x{:x}", address);
+				break;
+			}
+		}
 	}
 
 	bool GamePack::MapFile() {
@@ -139,5 +185,8 @@ namespace GBA::gamepack {
 			m_backup->Store("test.save");
 			delete m_backup;
 		}
+
+		if (m_gpio)
+			delete m_gpio;
 	}
 }
