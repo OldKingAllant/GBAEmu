@@ -97,7 +97,7 @@ namespace GBA::gamepack {
 			return (u16)m_backup->Read(address);
 		}
 
-		if (address >= 0x00000C4 && address <= 0x00000C9) [[unlikely]] {
+		if (address >= 0x00000C4 && address <= 0x00000C9 && m_gpio) [[unlikely]] {
 			switch (address)
 			{
 			case 0x00000C4:
@@ -122,7 +122,7 @@ namespace GBA::gamepack {
 		if (address >= m_backup_address_start)
 			m_backup->Write(address - m_backup_address_start, value);
 
-		if (address >= 0x80000C4 && address <= 0x80000C9) {
+		if (address >= 0x80000C4 && address <= 0x80000C9 && m_gpio) {
 			switch (address)
 			{
 			case 0x80000C4:
