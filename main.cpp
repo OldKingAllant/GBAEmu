@@ -20,12 +20,12 @@
 
 
 int main(int argc, char* argv[]) {
-	std::string rom = "./testRoms/SuperMarioWorld.gba";
+	std::string rom = "./testRoms/tonc/snd1_demo.gba";
 	//std::string rom = "./testRoms/PokemonEmerald.gba";
 	std::string bios_path = "./testRoms/gba_bios.bin";
 
-	GBA::emulation::Emulator emu{rom, std::string_view(bios_path)};
-	emu.SkipBios();
+	GBA::emulation::Emulator* emu = new GBA::emulation::Emulator{rom, std::string_view(bios_path)};
+	emu->SkipBios();
 
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
 		std::cerr << SDL_GetError() << std::endl;
@@ -41,11 +41,11 @@ int main(int argc, char* argv[]) {
 		std::exit(0);
 	}
 
-	auto& ctx = emu.GetContext();
+	auto& ctx = emu->GetContext();
 
 	ctx.pack.LoadBackup("test.save");
 
-	GBA::debugger::Debugger debugger{ emu };
+	GBA::debugger::Debugger debugger{ *emu };
 
 	GBA::debugger::DebugWindow debug_window{ debugger };
 
@@ -58,7 +58,7 @@ int main(int argc, char* argv[]) {
 
 	GBA::video::renderer::OpenGL opengl_rend{};
 
-	opengl_rend.SetKeypad(&emu.GetContext().keypad);
+	opengl_rend.SetKeypad(&emu->GetContext().keypad);
 
 	if (!opengl_rend.Init(3, 3)) {
 		std::exit(0);
@@ -119,6 +119,8 @@ int main(int argc, char* argv[]) {
 	audio->Stop();
 
 	SDL_Quit();
+
+	delete emu;
 
 	std::cin.get();
 }

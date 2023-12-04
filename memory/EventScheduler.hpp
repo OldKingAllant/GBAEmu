@@ -20,7 +20,11 @@ namespace GBA::memory {
 		TIMER_1_INC,
 		TIMER_2_INC,
 		TIMER_3_INC,
-		APU_SAMPLE_OUT
+		APU_SAMPLE_OUT,
+		APU_CH1_SEQUENCER,
+		APU_CH1_SAMPLE_UPDATE,
+		APU_CH2_SEQUENCER,
+		APU_CH2_SAMPLE_UPDATE
 	};
 
 	struct Event {
@@ -48,7 +52,7 @@ namespace GBA::memory {
 
 		void Advance(common::u32 cycles);
 
-		static constexpr std::size_t MAX_EVENTS = 20;
+		static constexpr std::size_t MAX_EVENTS = 30;
 
 	private :
 		Event m_events[MAX_EVENTS];

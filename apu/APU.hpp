@@ -15,16 +15,17 @@ namespace GBA {
 namespace GBA::apu {
 	using namespace common;
 
+	class SquareChannel;
+
 	using SampleCallback = std::function<void(i16, i16)>;
 
 	enum class ChannelId {
 		FIFO_A,
-		FIFO_B
-	};
-
-	enum ChannelStep {
-		INC_LEFT = 1,
-		INC_RIGHT = 2
+		FIFO_B,
+		PULSE_1,
+		PULSE_2,
+		WAVE,
+		NOISE
 	};
 
 	class APU {
@@ -46,8 +47,6 @@ namespace GBA::apu {
 		~APU();
 
 	private :
-		i16* m_sample_buffer;
-
 		memory::DMA* m_dma1;
 		memory::DMA* m_dma2;
 
@@ -113,10 +112,39 @@ namespace GBA::apu {
 			u16 raw;
 		} m_soundbias;
 
-		u32 m_interleaved_buffer_pos_l;
-		u32 m_interleaved_buffer_pos_r;
+		inline u32 SampleAmplification() const {
+			return (512 >> m_soundbias.amplitude);
+		}
 
 		memory::EventScheduler* m_sched;
+
+		u16 m_sound1_freq_control;
+		u16 m_sound2_freq_control;
+		u16 m_sound3_freq_control;
+		u16 m_sound4_freq_control;
+
+		SquareChannel* m_sound1;
+		SquareChannel* m_sound2;
+
+		union {
+			struct {
+				u8 dmg_sound_vol_r : 3;
+				u8 : 1;
+				u8 dmg_sound_vol_l : 3;
+				u8 : 1;
+				bool snd1_en_r : 1;
+				bool snd2_en_r : 1;
+				bool snd3_en_r : 1;
+				bool snd4_en_r : 1;
+				//
+				bool snd1_en_l : 1;
+				bool snd2_en_l : 1;
+				bool snd3_en_l : 1;
+				bool snd4_en_l : 1;
+			};
+
+			u16 raw;
+		} m_soundcnt_l;
 
 		void MixSample(i16& sample_l, i16& sample_r, ChannelId ch_id);
 		void BufferFull();
