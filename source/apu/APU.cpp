@@ -10,6 +10,7 @@
 #include "../../common/Logger.hpp"
 
 #include "../../apu/SquareChannel.hpp"
+#include "../../apu/NoiseChannel.hpp"
 
 #include <bit>
 #include <algorithm>
@@ -30,13 +31,14 @@ namespace GBA::apu {
 		m_sched(nullptr),
 		m_sound1_freq_control{}, m_sound2_freq_control{},
 		m_sound3_freq_control{}, m_sound4_freq_control{},
-		m_sound1{nullptr}, m_sound2{nullptr},
+		m_sound1{nullptr}, m_sound2{nullptr}, m_noise{nullptr},
 		m_soundcnt_l{}
 	{
 		m_soundbias.raw = 0x200;
 
 		m_sound1 = new SquareChannel(true);
 		m_sound2 = new SquareChannel(false);
+		m_noise = new NoiseChannel();
 	}
 
 	void APU::SetDma(memory::DMA* _1, memory::DMA* _2) {
@@ -61,6 +63,7 @@ namespace GBA::apu {
 
 		m_sound1->SetMMIO(mmio);
 		m_sound2->SetMMIO(mmio);
+		m_noise->SetMMIO(mmio);
 
 		m_sound1->SetEnableCallback([this](bool en) {
 			m_soundcnt_x.sound_1_on = en;
@@ -70,13 +73,17 @@ namespace GBA::apu {
 			m_soundcnt_x.sound_2_on = en;
 		});
 
-		mmio->AddRegister<u16>(0x74, true, true, sound3_cnt, 0xFFFF, [this](u8 value, u16) {
-			logging::Logger::Instance().LogInfo("APU", " Writing sound4 control 0x{:x}", value);
+		m_noise->SetEnableCallback([this](bool en) {
+			m_soundcnt_x.sound_4_on = en;
 		});
 
-		mmio->AddRegister<u16>(0x7C, true, true, sound4_cnt, 0xFFFF, [this](u8 value, u16) {
-			logging::Logger::Instance().LogInfo("APU", " Writing sound4 control 0x{:x}", value);
+		mmio->AddRegister<u16>(0x74, true, true, sound3_cnt, 0xFFFF, [this](u8 value, u16) {
+			logging::Logger::Instance().LogInfo("APU", " Writing sound3 control 0x{:x}", value);
 		});
+
+		/*mmio->AddRegister<u16>(0x7C, true, true, sound4_cnt, 0xFFFF, [this](u8 value, u16) {
+			logging::Logger::Instance().LogInfo("APU", " Writing sound4 control 0x{:x}", value);
+		});*/
 
 		u8* a_buf = std::bit_cast<u8*>((i8*)m_internal_A_buffer);
 
@@ -149,6 +156,8 @@ namespace GBA::apu {
 	void APU::SetScheduler(memory::EventScheduler* sched) {
 		m_sched = sched;
 		m_sound1->SetScheduler(sched);
+		m_sound2->SetScheduler(sched);
+		m_noise->SetScheduler(sched);
 	}
 
 	void APU::MixSample(i16& sample_l, i16& sample_r, ChannelId ch_id) {
@@ -196,6 +205,8 @@ namespace GBA::apu {
 					mod_sample >>= (2 - dmg_sound_vol);
 				}
 
+				mod_sample /= 2;
+
 				sample_l += mod_sample;
 			}
 
@@ -205,6 +216,72 @@ namespace GBA::apu {
 				if (dmg_sound_vol < 3) {
 					mod_sample >>= (2 - dmg_sound_vol);
 				}
+
+				mod_sample /= 2;
+
+				sample_r += mod_sample;
+			}
+		}
+		break;
+		case GBA::apu::ChannelId::PULSE_2: {
+			if (!m_soundcnt_x.sound_2_on)
+				return;
+
+			i16 sample = m_sound2->GetSample() / m_sound2->GetNumAccum();
+			m_sound2->ResetAccum();
+
+			if (m_soundcnt_l.snd2_en_l) {
+				i16 mod_sample = sample * vol_l;
+
+				if (dmg_sound_vol < 3) {
+					mod_sample >>= (2 - dmg_sound_vol);
+				}
+
+				mod_sample /= 3;
+
+				sample_l += mod_sample;
+			}
+
+			if (m_soundcnt_l.snd2_en_r) {
+				i16 mod_sample = sample * vol_r;
+
+				if (dmg_sound_vol < 3) {
+					mod_sample >>= (2 - dmg_sound_vol);
+				}
+
+				mod_sample /= 3;
+
+				sample_r += mod_sample;
+			}
+		}
+		break;
+		case GBA::apu::ChannelId::NOISE: {
+			if (!m_soundcnt_x.sound_4_on)
+				return;
+
+			i16 sample = m_noise->GetSample() / m_noise->GetNumAccum();
+			m_noise->ResetAccum();
+
+			if (m_soundcnt_l.snd4_en_l) {
+				i16 mod_sample = sample * vol_l;
+
+				if (dmg_sound_vol < 3) {
+					mod_sample >>= (2 - dmg_sound_vol);
+				}
+
+				mod_sample /= 3;
+
+				sample_l += mod_sample;
+			}
+
+			if (m_soundcnt_l.snd4_en_r) {
+				i16 mod_sample = sample * vol_r;
+
+				if (dmg_sound_vol < 3) {
+					mod_sample >>= (2 - dmg_sound_vol);
+				}
+
+				mod_sample /= 3;
 
 				sample_r += mod_sample;
 			}
@@ -284,6 +361,8 @@ namespace GBA::apu {
 		apu->MixSample(left_sample, right_sample, ChannelId::FIFO_A);
 		apu->MixSample(left_sample, right_sample, ChannelId::FIFO_B);
 		apu->MixSample(left_sample, right_sample, ChannelId::PULSE_1);
+		apu->MixSample(left_sample, right_sample, ChannelId::PULSE_2);
+		apu->MixSample(left_sample, right_sample, ChannelId::NOISE);
 
 		u32 bias = apu->m_soundbias.bias_low | (apu->m_soundbias.bias_high << 7);
 

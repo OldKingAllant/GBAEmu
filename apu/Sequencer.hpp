@@ -4,6 +4,7 @@
 
 #include "Sweep.hpp"
 #include "Envelope.hpp"
+#include "LenCounter.hpp"
 
 namespace GBA::apu {
 	enum SeqEvent {
@@ -22,6 +23,7 @@ namespace GBA::apu {
 
 		void Restart(u32 freq);
 		u32 GetFreq() const;
+		u8 GetVolume() const;
 
 	private:
 		bool m_has_sweep;
@@ -29,9 +31,13 @@ namespace GBA::apu {
 
 		Sweep* m_sweep;
 		Envelope m_envelope;
+		LenCounter m_len_counter;
 
 		bool m_enable_len_counter;
 
+		uint64_t m_curr_update_count;
+
+		friend class NoiseChannel;
 		friend class SquareChannel;
 	};
 }

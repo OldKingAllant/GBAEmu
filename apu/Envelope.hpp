@@ -19,10 +19,10 @@ namespace GBA::apu {
 
 		bool IsDacOn() const;
 
-		void Update(uint64_t timestamp);
+		void Update();
 
 	private:
-		uint64_t m_last_update_timestamp;
+		uint64_t m_ticks;
 
 		u32 m_curr_vol;
 		

@@ -2,19 +2,18 @@
 
 namespace GBA::apu {
 	Sweep::Sweep() : m_control{},
-		m_last_update_timestamp{},
+		m_ticks{},
 		m_freq{}
 	{}
 
-	u32 Sweep::Update(uint64_t timestamp) {
+	u32 Sweep::Update() {
 		if (!m_control.time)
 			return m_freq;
 
-		uint64_t elapsed = (timestamp - m_last_update_timestamp)
-			/ SWEEP_CYCLES;
+		m_ticks++;
 
-		if (elapsed >= m_control.time) {
-			m_last_update_timestamp = timestamp;
+		if (m_ticks >= m_control.time) {
+			m_ticks -= m_control.time;
 
 			int new_period = m_freq;
 

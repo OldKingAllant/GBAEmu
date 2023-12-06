@@ -32,12 +32,15 @@ namespace GBA::apu {
 		static constexpr uint64_t CPU_CYCLES = 16'780'000;
 		static constexpr uint64_t ENVELOPE_BASE_CYCLES = 262'187;
 		static constexpr uint64_t LEN_CYCLES = 65'547;
+		static constexpr uint64_t DIV_CYCLES = 32'773;
+		static constexpr uint64_t BASE_HZ = 131072;
+		static constexpr u32 SAMPLE_RATE = (u32)(SquareChannel::CPU_CYCLES / SquareChannel::BASE_HZ);
 
-		static constexpr u8 WAVEFORMS[4] = {
-			0b00000001,
-			0b00000011,
-			0b00001111,
-			0b00111111
+		static constexpr i16 WAVEFORMS[4][8] = {
+			{ 1, 0, 0, 0, 0, 0, 0, 0 },
+			{ 1, 1, 0, 0, 0, 0, 0, 0 },
+			{ 1, 1, 1, 1, 0, 0, 0, 0 },
+			{ 1, 1, 1, 1, 1, 1, 0, 0 }
 		};
 
 	private :
@@ -67,7 +70,7 @@ namespace GBA::apu {
 		bool m_has_sweep;
 		memory::EventScheduler* m_sched;
 
-		u8 m_curr_sample;
+		i16 m_curr_sample;
 		u8 m_curr_wave_pos;
 		u32 m_curr_freq;
 

@@ -1,6 +1,8 @@
 #pragma once
 
 #include "../AudioDevice.hpp"
+#include "../filters/LowPassFilter.hpp"
+#include "../filters/HighPassFilter.hpp"
 
 #include <mutex>
 
@@ -34,5 +36,10 @@ namespace GBA::audio {
 
 		SDL_AudioSpec m_spec;
 		SDL_AudioDeviceID m_dev_id;
+
+		LowPassFilter<i16> m_lpf_left;
+		LowPassFilter<i16> m_lpf_right;
+		HighPassFilter<i16> m_hpf_left;
+		HighPassFilter<i16> m_hpf_right;
 	};
 }

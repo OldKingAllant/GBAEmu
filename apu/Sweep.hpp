@@ -19,7 +19,7 @@ namespace GBA::apu {
 			u16 raw;
 		} m_control;
 
-		u32 Update(uint64_t timestamp);
+		u32 Update();
 		void Restart(u32 freq);
 
 		u32 GetFreq() const;
@@ -27,7 +27,7 @@ namespace GBA::apu {
 		static constexpr uint64_t SWEEP_CYCLES = 131'093;
 
 	private:
-		uint64_t m_last_update_timestamp;
+		uint64_t m_ticks;
 		u32 m_freq;
 	};
 }

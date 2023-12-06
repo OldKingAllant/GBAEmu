@@ -34,7 +34,7 @@ namespace GBA::apu {
 			memory::EventType::APU_CH2_SEQUENCER;
 
 		if (!stopped) {
-			ch->m_sched->Schedule((u32)SquareChannel::LEN_CYCLES, event_tp, seq_update,
+			ch->m_sched->Schedule((u32)SquareChannel::DIV_CYCLES, event_tp, seq_update,
 				userdata, true);
 		}
 		else {
@@ -53,8 +53,22 @@ namespace GBA::apu {
 			memory::EventType::APU_CH1_SAMPLE_UPDATE :
 			memory::EventType::APU_CH2_SAMPLE_UPDATE;
 
-		u32 freq = ch->m_has_sweep ? ch->m_seq.GetFreq() : (2048 - ch->m_curr_freq);
-		u32 cycles = (u32)(SquareChannel::CPU_CYCLES / freq);
+		u32 real_base_freq = ch->m_has_sweep ? ch->m_seq.GetFreq() : ch->m_curr_freq;
+		u32 freq = (2048 - real_base_freq) / 8;
+		u32 cycles = SquareChannel::SAMPLE_RATE * freq;
+
+		i16 hi_or_lo = SquareChannel::WAVEFORMS[ch->m_envelope_control.pattern][ch->m_curr_wave_pos]
+			* ch->m_seq.GetVolume();
+
+		if (ch->m_sample_accum == 1) {
+			ch->m_curr_sample = hi_or_lo;
+		}
+		else {
+			ch->m_curr_sample += hi_or_lo;
+			ch->m_sample_accum++;
+		}
+
+		ch->m_curr_wave_pos = (ch->m_curr_wave_pos + 1) % 8;
 
 		ch->m_sched->Schedule(cycles, event_tp, sample_update, userdata, true);
 	}
@@ -83,6 +97,7 @@ namespace GBA::apu {
 				m_seq.m_envelope.SetStepTime(m_envelope_control.time);
 				m_seq.m_envelope.SetDirection(m_envelope_control.direction);
 				m_seq.m_envelope.SetInitVol(m_envelope_control.init_vol);
+				m_seq.m_len_counter.SetLen(m_envelope_control.len);
 		});
 
 		mmio->AddRegister<u16>(control_address, true, true, cnt, 0xFFFF,
@@ -115,22 +130,27 @@ namespace GBA::apu {
 	}
 
 	i16 SquareChannel::GetSample() const {
-		return (i16)m_curr_sample * m_seq.m_envelope.IsDacOn();
+		return m_curr_sample * m_seq.m_envelope.IsDacOn();
 	}
 
 	void SquareChannel::Restart() {
 		m_enabled = true;
 
-		u32 freq = 2048 - m_curr_freq;
-		u32 cycles = (u32)(CPU_CYCLES / freq);
+		u32 freq = (2048 - m_curr_freq) / 8;
+		u32 cycles = SquareChannel::SAMPLE_RATE * freq;
 
-		m_seq.Restart(freq);
+		m_curr_wave_pos = 0;
+		m_curr_sample = 0;
+		m_sample_accum = 1;
+
+		m_seq.Restart(m_curr_freq);
+		m_seq.m_len_counter.SetLen(m_envelope_control.len);
 
 		if (m_has_sweep) {
 			m_sched->Deschedule(memory::EventType::APU_CH1_SEQUENCER);
 			m_sched->Deschedule(memory::EventType::APU_CH1_SAMPLE_UPDATE);
 
-			m_sched->Schedule((u32)LEN_CYCLES, memory::EventType::APU_CH1_SEQUENCER, seq_update,
+			m_sched->Schedule((u32)DIV_CYCLES, memory::EventType::APU_CH1_SEQUENCER, seq_update,
 				std::bit_cast<void*>(this));
 
 			m_sched->Schedule(cycles, memory::EventType::APU_CH1_SAMPLE_UPDATE, sample_update,
@@ -140,7 +160,7 @@ namespace GBA::apu {
 			m_sched->Deschedule(memory::EventType::APU_CH2_SEQUENCER);
 			m_sched->Deschedule(memory::EventType::APU_CH2_SAMPLE_UPDATE);
 
-			m_sched->Schedule((u32)LEN_CYCLES, memory::EventType::APU_CH2_SEQUENCER, seq_update,
+			m_sched->Schedule((u32)DIV_CYCLES, memory::EventType::APU_CH2_SEQUENCER, seq_update,
 				std::bit_cast<void*>(this));
 
 			m_sched->Schedule(cycles, memory::EventType::APU_CH2_SAMPLE_UPDATE, sample_update,

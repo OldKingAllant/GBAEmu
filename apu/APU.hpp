@@ -16,6 +16,7 @@ namespace GBA::apu {
 	using namespace common;
 
 	class SquareChannel;
+	class NoiseChannel;
 
 	using SampleCallback = std::function<void(i16, i16)>;
 
@@ -125,6 +126,7 @@ namespace GBA::apu {
 
 		SquareChannel* m_sound1;
 		SquareChannel* m_sound2;
+		NoiseChannel* m_noise;
 
 		union {
 			struct {

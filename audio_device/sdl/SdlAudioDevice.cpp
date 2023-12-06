@@ -48,7 +48,10 @@ namespace GBA::audio {
 	SdlAudioDevice::SdlAudioDevice() : 
 		m_buffer_mutex{}, m_buffer{},
 		m_spec{}, m_ready(false),
-		m_cv{} {
+		m_cv{}, m_lpf_left(32768, 32768), 
+		m_lpf_right(32768, 32768), 
+		m_hpf_left(32768, 512), 
+		m_hpf_right(32768, 512) {
 		SDL_AudioSpec wanted_audio{};
 
 		wanted_audio.channels = 2;
@@ -84,13 +87,15 @@ namespace GBA::audio {
 	}
 
 	void SdlAudioDevice::PushSample(common::i16 sample_l, common::i16 sample_r) {
+		sample_l = m_hpf_left.Filter(sample_l);
+		sample_l = m_lpf_left.Filter(sample_l);
+
+		sample_r = m_hpf_right.Filter(sample_r);
+		sample_r = m_lpf_right.Filter(sample_r);
+
 		std::unique_lock _lk{ m_buffer_mutex };
 
 		m_cv.wait(_lk, [this]() { return m_buffer.writeAvailable() >= 2; });
-
-		/*if (m_buffer.writeAvailable() < 2) {
-			error::DebugBreak();
-		}*/
 
 		m_buffer.insert(&sample_l);
 		m_buffer.insert(&sample_r);
