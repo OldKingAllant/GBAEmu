@@ -270,7 +270,7 @@ namespace GBA::apu {
 					mod_sample >>= (2 - dmg_sound_vol);
 				}
 
-				//mod_sample /= 3;
+				mod_sample /= 4;
 
 				sample_l += mod_sample;
 			}
@@ -282,7 +282,7 @@ namespace GBA::apu {
 					mod_sample >>= (2 - dmg_sound_vol);
 				}
 
-				//mod_sample /= 3;
+				mod_sample /= 4;
 
 				sample_r += mod_sample;
 			}

@@ -63,8 +63,8 @@ namespace GBA::apu {
 			memory::EventType::APU_CH2_SAMPLE_UPDATE;
 
 		u32 real_base_freq = ch->m_has_sweep ? ch->m_seq.GetFreq() : ch->m_curr_freq;
-		u32 freq = (2048 - real_base_freq) / 8;
-		u32 cycles = SquareChannel::SAMPLE_RATE * freq;
+		double freq = ((double)2048 - real_base_freq) / 8;
+		u32 cycles = (u32)(SquareChannel::SAMPLE_RATE * freq);
 
 		i16 hi_or_lo = SquareChannel::WAVEFORMS[ch->m_envelope_control.pattern][ch->m_curr_wave_pos]
 			* ch->m_seq.GetVolume();
