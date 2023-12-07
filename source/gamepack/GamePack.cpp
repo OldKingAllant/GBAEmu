@@ -3,6 +3,7 @@
 #include "../../gamepack/backups/EEPROM.hpp"
 #include "../../gamepack/backups/Flash.hpp"
 #include "../../gamepack/backups/Database.hpp"
+#include "../../gamepack/backups/SRAM.hpp"
 #include "../../gamepack/gpio/Gpio.hpp"
 
 #include "../../common/Logger.hpp"
@@ -68,6 +69,10 @@ namespace GBA::gamepack {
 			break;
 		case GBA::gamepack::backups::BackupTypeSize::FLASH_1M:
 			m_backup = new backups::Flash(true, m_info.file_size);
+			m_backup_address_start = m_backup->GetStartAddress();
+			break;
+		case GBA::gamepack::backups::BackupTypeSize::SRAM:
+			m_backup = new backups::SRAM(m_info.file_size);
 			m_backup_address_start = m_backup->GetStartAddress();
 			break;
 		}

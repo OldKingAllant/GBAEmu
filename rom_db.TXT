@@ -8,3 +8,10 @@ rtc = 0124
 
 [GBAZELDA MC]
 backup_type = EEPROM_8K
+
+[FF6ADVANCE]
+backup_type = SRAM
+
+[FIREEMBLEME]
+backup_type = SRAM
+

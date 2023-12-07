@@ -19,7 +19,7 @@ namespace GBA::gamepack::backups {
 			: m_type{}, m_rom_size{ rom_sz }, m_bus_mask{},
 			m_start_address{} {}
 
-		BackupType GetBackupType() {
+		BackupType GetBackupType() const {
 			return m_type;
 		}
 
@@ -29,11 +29,11 @@ namespace GBA::gamepack::backups {
 		virtual u32 Read(u32 address) = 0;
 		virtual void Write(u32 address, u32 value) = 0;
 		
-		u32 GetStartAddress() {
+		u32 GetStartAddress() const {
 			return m_start_address;
 		}
 
-		u32 GetBusMask() {
+		u32 GetBusMask() const {
 			return m_bus_mask;
 		}
 

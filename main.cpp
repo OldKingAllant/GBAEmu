@@ -20,7 +20,7 @@
 
 
 int main(int argc, char* argv[]) {
-	std::string rom = "./testRoms/PokemonEmerald.gba";
+	std::string rom = "./testRoms/FireEmblem.gba";
 	//std::string rom = "./testRoms/Zelda.gba";
 	std::string bios_path = "./testRoms/gba_bios.bin";
 

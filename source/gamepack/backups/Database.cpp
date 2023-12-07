@@ -31,6 +31,8 @@ namespace GBA::gamepack::backups {
 			return BackupTypeSize::FLASH_512;
 		else if (type_string == "FLASH_1M")
 			return BackupTypeSize::FLASH_1M;
+		else if (type_string == "SRAM")
+			return BackupTypeSize::SRAM;
 
 		return BackupTypeSize::NONE;
 	}

@@ -9,7 +9,8 @@ namespace GBA::gamepack::backups {
 		EEPROM_8K,
 		EEPROM_512,
 		FLASH_512,
-		FLASH_1M
+		FLASH_1M,
+		SRAM
 	};
 
 	enum class GpioDevices : uint16_t {
