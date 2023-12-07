@@ -18,7 +18,7 @@ namespace GBA::gamepack::backups {
 
 		m_address_mask = sz == 0x400 ? 0x3FF : 0x3F;
 
-		if (rom_sz < (long long)16 * 1024 * 1024)
+		if (rom_sz <= (long long)16 * 1024 * 1024)
 			m_start_address = 0xD000000;
 		else
 			m_start_address = 0xDFFFF00;
