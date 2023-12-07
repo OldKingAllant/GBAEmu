@@ -33,6 +33,10 @@ namespace GBA::apu {
 			memory::EventType::APU_CH1_SEQUENCER :
 			memory::EventType::APU_CH2_SEQUENCER;
 
+		memory::EventType other_event = ch->m_has_sweep ?
+			memory::EventType::APU_CH1_SAMPLE_UPDATE :
+			memory::EventType::APU_CH2_SAMPLE_UPDATE;
+
 		if (!stopped) {
 			ch->m_sched->Schedule((u32)SquareChannel::DIV_CYCLES, event_tp, seq_update,
 				userdata, true);
@@ -40,6 +44,11 @@ namespace GBA::apu {
 		else {
 			ch->m_enabled = false;
 			ch->m_en_callback(false);
+
+			ch->m_sched->Deschedule(other_event);
+
+			ch->m_curr_sample = 0;
+			ch->m_sample_accum = 1;
 		}
 	}
 
@@ -65,12 +74,14 @@ namespace GBA::apu {
 		}
 		else {
 			ch->m_curr_sample += hi_or_lo;
-			ch->m_sample_accum++;
 		}
+
+		ch->m_sample_accum++;
 
 		ch->m_curr_wave_pos = (ch->m_curr_wave_pos + 1) % 8;
 
-		ch->m_sched->Schedule(cycles, event_tp, sample_update, userdata, true);
+		if(ch->m_enabled)
+			ch->m_sched->Schedule(cycles, event_tp, sample_update, userdata, true);
 	}
 
 	void SquareChannel::SetMMIO(memory::MMIO* mmio) {

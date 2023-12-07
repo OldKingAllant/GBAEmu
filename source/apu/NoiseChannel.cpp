@@ -28,11 +28,18 @@ namespace GBA::apu {
 		else {
 			ch->m_enabled = false;
 			ch->m_en_callback(false);
+
+			ch->m_sched->Deschedule(memory::EventType::APU_CH4_SAMPLE_UPDATE);
+			ch->m_curr_sample = 0;
+			ch->m_sample_accum = 1;
 		}
 	}
 
 	void noise_sample_update(void* userdata) {
 		NoiseChannel* ch = std::bit_cast<NoiseChannel*>(userdata);
+
+		if (!ch->m_enabled)
+			return;
 
 		/*
 		  7bit:  X=X SHR 1, IF carry THEN Out=HIGH, X=X XOR 60h ELSE Out=LOW
@@ -59,8 +66,9 @@ namespace GBA::apu {
 		}
 		else {
 			ch->m_curr_sample += sample;
-			ch->m_sample_accum++;
 		}
+
+		ch->m_sample_accum++;
 
 		double r = ch->m_control.freq_div ? ch->m_control.freq_div : 0.5;
 		u32 shift = (u32)ch->m_control.shift_freq + 1;
