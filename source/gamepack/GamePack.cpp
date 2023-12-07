@@ -7,6 +7,8 @@
 
 #include "../../common/Logger.hpp"
 
+#include <cstring>
+
 namespace GBA::gamepack {
 
 	//LOG_CONTEXT("Cartridge");
@@ -40,7 +42,9 @@ namespace GBA::gamepack {
 
 		const char* title = std::bit_cast<const char*>((char*)m_head.title);
 
-		std::string game_name = std::string(title, 12);
+		auto len = strnlen_s(title, 12);
+
+		std::string game_name = std::string(title, len);
 
 		backups::BackupTypeSize tpsz = backups::BackupDatabase::GetBackupTypeAndSize("rom_db.txt", game_name);
 

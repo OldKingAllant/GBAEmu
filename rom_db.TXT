@@ -5,3 +5,6 @@ backup_type = EEPROM_8K
 backup_type = FLASH_1M
 gpio = "RTC"
 rtc = 0124
+
+[GBAZELDA MC]
+backup_type = EEPROM_8K
