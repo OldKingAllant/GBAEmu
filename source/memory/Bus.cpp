@@ -195,9 +195,48 @@ namespace GBA::memory {
 			return m_open_bus_value;
 		}
 
-		LOG_INFO(" Open bus for THUMB mode not implemented");
+		u32 instruction_pointer = ctx.m_regs.GetReg(15);
+		MEMORY_RANGE region = (MEMORY_RANGE)(instruction_pointer >> 24);
 
-		return 0;
+		u32 value = 0;
+
+		switch (region)
+		{
+		case MEMORY_RANGE::ROM_REG_1:
+		case MEMORY_RANGE::ROM_REG_2:
+		case MEMORY_RANGE::ROM_REG_3:
+		case MEMORY_RANGE::ROM_REG_1_SECOND:
+		case MEMORY_RANGE::ROM_REG_2_SECOND:
+		case MEMORY_RANGE::ROM_REG_3_SECOND:
+		case MEMORY_RANGE::EWRAM:
+		case MEMORY_RANGE::VRAM:
+		case MEMORY_RANGE::PAL: {
+			//Value is latest prefetch
+			u32 fetch = ctx.m_pipeline.GetFetched();
+			value = fetch | (fetch << 16);
+		}
+		break;
+		case MEMORY_RANGE::IWRAM: {
+			//Value is latest prefetch | latest decode
+			u32 decode = ctx.m_pipeline.GetDecoded();
+			u32 fetch = ctx.m_pipeline.GetFetched();
+
+			if ((instruction_pointer & 3) == 0) {
+				//4-byte align
+				value = fetch | (decode << 16);
+			}
+			else {
+				value = decode | (fetch << 16);
+			}
+		}
+		break;
+		default:
+			LOG_INFO(" Open bus for region 0x{:x} not implemented", (u8)region);
+			error::DebugBreak();
+			break;
+		}
+
+		return value;
 	}
 
 
