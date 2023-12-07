@@ -102,6 +102,9 @@ namespace GBA::apu {
 						m_en_callback(false);
 
 					m_enable = false;
+
+					m_curr_sample = 0;
+					m_sample_accum = 1;
 				}
 
 				m_control_l.dac_enable = CHECK_BIT(value, 7);
@@ -146,6 +149,9 @@ namespace GBA::apu {
 	void WaveChannel::Restart() {
 		m_sched->Deschedule(memory::EventType::APU_CH3_SEQUENCER);
 		m_sched->Deschedule(memory::EventType::APU_CH3_SAMPLE_UPDATE);
+
+		m_curr_sample = 0;
+		m_sample_accum = 1;
 
 		if (!m_control_l.dac_enable)
 			return;
