@@ -23,6 +23,7 @@ namespace GBA::gamepack {
 		bool LoadFrom(fs::path const& path);
 		backups::BackupType BackupType() const;
 		bool LoadBackup(fs::path const& from);
+		bool StoreBackup(fs::path const& to);
 
 		u16 Read(u32 address, u8 region = 0) const;
 		void Write(u32 address, u16 value, u8 region = 0);

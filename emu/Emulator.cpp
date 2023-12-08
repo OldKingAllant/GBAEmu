@@ -8,9 +8,21 @@ namespace GBA::emulation {
 	using namespace common;
 
 	Emulator::Emulator(std::string_view rom_location, std::optional<std::string_view> bios_location) :
-		m_ctx{}, m_bios_loc{std::nullopt}
+		m_ctx{}, m_bios_loc{bios_location}
 	{
-		m_ctx.pack.LoadFrom(rom_location);
+		if (!LoadRom(rom_location))
+			throw std::runtime_error("Could not load rom");
+		Init();
+	}
+
+	Emulator::Emulator(std::optional<std::string_view> bios_location) :
+		m_ctx{}, m_bios_loc{bios_location} {}
+
+	bool Emulator::LoadRom(std::string_view loc) {
+		return m_ctx.pack.LoadFrom(loc);
+	}
+
+	void Emulator::Init() {
 		m_ctx.bus.ConnectGamepack(&m_ctx.pack);
 		m_ctx.bus.AttachProcessor(&m_ctx.processor);
 
@@ -27,8 +39,8 @@ namespace GBA::emulation {
 		m_ctx.ppu.SetMMIO(m_ctx.bus.GetMMIO(), &m_ctx.bus);
 		m_ctx.bus.SetPPU(&m_ctx.ppu);
 
-		if (bios_location.has_value())
-			UseBIOS(bios_location.value());
+		if (m_bios_loc.has_value())
+			UseBIOS();
 		else
 			m_ctx.processor.SkipBios();
 
@@ -73,22 +85,31 @@ namespace GBA::emulation {
 			}
 
 			u32 cycles = m_ctx.bus.m_time.PopCycles();
-
-			/*m_ctx.timers.ClockCycles(cycles); */
 		}
 	}
 
-	void Emulator::UseBIOS(std::string_view bios_loc) {
-		m_bios_loc = std::string(bios_loc);
-
+	void Emulator::UseBIOS() {
 		m_ctx.bus.LoadBIOS(m_bios_loc.value());
-
 		m_ctx.processor.GetContext().m_pipeline.Bubble<cpu::InstructionMode::ARM>(0x0);
 	}
 
 	void Emulator::SkipBios() {
 		m_ctx.processor.SkipBios();
 		m_ctx.bus.LoadBiosResetOpcode();
+	}
+
+	void Emulator::RunTillVblank() {
+		while (!m_ctx.ppu.HasFrame()) {
+			if (m_ctx.bus.GetActiveDma() == 4)
+				m_ctx.processor.Step();
+			else {
+				u8 dma = m_ctx.bus.GetActiveDma();
+
+				m_ctx.all_dma[dma]->Step();
+			}
+
+			u32 cycles = m_ctx.bus.m_time.PopCycles();
+		}
 	}
 
 	Emulator::~Emulator() {

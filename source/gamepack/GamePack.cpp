@@ -97,6 +97,14 @@ namespace GBA::gamepack {
 		return false;
 	}
 
+	bool GamePack::StoreBackup(fs::path const& to) {
+		if (m_backup) {
+			return m_backup->Store(to);
+		}
+
+		return false;
+	}
+
 	backups::BackupType GamePack::BackupType() const {
 		return m_backup->GetBackupType();
 	}
@@ -191,7 +199,6 @@ namespace GBA::gamepack {
 		UnMapFile();
 
 		if (m_backup) {
-			m_backup->Store("test.save");
 			delete m_backup;
 		}
 

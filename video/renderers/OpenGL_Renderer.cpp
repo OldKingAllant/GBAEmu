@@ -7,20 +7,25 @@
 #include <gl/GL.h>
 
 #include "../../common/Logger.hpp"
-
-#include "../../shared_obj/ProcedureWrapper.hpp"
-
 #include "../../memory/Keypad.hpp"
-
 #include "detail/OpengGLFunctions.hpp"
+
+#include "../../ImGui/imgui.h"
+#include "../../ImGui/backends/imgui_impl_sdl2.h"
+#include "../../ImGui/backends/imgui_impl_opengl3.h"
+
+#include "../../thirdparty/ImGuiFileDialog/ImGuiFileDialog.h"
 
 namespace GBA::video::renderer {
 	LOG_CONTEXT(OpenGLRenderer);
 
-	OpenGL::OpenGL() :
+	OpenGL::OpenGL(bool pause) :
 		m_window(nullptr), m_gl_context(nullptr),
 		m_functions(nullptr), m_opengl(), m_glu(),
-		m_gl_data{}
+		m_gl_data{}, m_conf_callback{},
+		m_on_pause{}, m_on_select{},
+		m_save_load{}, m_save_store{},
+		m_pause{pause}
 	{
 		m_gl_data.placeholder_data = new float[240 * 160 * 3];
 
@@ -66,9 +71,9 @@ namespace GBA::video::renderer {
 		SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
-		m_window = SDL_CreateWindow("Game", SDL_WINDOWPOS_UNDEFINED,
+		m_window = SDL_CreateWindow("Emulator", SDL_WINDOWPOS_UNDEFINED,
 			SDL_WINDOWPOS_UNDEFINED, GBA_WIDTH * m_scale_x, GBA_HEIGHT * m_scale_y,
-			SDL_WINDOW_OPENGL);
+			SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI);
 
 		if (!m_window) {
 			LOG_ERROR("SDL_CreateWindow() Failed ! Error : {}", SDL_GetError());
@@ -123,6 +128,13 @@ namespace GBA::video::renderer {
 
 		CheckForErrors();
 
+		ImGui::CreateContext();
+		ImGuiIO& io = ImGui::GetIO();
+		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+
+		ImGui_ImplSDL2_InitForOpenGL(m_window, m_gl_context);
+		ImGui_ImplOpenGL3_Init("#version 330");
+
 		return true;
 	}
 
@@ -131,6 +143,8 @@ namespace GBA::video::renderer {
 	}
 
 	void OpenGL::ProcessEvent(SDL_Event* ev) {
+		ImGui_ImplSDL2_ProcessEvent(ev);
+
 		switch (ev->type)
 		{
 		case SDL_WINDOWEVENT: {
@@ -146,6 +160,11 @@ namespace GBA::video::renderer {
 
 		case SDL_KEYUP: {
 			KeyUp(&ev->key);
+		}
+		break;
+
+		case SDL_QUIT: {
+			m_stop = true;
 		}
 		break;
 
@@ -259,6 +278,71 @@ namespace GBA::video::renderer {
 			m_gl_data.placeholder_data);
 	}
 
+	std::string OpenGL::FileDialog(std::string title, std::string filters) {
+		if (ImGuiFileDialog::Instance()->IsOpened() &&
+			ImGuiFileDialog::Instance()->GetOpenedKey() != title)
+			ImGuiFileDialog::Instance()->Close();
+
+		ImGuiFileDialog::Instance()->OpenDialog(title, title, filters.c_str(), "");
+
+		if (ImGuiFileDialog::Instance()->Display(title)) {
+			if (ImGuiFileDialog::Instance()->IsOk()) {
+				return ImGuiFileDialog::Instance()->GetCurrentPath() + "/" +
+					ImGuiFileDialog::Instance()->GetCurrentFileName();
+			}
+		}
+
+		return "NULL";
+	}
+
+	void OpenGL::FileMenu() {
+		if (ImGui::BeginMenu("File")) {
+			if (ImGui::BeginMenu("Rom")) {
+				if (ImGui::BeginMenu("Load")) {
+					std::string rom = FileDialog("Open Rom", ".gba,.GBA");
+
+					if (rom != "NULL" && m_on_select) {
+						m_on_select(rom);
+					}
+
+					ImGui::EndMenu();
+				}
+
+				ImGui::EndMenu();
+			}
+
+			//////////
+
+			if (ImGui::BeginMenu("Save")) {
+				if (ImGui::BeginMenu("Load")) {
+					std::string save = FileDialog("Load Save", ".save,.sav,.SAVE");
+
+					if (save != "NULL" && m_save_load) {
+						m_save_load(save);
+					}
+
+					ImGui::EndMenu();
+				}
+
+				ImGui::Dummy(ImVec2(0.0f, 20.0f));
+
+				if (ImGui::BeginMenu("Store")) {
+					std::string dest = FileDialog("Save", ".*");
+
+					if (dest != "NULL" && m_save_store) {
+						m_save_store(dest);
+					}
+
+					ImGui::EndMenu();
+				}
+
+				ImGui::EndMenu();
+			}
+
+			ImGui::EndMenu();
+		}
+	}
+
 	void OpenGL::PresentFrame() {
 		m_functions->glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		m_functions->glClear(GL_COLOR_BUFFER_BIT);
@@ -269,7 +353,6 @@ namespace GBA::video::renderer {
 		m_functions->glBindTexture(GL_TEXTURE_2D, m_gl_data.texture_id);
 
 		m_functions->glUniform1i(m_gl_data.texture_loc, 0);
-		//m_functions->glBindBuffer(GL_ARRAY_BUFFER, m_gl_data.buffer_id);
 
 		m_functions->glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,
 			240, 160, 0, GL_RGB, GL_FLOAT, (void*)m_gl_data.placeholder_data);
@@ -280,11 +363,36 @@ namespace GBA::video::renderer {
 
 		m_functions->glBindVertexArray(0);
 
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplSDL2_NewFrame();
+		ImGui::NewFrame();
+
+		ImGui::BeginMainMenuBar();
+
+		FileMenu();
+
+		if (ImGui::BeginMenu("Emulation")) {
+			ImGui::Checkbox("Pause", &m_pause);
+
+			if (m_on_pause)
+				m_on_pause(m_pause);
+
+			ImGui::EndMenu();
+		}
+
+		ImGui::EndMainMenuBar();
+
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
 		SDL_GL_SwapWindow(m_window);
 	}
 
 	OpenGL::~OpenGL() {
 		if (m_gl_context) {
+			ImGui_ImplOpenGL3_Shutdown();
+			ImGui_ImplSDL2_Shutdown();
+			ImGui::DestroyContext();
 			m_functions->glDeleteTextures(1, &m_gl_data.texture_id);
 			SDL_GL_DeleteContext(m_gl_context);
 			SDL_DestroyWindow(m_window);

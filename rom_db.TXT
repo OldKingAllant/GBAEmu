@@ -15,3 +15,6 @@ backup_type = SRAM
 [FIREEMBLEME]
 backup_type = SRAM
 
+[CASTLEVANIA2]
+backup_type = SRAM
+

@@ -32,15 +32,20 @@ namespace GBA::emulation {
 	class Emulator {
 	public :
 		Emulator(std::string_view rom_location, std::optional<std::string_view> bios_location = std::nullopt);
+		Emulator(std::optional<std::string_view> bios_location = std::nullopt);
 
 		EmulatorContext& GetContext() {
 			return m_ctx;
 		}
 
 		void EmulateFor(common::u32 num_instructions);
+		void RunTillVblank();
 
-		void UseBIOS(std::string_view bios_loc);
+		void UseBIOS();
 		void SkipBios();
+
+		bool LoadRom(std::string_view loc);
+		void Init();
 
 		~Emulator();
 

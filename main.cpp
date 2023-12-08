@@ -1,16 +1,11 @@
 #include <iostream>
 
-#include "emu/Emulator.hpp"
-
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 
-#include "debugger/DebugWindow.hpp"
-#include "debugger/Debugger.hpp"
-
+#include "emu/Emulator.hpp"
 #include "video/renderers/OpenGL_Renderer.hpp"
-
-#include <chrono>
+#include "config/Config.hpp"
 
 #include "audio_device/sdl/SdlAudioDevice.hpp"
 
@@ -20,12 +15,19 @@
 
 
 int main(int argc, char* argv[]) {
-	std::string rom = "./testRoms/FireEmblem.gba";
-	//std::string rom = "./testRoms/Zelda.gba";
-	std::string bios_path = "./testRoms/gba_bios.bin";
+	GBA::config::Config conf{};
 
-	GBA::emulation::Emulator* emu = new GBA::emulation::Emulator{rom, std::string_view(bios_path)};
-	emu->SkipBios();
+	if (!conf.Load("config.txt")) {
+		std::cout << "Could not load config file, use default" << std::endl;
+		
+		conf.Default();
+	}
+
+	std::string bios_path = conf.data.get("BIOS").get("file");
+
+	GBA::emulation::Emulator* emu = new GBA::emulation::Emulator{
+		 std::optional{ std::string_view(bios_path) }
+	};
 
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
 		std::cerr << SDL_GetError() << std::endl;
@@ -41,79 +43,92 @@ int main(int argc, char* argv[]) {
 		std::exit(0);
 	}
 
-	auto& ctx = emu->GetContext();
+	bool paused = conf.data.get("EMU").get("start_paused") == "true";
+	bool has_rom = false;
 
-	ctx.pack.LoadBackup("test.save");
+	GBA::audio::AudioDevice* audio = new GBA::audio::SdlAudioDevice();
 
-	GBA::debugger::Debugger debugger{ *emu };
+	auto emu_init = [emu, &has_rom, &conf, audio](std::string rom) {
+		if (has_rom) {
+			std::cout << "Rom swapping not implemented" << std::endl;
+			return;
+		}
 
-	GBA::debugger::DebugWindow debug_window{ debugger };
+		if (!emu->LoadRom(rom)) {
+			std::cout << "Rom load failed" << std::endl;
+			return;
+		}
 
-	debug_window.Init();
+		emu->Init();
 
-	if (!debug_window.IsRunning()) {
-		std::cerr << "SDL Init failed : " << SDL_GetError() << std::endl;
-		std::exit(0);
+		if (conf.data.get("BIOS").get("skip") == "true")
+			emu->SkipBios();
+
+		auto& ctx = emu->GetContext();
+
+		ctx.apu.SetCallback(
+			[audio](GBA::common::i16 sample_l, GBA::common::i16 sample_r) {
+				audio->PushSample(sample_l, sample_r);
+			}, 1024
+		);
+
+		ctx.apu.SetFreq(44100);
+
+		has_rom = true;
+	};
+
+	if (conf.data.get("ROM").has("default_rom")) {
+		std::string rom = conf.data.get("ROM").get("default_rom");
+		emu_init(rom);
 	}
 
-	GBA::video::renderer::OpenGL opengl_rend{};
-
+	GBA::video::renderer::OpenGL opengl_rend{paused};
 	opengl_rend.SetKeypad(&emu->GetContext().keypad);
-
 	if (!opengl_rend.Init(3, 3)) {
 		std::exit(0);
 	}
 
-	GBA::audio::AudioDevice* audio = new GBA::audio::SdlAudioDevice();
-	
-	ctx.apu.SetCallback(
-		[audio](GBA::common::i16 sample_l, GBA::common::i16 sample_r) {
-			audio->PushSample(sample_l, sample_r);
-		}, 1024
-	);
-	ctx.apu.SetFreq(44100);
+	opengl_rend.SetConfigChangeCallback([&conf](std::string _1, std::string _2, std::string _3) {
+		if (!conf.Change(_1, _2, _3))
+			std::cout << "Could not change configuration" << std::endl;
+	});
+
+	opengl_rend.SetOnPause([&paused](bool val) { paused = val; });
+	opengl_rend.SetRomSelectedAction([&emu_init](std::string rom) {
+		emu_init(rom);
+	});
+	opengl_rend.SetSaveSelectedAction([emu](std::string file_path) {
+		if (!emu->GetContext().pack.LoadBackup(file_path))
+			std::cout << "Load failed" << std::endl;
+		else
+			std::cout << "Load successfull" << std::endl;
+	});
+	opengl_rend.SetSaveStoreAction([emu](std::string dest) {
+		if (!emu->GetContext().pack.StoreBackup(dest))
+			std::cout << "Save failed" << std::endl;
+		else
+			std::cout << "Save ok" << std::endl;
+	});
 
 	audio->Start();
 
-	unsigned long long prev_second = 0;
-	unsigned tot_frames = 0;
+	auto& ctx = emu->GetContext();
 
-	while (!debug_window.StopRequested()
-		&& !opengl_rend.Stopped()) {
-		SDL_Event ev;
+	while (!opengl_rend.Stopped())
+	{
+		SDL_Event ev{};
 
 		while (SDL_PollEvent(&ev)) {
-			if (debug_window.ConfirmEventTarget(&ev))
-				debug_window.ProcessEvent(&ev);
-			else if (opengl_rend.ConfirmEventTarget(&ev))
-				opengl_rend.ProcessEvent(&ev);
+			opengl_rend.ProcessEvent(&ev);
 		}
 
-		if (!debug_window.StopRequested() && !opengl_rend.Stopped()) {
-			debug_window.Update();
-			opengl_rend.PresentFrame();
+		if (!paused && has_rom) {
+			emu->RunTillVblank();
+			auto framebuffer = ctx.ppu.GetFrame();
+			opengl_rend.SetFrame(framebuffer);
 		}
 
-		debugger.Run(debug_window.GetEmulatorStatus());
-
-		if (ctx.ppu.HasFrame()) {
-			tot_frames++;
-
-			auto now = 
-				std::chrono::time_point_cast<std::chrono::milliseconds>
-				(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
-
-			auto diff = now - prev_second;
-
-			if (diff > 1000) {
-				prev_second = now;
-
-				//std::cout << tot_frames << std::endl;
-				tot_frames = 0;
-			}
-
-			opengl_rend.SetFrame(ctx.ppu.GetFrame());
-		}
+		opengl_rend.PresentFrame();
 	}
 
 	audio->Stop();
@@ -121,6 +136,8 @@ int main(int argc, char* argv[]) {
 	SDL_Quit();
 
 	delete emu;
+
+	conf.Store("config.txt");
 
 	std::cin.get();
 }
