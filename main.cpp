@@ -109,6 +109,20 @@ int main(int argc, char* argv[]) {
 		else
 			std::cout << "Save ok" << std::endl;
 	});
+	opengl_rend.SetSaveStateAction([emu](std::string path, bool store) {
+		bool success = false;
+
+		if (store)
+			success = emu->StoreState(path);
+		else
+			success = emu->LoadState(path);
+
+		if (!success)
+			std::cout << "Savestate action failed" << std::endl;
+		else
+			std::cout << "Success" << std::endl;
+	});
+	opengl_rend.SetSyncToAudioCallback([audio](bool sync) { audio->AudioSync(sync); });
 
 	audio->Start();
 

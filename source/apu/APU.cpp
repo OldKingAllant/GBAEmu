@@ -29,12 +29,9 @@ namespace GBA::apu {
 		m_soundcnt_x{}, m_soundbias{},
 		m_freq{}, m_cycles_before_output{},
 		m_curr_ch_samples{}, m_curr_ch_sample_accum{},
-		m_sched(nullptr),
-		m_sound1_freq_control{}, m_sound2_freq_control{},
-		m_sound3_freq_control{}, m_sound4_freq_control{},
-		m_sound1{nullptr}, m_sound2{nullptr}, m_noise{nullptr},
-		m_wave{nullptr},
-		m_soundcnt_l{}
+		m_sched(nullptr), m_sound1{nullptr}, 
+		m_sound2{nullptr}, m_noise{nullptr},
+		m_wave{nullptr}, m_soundcnt_l{}
 	{
 		m_soundbias.raw = 0x200;
 
@@ -59,11 +56,6 @@ namespace GBA::apu {
 	}
 
 	void APU::SetMMIO(memory::MMIO* mmio) {
-		u8* sound1_cnt = std::bit_cast<u8*>(&m_sound1_freq_control);
-		u8* sound2_cnt = std::bit_cast<u8*>(&m_sound2_freq_control);
-		u8* sound3_cnt = std::bit_cast<u8*>(&m_sound3_freq_control);
-		u8* sound4_cnt = std::bit_cast<u8*>(&m_sound4_freq_control);
-
 		m_sound1->SetMMIO(mmio);
 		m_sound2->SetMMIO(mmio);
 		m_noise->SetMMIO(mmio);
@@ -427,6 +419,36 @@ namespace GBA::apu {
 
 		apu->m_sched->Schedule(cycles, memory::EventType::APU_SAMPLE_OUT,
 			output_sample, userdata, true);
+	}
+
+	void APU::StoreState(std::ostream& out) const {
+		out.write((const char*)m_internal_A_buffer, 32);
+		out.write((const char*)m_internal_B_buffer, 32);
+		out.write((const char*)&m_A_pos, 1);
+		out.write((const char*)&m_B_pos, 1);
+
+		out.write((const char*)m_curr_ch_samples, sizeof(i16) * 6);
+		out.write((const char*)m_curr_ch_sample_accum, sizeof(u32) * 6);
+
+		out.write((const char*)&m_soundcnt_l, sizeof(m_soundcnt_l));
+		out.write((const char*)&m_soundcnt_h, sizeof(m_soundcnt_h));
+		out.write((const char*)&m_soundcnt_x, sizeof(m_soundcnt_x));
+		out.write((const char*)&m_soundbias, sizeof(m_soundbias));
+	}
+
+	void APU::LoadState(std::istream& in) {
+		in.read((char*)m_internal_A_buffer, 32);
+		in.read((char*)m_internal_B_buffer, 32);
+		in.read((char*)&m_A_pos, 1);
+		in.read((char*)&m_B_pos, 1);
+
+		in.read((char*)m_curr_ch_samples, sizeof(i16) * 6);
+		in.read((char*)m_curr_ch_sample_accum, sizeof(u32) * 6);
+
+		in.read((char*)&m_soundcnt_l, sizeof(m_soundcnt_l));
+		in.read((char*)&m_soundcnt_h, sizeof(m_soundcnt_h));
+		in.read((char*)&m_soundcnt_x, sizeof(m_soundcnt_x));
+		in.read((char*)&m_soundbias, sizeof(m_soundbias));
 	}
 
 	APU::~APU() {

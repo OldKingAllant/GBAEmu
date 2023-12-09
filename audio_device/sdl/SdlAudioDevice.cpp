@@ -95,7 +95,8 @@ namespace GBA::audio {
 
 		std::unique_lock _lk{ m_buffer_mutex };
 
-		m_cv.wait(_lk, [this]() { return m_buffer.writeAvailable() >= 2; });
+		if(m_sync)
+			m_cv.wait(_lk, [this]() { return m_buffer.writeAvailable() >= 2; });
 
 		m_buffer.insert(&sample_l);
 		m_buffer.insert(&sample_r);

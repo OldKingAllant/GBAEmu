@@ -2,6 +2,8 @@
 
 #include "../common/Logger.hpp"
 
+#include <fstream>
+
 namespace GBA::emulation {
 	LOG_CONTEXT(Emulator);
 
@@ -110,6 +112,28 @@ namespace GBA::emulation {
 
 			u32 cycles = m_ctx.bus.m_time.PopCycles();
 		}
+	}
+
+	bool Emulator::StoreState(std::string const& path) {
+		std::ofstream out{ path, std::ios::out | std::ios::binary };
+
+		if (!out.is_open())
+			return false;
+
+		m_ctx.apu.StoreState(out);
+
+		return true;
+	}
+
+	bool Emulator::LoadState(std::string const& path) {
+		std::ifstream in{ path, std::ios::in | std::ios::binary };
+
+		if (!in.is_open())
+			return false;
+
+		m_ctx.apu.LoadState(in);
+
+		return true;
 	}
 
 	Emulator::~Emulator() {

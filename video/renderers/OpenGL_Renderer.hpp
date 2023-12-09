@@ -17,6 +17,8 @@ namespace GBA::video::renderer {
 	using RomSelected = std::function<void(std::string)>;
 	using SaveLoad = std::function<void(std::string)>;
 	using SaveStore = std::function<void(std::string)>;
+	using SaveStateRequest = std::function<void(std::string, bool)>;
+	using SyncToAudioCallback = std::function<void(bool)>;
 
 	class OpenGL : public VideoOutput {
 	public :
@@ -49,6 +51,14 @@ namespace GBA::video::renderer {
 
 		void SetSaveStoreAction(SaveStore callback) {
 			m_save_store = callback;
+		}
+
+		void SetSaveStateAction(SaveStateRequest callback) {
+			m_save_state = callback;
+		}
+
+		void SetSyncToAudioCallback(SyncToAudioCallback callback) {
+			m_audio_sync = callback;
 		}
 
 		~OpenGL() override;
@@ -96,6 +106,11 @@ namespace GBA::video::renderer {
 		RomSelected m_on_select;
 		SaveLoad m_save_load;
 		SaveStore m_save_store;
+		SaveStateRequest m_save_state;
+		SyncToAudioCallback m_audio_sync;
 		bool m_pause;
+		bool m_show_menu_bar;
+		bool m_ctrl_status;
+		bool m_sync_to_audio;
 	};
 }

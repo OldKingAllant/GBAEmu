@@ -3,6 +3,8 @@
 #include "../common/Defs.hpp"
 
 #include <functional>
+#include <ostream>
+#include <istream>
 
 namespace GBA {
 	namespace memory {
@@ -45,6 +47,9 @@ namespace GBA::apu {
 		void TimerOverflow(u8 id);
 
 		void SetFreq(u32 freq);
+
+		void StoreState(std::ostream& out) const;
+		void LoadState(std::istream& in);
 
 		~APU();
 
@@ -119,11 +124,6 @@ namespace GBA::apu {
 		}
 
 		memory::EventScheduler* m_sched;
-
-		u16 m_sound1_freq_control;
-		u16 m_sound2_freq_control;
-		u16 m_sound3_freq_control;
-		u16 m_sound4_freq_control;
 
 		SquareChannel* m_sound1;
 		SquareChannel* m_sound2;

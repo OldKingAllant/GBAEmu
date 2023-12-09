@@ -47,6 +47,9 @@ namespace GBA::emulation {
 		bool LoadRom(std::string_view loc);
 		void Init();
 
+		bool StoreState(std::string const& path);
+		bool LoadState(std::string const& path);
+
 		~Emulator();
 
 	private :

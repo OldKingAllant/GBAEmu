@@ -24,8 +24,10 @@ namespace GBA::video::renderer {
 		m_functions(nullptr), m_opengl(), m_glu(),
 		m_gl_data{}, m_conf_callback{},
 		m_on_pause{}, m_on_select{},
-		m_save_load{}, m_save_store{},
-		m_pause{pause}
+		m_save_load{}, m_save_store{}, m_save_state{},
+		m_audio_sync{},
+		m_pause{pause}, m_show_menu_bar{false},
+		m_ctrl_status{false}, m_sync_to_audio{true}
 	{
 		m_gl_data.placeholder_data = new float[240 * 160 * 3];
 
@@ -135,6 +137,8 @@ namespace GBA::video::renderer {
 		ImGui_ImplSDL2_InitForOpenGL(m_window, m_gl_context);
 		ImGui_ImplOpenGL3_Init("#version 330");
 
+		SDL_GL_SetSwapInterval(m_sync_to_audio);
+
 		return true;
 	}
 
@@ -175,6 +179,11 @@ namespace GBA::video::renderer {
 
 	void OpenGL::KeyDown(SDL_KeyboardEvent* ev) {
 		using input::Buttons;
+
+		if (ev->keysym.sym == SDLK_LCTRL) {
+			m_ctrl_status = true;
+			return;
+		}
 
 		switch (ev->keysym.scancode)
 		{
@@ -218,6 +227,18 @@ namespace GBA::video::renderer {
 			m_keypad->KeyPressed(Buttons::BUTTON_START);
 			break;
 
+		case SDL_SCANCODE_ESCAPE:
+			m_show_menu_bar = !m_show_menu_bar;
+			break;
+
+		case SDL_SCANCODE_C: {
+			if (m_ctrl_status) {
+				m_pause = true;
+				m_on_pause(true);
+			}
+		}
+		break;
+
 		default:
 			break;
 		}
@@ -225,6 +246,11 @@ namespace GBA::video::renderer {
 
 	void OpenGL::KeyUp(SDL_KeyboardEvent* ev) {
 		using input::Buttons;
+
+		if (ev->keysym.sym == SDLK_LCTRL) {
+			m_ctrl_status = false;
+			return;
+		}
 
 		switch (ev->keysym.scancode)
 		{
@@ -339,6 +365,36 @@ namespace GBA::video::renderer {
 				ImGui::EndMenu();
 			}
 
+			/////////////////////
+
+			if (ImGui::BeginMenu("State")) {
+				if (ImGui::BeginMenu("Save")) {
+					std::string save = FileDialog("Store state", ".*");
+
+					if (save != "NULL" && m_save_state) {
+						m_save_state(save, true);
+					}
+
+					ImGui::EndMenu();
+				}
+
+				ImGui::Dummy(ImVec2(0.0f, 20.0f));
+
+				if (ImGui::BeginMenu("Load")) {
+					std::string dest = FileDialog("Load State", ".state");
+
+					if (dest != "NULL" && m_save_state) {
+						m_save_state(dest, false);
+					}
+
+					ImGui::EndMenu();
+				}
+
+				ImGui::EndMenu();
+			}
+
+			///////////////////////
+
 			ImGui::EndMenu();
 		}
 	}
@@ -363,27 +419,37 @@ namespace GBA::video::renderer {
 
 		m_functions->glBindVertexArray(0);
 
-		ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplSDL2_NewFrame();
-		ImGui::NewFrame();
+		if (m_show_menu_bar) {
+			ImGui_ImplOpenGL3_NewFrame();
+			ImGui_ImplSDL2_NewFrame();
+			ImGui::NewFrame();
 
-		ImGui::BeginMainMenuBar();
+			ImGui::BeginMainMenuBar();
 
-		FileMenu();
+			FileMenu();
 
-		if (ImGui::BeginMenu("Emulation")) {
-			ImGui::Checkbox("Pause", &m_pause);
+			if (ImGui::BeginMenu("Emulation")) {
+				ImGui::Checkbox("Pause", &m_pause);
 
-			if (m_on_pause)
-				m_on_pause(m_pause);
+				if (m_on_pause)
+					m_on_pause(m_pause);
 
-			ImGui::EndMenu();
+				ImGui::Checkbox("Audio sync (60fps)", &m_sync_to_audio);
+
+				if (m_audio_sync) {
+					m_audio_sync(m_sync_to_audio);
+				}
+
+				SDL_GL_SetSwapInterval(m_sync_to_audio);
+
+				ImGui::EndMenu();
+			}
+
+			ImGui::EndMainMenuBar();
+
+			ImGui::Render();
+			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		}
-
-		ImGui::EndMainMenuBar();
-
-		ImGui::Render();
-		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 		SDL_GL_SwapWindow(m_window);
 	}
