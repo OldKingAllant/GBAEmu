@@ -6,12 +6,14 @@
 
 #include "../../../memory/InterruptController.hpp"
 
+#include "../../../common/Logger.hpp"
+
 namespace GBA::cpu {
 
 	ARM7TDI::ARM7TDI() :
 		m_ctx{}, m_bus(nullptr), m_int_controller(nullptr), m_halt(false) {
 		m_ctx.m_cpsr.instr_state = InstructionMode::ARM;
-		m_ctx.m_cpsr.mode = Mode::User;
+		m_ctx.ChangeMode(Mode::SYS);
 
 		m_ctx.m_regs.SetReg(Mode::SWI, 13, 0x03007FE0);
 		m_ctx.m_regs.SetReg(Mode::IRQ, 13, 0x03007FA0);

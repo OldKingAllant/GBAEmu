@@ -132,6 +132,10 @@ namespace GBA::gamepack {
 			}
 		}
 
+		if (address > m_info.file_size) [[unlikely]] {
+			return (address / 2) & 0xFFFF;
+		}
+
 		return *reinterpret_cast<u16*>(m_rom + address);
 	}
 
