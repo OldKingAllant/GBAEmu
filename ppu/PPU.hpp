@@ -122,6 +122,7 @@ namespace GBA::ppu {
 			if constexpr (sizeof(Type) != 1) {
 				reinterpret_cast<Type*>(m_oam)[address] = value;
 			}
+			
 			//Else ignore writes
 		}
 

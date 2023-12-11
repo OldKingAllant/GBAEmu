@@ -1,9 +1,9 @@
 [BIOS]
-skip = false
+skip = true
 file = ./testRoms/gba_bios.bin
 
 [EMU]
 start_paused = true
 
 [ROM]
-#default_rom = ./testRoms/PokemonEmerald.gba
+default_rom = ./testRoms/PokemonEmerald.gba

@@ -421,10 +421,6 @@ namespace GBA::ppu {
 		delete[] m_oam;
 	}
 
-	void PPU::Mode2() {
-		LOG_INFO("Mode 2");
-	}
-
 	common::u32 PPU::ReadRegister32(common::u8 offset) const {
 		return reinterpret_cast<u32 const*>(m_ctx.array)[offset];
 	}

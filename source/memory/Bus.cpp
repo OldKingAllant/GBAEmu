@@ -230,6 +230,12 @@ namespace GBA::memory {
 			}
 		}
 		break;
+		case MEMORY_RANGE::BIOS: {
+			u32 fetch = ctx.m_pipeline.GetFetched();
+
+			value = (fetch << 16) | fetch;
+		}
+		break;
 		default:
 			LOG_INFO(" Open bus for region 0x{:x} not implemented", (u8)region);
 			error::DebugBreak();

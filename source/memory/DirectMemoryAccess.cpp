@@ -73,8 +73,6 @@ namespace GBA::memory {
 				if (!enable_before && enable_after) {
 					u8 timing = (m_control >> 12) & 3;
 
-					//logging::Logger::Instance().LogInfo("DMA", " Writing DMA cnt {} timing {}", m_id, timing);
-
 					ResetState();
 
 					if (!timing) {
@@ -132,7 +130,7 @@ namespace GBA::memory {
 			m_sad_inc = 0;
 			break;
 		case 3:
-			error::DebugBreak();
+			m_sad_inc = m_curr_word_sz;
 			break;
 		default:
 			error::Unreachable();

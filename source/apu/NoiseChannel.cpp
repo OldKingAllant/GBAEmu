@@ -139,8 +139,8 @@ namespace GBA::apu {
 		double r = m_control.freq_div ? m_control.freq_div : 0.5;
 		u32 shift = (u32)m_control.shift_freq + 1;
 		double s = (double)((uint64_t)2 << shift);
-		u32 computed_freq = (u32)(BASE_HZ / r / s);
-		u32 cycles = (u32)CPU_CYCLES / computed_freq;
+		double computed_freq = (double)(BASE_HZ / r / s);
+		u32 cycles = (u32)(CPU_CYCLES / computed_freq);
 
 		m_sched->Schedule(cycles, memory::EventType::APU_CH4_SAMPLE_UPDATE,
 			noise_sample_update, std::bit_cast<void*>(this));

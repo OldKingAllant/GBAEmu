@@ -9,6 +9,9 @@
 
 #include "audio_device/sdl/SdlAudioDevice.hpp"
 
+#include "debugger/Debugger.hpp"
+#include "debugger/DebugWindow.hpp"
+
 #ifdef main
 #undef main
 #endif // main
@@ -138,8 +141,11 @@ int main(int argc, char* argv[]) {
 
 		if (!paused && has_rom) {
 			emu->RunTillVblank();
-			auto framebuffer = ctx.ppu.GetFrame();
-			opengl_rend.SetFrame(framebuffer);
+			
+			if (ctx.ppu.HasFrame()) {
+				auto framebuffer = ctx.ppu.GetFrame();
+				opengl_rend.SetFrame(framebuffer);
+			}
 		}
 
 		opengl_rend.PresentFrame();
