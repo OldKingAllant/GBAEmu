@@ -99,6 +99,9 @@ int main(int argc, char* argv[]) {
 		scale_val = 3;
 	}
 
+	if (scale_val == 0 || scale_val > 10)
+		scale_val = 4;
+
 	GBA::video::renderer::OpenGL opengl_rend{paused};
 	opengl_rend.SetKeypad(&emu->GetContext().keypad);
 	if (!opengl_rend.Init(scale_val, scale_val)) {
