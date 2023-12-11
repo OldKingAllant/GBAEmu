@@ -91,4 +91,8 @@ To bring up the menu for loading roms/save files
 and emulation start/pause: focus the emulator
 window and press ESC.
 Each window that is opened through the
-main menu bar can be scaled
+main menu bar can be scaled.
+
+Moreover: the project requires c++20 to be compiled,
+and since the interpreter makes heavy use of templates,
+compilation times could get quite long.
