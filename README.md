@@ -86,3 +86,9 @@ Each entry can be simply removed by putting # before it
 
 # Important
 Note that no roms or bios files are provided
+
+To bring up the menu for loading roms/save files
+and emulation start/pause: focus the emulator
+window and press ESC.
+Each window that is opened through the
+main menu bar can be scaled
