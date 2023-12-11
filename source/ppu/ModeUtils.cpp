@@ -570,8 +570,8 @@ namespace GBA::ppu {
 				layer = 5;
 			}
 
-			if ((window_id == 3 || windows[window_id].enable_special_effects)
-				&& (CHECK_BIT(first_target, layer) || merged[x].is_bld_enabled)) {
+			if (((window_id == 3 || windows[window_id].enable_special_effects)
+				&& CHECK_BIT(first_target, layer)) || merged[x].is_bld_enabled) {
 				u16 special_effect_select = curr_effect;
 				u16 real_effect_select = curr_effect;
 
@@ -610,8 +610,8 @@ namespace GBA::ppu {
 							u8 curr_layer = priorities[index].layer;
 
 							if (priorities[index].priority >= top_priority) {
-								if ((window_id == 3 || windows[window_id].layer_enable[4])
-									&& layer_enabled_global[layer]
+								if ((window_id == 3 || windows[window_id].layer_enable[curr_layer])
+									&& layer_enabled_global[curr_layer]
 									&& CHECK_BIT(second_target, curr_layer)
 									&& backgrounds[curr_layer][x].palette_id) {
 									break;
@@ -620,8 +620,15 @@ namespace GBA::ppu {
 								index++;
 							}
 							else {
-								blend_fail = true;
-								break;
+								if ((window_id == 3 || windows[window_id].layer_enable[curr_layer])
+									&& layer_enabled_global[curr_layer]
+									&& backgrounds[curr_layer][x].palette_id) {
+									blend_fail = true;
+									break;
+								}
+								else {
+									index++;
+								}
 							}
 						}
 

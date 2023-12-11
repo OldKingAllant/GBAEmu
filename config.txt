@@ -7,4 +7,4 @@ start_paused = true
 scale = 4
 
 [ROM]
-default_rom = ./testRoms/PokemonEmerald.gba
+default_rom = ./testRoms/SuperMarioWorld.gba
