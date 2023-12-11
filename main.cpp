@@ -85,9 +85,23 @@ int main(int argc, char* argv[]) {
 		emu_init(rom);
 	}
 
+	std::string scale = conf.data.get("EMU").has("scale") ?
+		conf.data.get("EMU").get("scale") :
+		std::string("3");
+
+	unsigned int scale_val = 0;
+
+	try {
+		scale_val = std::stoi(scale);
+	}
+	catch (std::exception const&) {
+		std::cout << "Screen scale is not valid, using default" << std::endl;
+		scale_val = 3;
+	}
+
 	GBA::video::renderer::OpenGL opengl_rend{paused};
 	opengl_rend.SetKeypad(&emu->GetContext().keypad);
-	if (!opengl_rend.Init(3, 3)) {
+	if (!opengl_rend.Init(scale_val, scale_val)) {
 		std::exit(0);
 	}
 
