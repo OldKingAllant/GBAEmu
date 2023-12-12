@@ -22,11 +22,11 @@ namespace GBA::audio {
 		i16 last_left = 0;
 		i16 last_right = 0;
 
-		i16 dir_l = last_left > 0 ? -1 : 1;
-		i16 dir_r = last_right > 0 ? -1 : 1;
-
 		device->m_buffer.readBuff(&last_left, 1);
 		device->m_buffer.readBuff(&last_right, 1);
+
+		i16 dir_l = last_left > 0 ? -1 : 1;
+		i16 dir_r = last_right > 0 ? -1 : 1;
 
 		while (remain > 0) {
 			dest[avail++] = last_left;
