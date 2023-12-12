@@ -415,15 +415,77 @@ namespace GBA::ppu {
 
 		if (win0_right == 0xFFFF)
 			win0_right = 0;
+		else if (win0_right > 240) {
+			win0_right = 240;
+		}
+
+		if (win0_left > 240)
+			win0_left = 240;
 
 		if (win0_bottom == 0xFFFF)
 			win0_bottom = 0;
+		else if (win0_bottom > 160)
+			win0_bottom = 160;
+
+		if (win0_top > 160)
+			win0_top = 160;
 
 		if (win1_right == 0xFFFF)
 			win1_right = 0;
+		else if (win1_right > 240)
+			win1_right = 240;
+
+		if (win1_left > 240)
+			win1_left = 240;
 
 		if (win1_bottom == 0xFFFF)
 			win1_bottom = 0;
+		else if (win1_bottom > 160)
+			win1_bottom = 160;
+
+		if (win1_top > 160)
+			win1_top = 160;
+
+		bool reverse_win0_h = false;
+		bool reverse_win0_v = false;
+		bool reverse_win1_h = false;
+		bool reverse_win1_v = false;
+
+		if (win0_left > win0_right + 1) {
+			reverse_win0_h = true;
+			std::swap(win0_left, win0_right);
+		}
+		else if (win0_left == win0_right) {
+			win0_left = 240;
+			win0_right = 240;
+		}
+
+		if (win0_top > win0_bottom + 1) {
+			reverse_win0_v = true;
+			std::swap(win0_top, win0_bottom);
+		}
+		else if (win0_top == win0_bottom) {
+			win0_top = 160;
+			win0_bottom = 160;
+		}
+
+		if (win1_left > win1_right + 1) {
+			reverse_win1_h = true;
+			std::swap(win1_left, win1_right);
+		}
+		else if (win1_left == win1_right) {
+			win1_left = 240;
+			win1_right = 240;
+		}
+
+		if (win1_top > win1_bottom + 1) {
+			reverse_win1_v = true;
+			std::swap(win1_top, win1_bottom);
+		}
+		else if (win1_top == win1_bottom) {
+			win1_top = 160;
+			win1_bottom = 160;
+		}
 
 		struct WindowInfo {
 			bool enabled;
@@ -464,8 +526,14 @@ namespace GBA::ppu {
 
 		u16 curr_line = m_ctx.m_vcount;
 
-		bool window0_line = curr_line >= windows[0].top && curr_line < windows[0].bottom && windows[0].enabled;
-		bool window1_line = curr_line >= windows[1].top && curr_line < windows[1].bottom && windows[1].enabled;
+		bool window0_line = curr_line >= windows[0].top && curr_line <= windows[0].bottom;
+		bool window1_line = curr_line >= windows[1].top && curr_line <= windows[1].bottom;
+
+		window0_line = reverse_win0_v ? !window0_line : window0_line;
+		window1_line = reverse_win1_v ? !window1_line : window1_line;
+
+		window0_line = window0_line && windows[0].enabled;
+		window1_line = window1_line && windows[1].enabled;
 
 		bool curr_line_has_window = window0_line || window1_line;
 
@@ -478,9 +546,15 @@ namespace GBA::ppu {
 				return 3;
 			}
 
-			if (x_pos >= windows[0].left && x_pos < windows[0].right && window0_line)
+			bool in_win0 = x_pos >= windows[0].left && x_pos <= windows[0].right;
+			bool in_win1 = x_pos >= windows[1].left && x_pos <= windows[1].right;
+
+			in_win0 = reverse_win0_h ? !in_win0 : in_win0;
+			in_win1 = reverse_win1_h ? !in_win1 : in_win1;
+
+			if (in_win0 && window0_line)
 				return 0;
-			else if (x_pos >= windows[1].left && x_pos < windows[1].right && window1_line)
+			else if (in_win1 && window1_line)
 				return 1;
 			else if (windows[4].enabled && m_obj_window_pixels[x_pos])
 				return 4;
