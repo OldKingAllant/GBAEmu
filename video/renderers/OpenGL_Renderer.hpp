@@ -1,10 +1,10 @@
 #pragma once
 
 #include "../VideoOutput.hpp"
-#include "../../shared_obj/WinOpenglLoader.hpp"
 
 #include <functional>
 #include <vector>
+#include <string>
 
 struct SDL_Window;
 struct SDL_KeyboardEvent;
@@ -77,9 +77,6 @@ namespace GBA::video::renderer {
 	private :
 		SDL_Window* m_window;
 		void* m_gl_context;
-		OpenglFunctions* m_functions;
-		shared_object::WindowsOpenglLoader m_opengl;
-		shared_object::SharedObject m_glu;
 		
 		struct {
 			uint32_t texture_id;
