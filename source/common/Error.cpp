@@ -7,6 +7,8 @@
 #if defined(WIN32) || defined(__WIN32__) || defined(_WIN32)
 	#include <intrin.h>
 	#include <Windows.h>
+#else
+	#include <signal.h>
 #endif
 
 namespace GBA::error {
@@ -28,7 +30,7 @@ namespace GBA::error {
 		__debugbreak();
 #else 
 #if defined(__x86_64__) || defined(_M_AMD64)
-		asm("int 3");
+		raise(SIGTRAP);
 #else 
 #error "Unsupported architecture"
 #endif
