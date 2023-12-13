@@ -16,7 +16,7 @@ namespace GBA::video::renderer {
 
 		std::ostringstream shader_source{ "" };
 
-		std::ifstream shader(path, std::ios::in | std::ios::beg);
+		std::ifstream shader(path, std::ios::in);
 
 		while (!shader.eof()) {
 			std::string line = "";
