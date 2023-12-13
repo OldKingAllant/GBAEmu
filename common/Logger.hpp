@@ -4,9 +4,9 @@
 
 #define LOG_CONTEXT(NAME) static const char* log_context_name = #NAME;
 
-#define LOG_ERROR(STR, ...)  logging::Logger::Instance().LogError(log_context_name, STR, __VA_ARGS__)
-#define LOG_WARNING(STR, ...)  logging::Logger::Instance().LogWarn(log_context_name, STR, __VA_ARGS__)
-#define LOG_INFO(STR, ...)  logging::Logger::Instance().LogInfo(log_context_name, STR, __VA_ARGS__)
+#define LOG_ERROR(STR, ...)  logging::Logger::Instance().LogError(log_context_name, STR, ##__VA_ARGS__)
+#define LOG_WARNING(STR, ...)  logging::Logger::Instance().LogWarn(log_context_name, STR, ##__VA_ARGS__)
+#define LOG_INFO(STR, ...)  logging::Logger::Instance().LogInfo(log_context_name, STR, ##__VA_ARGS__)
 
 namespace GBA::logging {
 	class Logger {
