@@ -12,7 +12,13 @@
 
 namespace GBA::gamepack {
 
-	//LOG_CONTEXT("Cartridge");
+	static size_t strnlen_s_wrapper(const char* string, size_t count) {
+#if defined(__MSVC__) || defined(MSVC) || defined(_MSC_VER)
+		return strnlen_s(string, count);
+#else 
+		return strnlen(string, count);
+#endif 
+	}
 
 	GamePack::GamePack() :
 		m_rom(nullptr), m_backup(nullptr),
@@ -43,7 +49,7 @@ namespace GBA::gamepack {
 
 		const char* title = std::bit_cast<const char*>((char*)m_head.title);
 
-		auto len = strnlen_s(title, 12);
+		auto len = strnlen_s_wrapper(title, 12);
 
 		std::string game_name = std::string(title, len);
 

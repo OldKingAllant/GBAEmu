@@ -46,6 +46,6 @@ namespace GBA::gamepack::backups {
 		void IdMode_ProcessPacket(common::u32 address, common::u8 data);
 		void BankSwitch_ProcessPacket(common::u32 address, common::u8 data);
 		void Erase_ProcessPacket(common::u32 address, common::u8 data);
-		__declspec(noinline) void Write_ProcessPacket(common::u32 address, common::u8 data);
+		void Write_ProcessPacket(common::u32 address, common::u8 data);
 	};
 }
