@@ -52,6 +52,14 @@ namespace GBA::gamepack::gpio {
 		return true;
 	}
 
+	static void localtime_s_wrapper(tm* _tm, const time_t* const time) {
+#if defined(_MSC_VER)
+		(void)localtime_s(_tm, time);
+#else
+		(void)*_tm = localtime(time);
+#endif
+	}
+
 	void RTC::DateTimeLatch() {
 		auto timet = std::chrono::system_clock::to_time_t(
 			std::chrono::system_clock::now()
@@ -69,7 +77,7 @@ namespace GBA::gamepack::gpio {
 
 		tm mtm;
 
-		localtime_s(&mtm, &timet);
+		localtime_s_wrapper(&mtm, &timet);
 
 		m_time_latch.second = bin_to_bcd( (u8)mtm.tm_sec );
 		m_time_latch.minute = bin_to_bcd( (u8)mtm.tm_min );

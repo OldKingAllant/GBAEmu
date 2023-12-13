@@ -29,6 +29,8 @@ namespace GBA::gamepack::gpio {
 		common::u8 Read() override;
 		void Write(common::u8 pin_values) override;
 
+		~RTC() override = default;
+
 	private :
 		void ProcessInput();
 
