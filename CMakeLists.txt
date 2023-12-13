@@ -27,6 +27,7 @@ list(APPEND FILES "${DIR}/ImGui/backends/imgui_impl_opengl3.cpp")
 list(APPEND FILES "${DIR}/ImGui/backends/imgui_impl_sdl2.cpp")
 list(APPEND FILES "${DIR}/ImGui/backends/imgui_impl_sdlrenderer.cpp")
 list(APPEND FILES "${DIR}/thirdparty/ImGuiFileDialog/ImGuiFileDialog.cpp")
+list(APPEND FILES "${DIR}/video/renderers/OpenGL_Renderer.cpp")
 
 list(APPEND FILES "${DIR}/source/apu/APU.cpp")
 list(APPEND FILES "${DIR}/source/apu/Envelope.cpp")
@@ -78,7 +79,7 @@ list(APPEND FILES "${DIR}/source/ppu/ModeUtils.cpp")
 list(APPEND FILES "${DIR}/source/ppu/Objects.cpp")
 list(APPEND FILES "${DIR}/source/ppu/PPU.cpp")
 
-list(APPEND FILES "${DIR}/main_test.cpp")
+list(APPEND FILES "${DIR}/main.cpp")
 
 project(GBAEmu)
 
@@ -90,5 +91,5 @@ target_link_libraries(gba_emu PUBLIC fmt)
 target_link_libraries(gba_emu PUBLIC GLEW)
 target_link_libraries(gba_emu PUBLIC SDL2)
 target_link_libraries(gba_emu PUBLIC SDL2_image)
-
+target_link_libraries(gba_emu PUBLIC GL)
 
