@@ -376,14 +376,14 @@ namespace GBA::ppu {
 		bool layer_enabled_global[5] = {
 			((m_ctx.m_control >> 8) & 1) && mode < 2,
 			((m_ctx.m_control >> 9) & 1) && mode < 2,
-			(m_ctx.m_control >> 10) & 1,
+			(bool)((m_ctx.m_control >> 10) & 1),
 			((m_ctx.m_control >> 11) & 1) && (mode == 0 || mode == 2),
-			(m_ctx.m_control >> 12) & 1
+			(bool)((m_ctx.m_control >> 12) & 1)
 		};
 
-		bool win0_en = (m_ctx.m_control >> 13) & 1;
-		bool win1_en = (m_ctx.m_control >> 14) & 1;
-		bool winobj_en = (m_ctx.m_control >> 15) & 1;
+		bool win0_en = (bool)((m_ctx.m_control >> 13) & 1);
+		bool win1_en = (bool)((m_ctx.m_control >> 14) & 1);
+		bool winobj_en = (bool)((m_ctx.m_control >> 15) & 1);
 
 		bool win_enabled = win0_en || win1_en || winobj_en;
 
@@ -590,7 +590,7 @@ namespace GBA::ppu {
 		std::sort(
 			std::begin(priorities),
 			std::begin(priorities) + total_bgs,
-			[&layer_enabled_global](auto const& p1, auto const& p2) { 
+			[](auto const& p1, auto const& p2) { 
 				return p1.priority < p2.priority; 
 			});
 
@@ -823,8 +823,8 @@ namespace GBA::ppu {
 		//////////////////
 
 		bool layer_enabled_global[2] = {
-			(m_ctx.m_control >> 10) & 1,
-			(m_ctx.m_control >> 12) & 1
+			(bool)((m_ctx.m_control >> 10) & 1),
+			(bool)((m_ctx.m_control >> 12) & 1)
 		};
 
 		bool win0_en = (m_ctx.m_control >> 13) & 1;
