@@ -93,9 +93,6 @@ namespace GBA::cpu {
 		void OverflowAdd(u32 first, u32 second) {
 			u32 res = first + second;
 
-			constexpr uint32_t max_num = (uint32_t)(1 << 31) - 1;
-			constexpr int32_t min_num = -(1 << 31);
-
 			overflow = (~(first ^ second) & (second ^ res)) >> 31;
 		}
 
@@ -105,9 +102,6 @@ namespace GBA::cpu {
 
 		void OverflowSubtract(u32 first, u32 second) {
 			u32 res = first - second;
-
-			constexpr uint32_t max_num = (uint32_t)(1 << 31) - 1;
-			constexpr int32_t min_num = -(1 << 31);
 
 			overflow = ((first ^ second) & (first ^ res)) >> 31;
 		}
