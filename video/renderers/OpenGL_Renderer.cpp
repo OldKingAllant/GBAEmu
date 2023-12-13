@@ -129,7 +129,8 @@ namespace GBA::video::renderer {
 	}
 
 	void OpenGL::ProcessEvent(SDL_Event* ev) {
-		ImGui_ImplSDL2_ProcessEvent(ev);
+		if(m_show_menu_bar)
+			ImGui_ImplSDL2_ProcessEvent(ev);
 
 		switch (ev->type)
 		{
