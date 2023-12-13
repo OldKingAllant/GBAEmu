@@ -5,6 +5,7 @@
 #include "../filters/HighPassFilter.hpp"
 
 #include <mutex>
+#include <condition_variable>
 
 #include <SDL2/SDL_audio.h>
 

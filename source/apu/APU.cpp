@@ -16,6 +16,11 @@
 #include <bit>
 #include <algorithm>
 
+/*
+TODO: Avoid possible integer division by zero
+when computing the frequency of all channells
+*/
+
 namespace GBA::apu {
 	void output_sample(void* userdata);
 
