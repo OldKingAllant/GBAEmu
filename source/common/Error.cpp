@@ -28,9 +28,7 @@ namespace GBA::error {
 		__debugbreak();
 #else 
 #if defined(__x86_64__) || defined(_M_AMD64)
-		__asm {
-			int 3
-		}
+		asm("int 3");
 #else 
 #error "Unsupported architecture"
 #endif
