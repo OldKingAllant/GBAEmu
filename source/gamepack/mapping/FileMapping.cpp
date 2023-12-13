@@ -5,7 +5,7 @@ namespace GBA::gamepack::mapping {
 #ifdef WINDOWS_MAPPING
 		return MapFile_Windows(path.c_str());
 #else
-		return {};
+		return MapFile_Linux(path.c_str());
 #endif // WINDOWS_MAPPING
 	}
 
@@ -13,7 +13,7 @@ namespace GBA::gamepack::mapping {
 #ifdef WINDOWS_MAPPING
 		return UnmapFile_Windows(info);
 #else
-		return false;
+		return UnmapFile_Linux(info);
 #endif // WINDOWS_MAPPING
 	}
 }

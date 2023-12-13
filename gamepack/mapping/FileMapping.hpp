@@ -7,11 +7,13 @@
 #include "windows.hpp"
 #define WINDOWS_MAPPING
 #else
-#error "Unsupported OS"
+#include "linux.hpp"
+#define LINUX_MAPPING
 #endif
 
 namespace GBA::gamepack::mapping {
 	std::pair<FileMapInfo, bool> MapFileToMemory(std::string const& path);
 	bool UnmapFile(FileMapInfo const& info);
 }
+
 
