@@ -9,7 +9,7 @@ namespace GBA::apu {
 
 		void SetMMIO(memory::MMIO* mmio);
 
-		__declspec(noinline) void Restart();
+		void Restart();
 
 		static constexpr uint64_t DIV_CYCLES = 32'773;
 		static constexpr uint64_t CPU_CYCLES = 16'780'000;
