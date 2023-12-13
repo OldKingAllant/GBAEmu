@@ -56,7 +56,7 @@ namespace GBA::gamepack::gpio {
 #if defined(_MSC_VER)
 		(void)localtime_s(_tm, time);
 #else
-		*_tm = localtime(time);
+		*_tm = *localtime(time);
 #endif
 	}
 
