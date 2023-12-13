@@ -2,8 +2,8 @@
 
 namespace GBA::error {
 	void Assert(bool value, const char* message);
-	void DebugBreak();
-	void BailOut(bool bad);
+	[[noreturn]] void DebugBreak();
+	[[noreturn]] void BailOut(bool bad);
 
 	[[noreturn]] inline void Unreachable() {
 #if defined(_MSC_VER) || defined(MSVC)
