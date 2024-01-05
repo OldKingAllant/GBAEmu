@@ -96,7 +96,7 @@ namespace GBA::gamepack::gpio {
 
 		m_date_latch.day = bin_to_bcd( (u8)mtm.tm_mday );
 		m_date_latch.day_of_week = bin_to_bcd( (u8)mtm.tm_wday );
-		m_date_latch.month = bin_to_bcd( (u8)mtm.tm_mon );
+		m_date_latch.month = bin_to_bcd( (u8)mtm.tm_mon + 1 );
 		m_date_latch.year = (u8)mtm.tm_year;
 
 		if (m_date_latch.year > 99)
