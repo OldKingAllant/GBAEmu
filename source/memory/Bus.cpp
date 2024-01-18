@@ -275,14 +275,9 @@ namespace GBA::memory {
 		m_bios_latch = *reinterpret_cast<u32*>(m_bios + 0xDC + 8);
 	}
 
-	u32 Bus::ReadBiosImpl(u32 address) {
-		if (m_processor->GetContext().m_old_pc > 0x3FFF && m_processor->GetContext().m_regs.GetReg(15) > 
-			0x3FFF)
-			return m_bios_latch;
-
-		m_bios_latch = *reinterpret_cast<u32*>(m_bios + address);
-
-		return m_bios_latch;
+	bool Bus::CheckBiosAccess(u32 address) {
+		return !(m_processor->GetContext().m_old_pc > 0x3FFF && m_processor->GetContext().m_regs.GetReg(15) >
+			0x3FFF);
 	}
 
 	void Bus::LoadBiosResetOpcode() {

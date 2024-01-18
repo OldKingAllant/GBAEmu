@@ -1,5 +1,5 @@
 [BIOS]
-skip = true
+skip = false
 file = ./testRoms/gba_bios.bin
 
 [EMU]

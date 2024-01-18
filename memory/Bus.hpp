@@ -333,20 +333,16 @@ namespace GBA::memory {
 
 		void InternalCycles(u32 count);
 
-		u32 ReadBiosImpl(u32 address);
+		bool CheckBiosAccess(u32 address);
 
 		template <typename Type>
 		Type ReadBios(u32 address) {
-			u32 aligned = address & ~3;
+			if (!CheckBiosAccess(address))
+				return m_bios_latch;
 
-			u32 value = ReadBiosImpl(address);
+			m_bios_latch = *reinterpret_cast<Type*>(m_bios + address);
 
-			if constexpr (sizeof(Type) == 2)
-				value >>= 8 * (address & 1);
-			else if constexpr (sizeof(Type) == 1)
-				value >>= 8 * (address & 3);
-
-			return (Type)value;
+			return (Type)m_bios_latch;
 		} 
 
 		u32 ReadOpenBus(u32 address);
