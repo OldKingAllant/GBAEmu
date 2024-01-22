@@ -44,9 +44,6 @@ For all these games, no immediate problems were found, albeit I played for a cou
 <li>Solar sensor and rumble not implemented (The only implemented GPIO device is RTC)</li>
 <li>Does not pass some tests in the mGBA suite (and some of the subtests fail alltogether)</li>
 <li>AGS aging cartridge works, but a lot (I mean, a LOT) of tests fail, moslty due to incorrect timings</li>
-<li>BIOS startup is broken (probably Huffman decompression is broken in some way), in the sense that the Nintendo logo is garbled, and since the logo comparison fails, the BIOS locks itself up, not running the code in the cartridge</li>
-
-Note, however, that the BIOS IS required to run most games. The emulator does not have any kind of HLE for the BIOS (so, be sure to set skip = true in the config file).
 
 # Rom database
 Here one should put an header with the internal name of a cartridge, 
@@ -96,3 +93,7 @@ main menu bar can be scaled.
 Moreover: the project requires c++20 to be compiled,
 and since the interpreter makes heavy use of templates,
 compilation times could get quite long.
+
+BIOS startup has been fixed, and the previous behaviour was caused by
+as stupid BIOS read implementation. I have no clue why or how everything
+else worked. There is a lesson to learn here
