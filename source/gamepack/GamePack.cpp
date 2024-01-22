@@ -138,7 +138,7 @@ namespace GBA::gamepack {
 			}
 		}
 
-		if (address > m_info.file_size) [[unlikely]] {
+		if (address >= m_info.file_size) [[unlikely]] {
 			return (address / 2) & 0xFFFF;
 		}
 
