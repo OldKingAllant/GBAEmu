@@ -30,7 +30,7 @@ The emulator uses quite a few dependencies, none for the emulation in itself, bu
 
 Tested games:
 <li>Doom</li>
-<li>Pokemon Emerald (Testing right now with a playthrough)</li>
+<li>Pokemon Emerald (Testing right now with a playthrough, almost finished, everything works well)</li>
 <li>TloZ: The Minish Cap</li>
 <li>Final Fantasy 6 Advance</li>
 <li>Fire Emblem</li>
@@ -42,6 +42,7 @@ For all these games, no immediate problems were found, albeit I played for a cou
 # What does not
 
 <li>Solar sensor and rumble not implemented (The only implemented GPIO device is RTC)</li>
+<li>Serial cable is not implemented</li>
 <li>Does not pass some tests in the mGBA suite (and some of the subtests fail alltogether)</li>
 <li>AGS aging cartridge works, but a lot (I mean, a LOT) of tests fail, moslty due to incorrect timings</li>
 
