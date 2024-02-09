@@ -629,6 +629,9 @@ namespace GBA::ppu {
 			if (backgrounds[4][x].is_present && backgrounds[4][x].palette_id
 				&& (window_id == 3 || windows[window_id].layer_enable[4])
 				&& layer_enabled_global[4]) {
+				if (backgrounds[4][x].priority == 0x2) {
+					bool br = false;
+				}
 				if (!candidate_found || priorities[curr_index].priority >= backgrounds[4][x].priority) {
 					candidate_found = true;
 					layer = 4;
@@ -669,14 +672,6 @@ namespace GBA::ppu {
 
 					bool blend_fail = false;
 
-					if (layer < 4 && backgrounds[4][x].is_present && backgrounds[4][x].priority
-						>= priorities[curr_index].priority 
-						&& (window_id == 3 || windows[window_id].layer_enable[4])
-						&& layer_enabled_global[4]
-						&& CHECK_BIT(second_target, 4)) {
-						index = 4;
-					}
-					else {
 						index = layer == 4 ? 0 : curr_index + 1;
 						u16 top_priority = layer == 4 ? merged[x].priority : priorities[curr_index].priority;
 
@@ -706,10 +701,27 @@ namespace GBA::ppu {
 							}
 						}
 
-						if (index == total_bgs)
+						bool obj_selected = false;
+						
+						if (layer < 4 
+							&& backgrounds[4][x].is_present
+							&& backgrounds[4][x].palette_id
+							&& (window_id == 3 || windows[window_id].layer_enable[4])
+							&& layer_enabled_global[4]
+							&& CHECK_BIT(second_target, 4)) {
+							//If no matching target was found or object pixel
+							//has higher or same priority as the currently selected 
+							//target slect this layer
+							if (index == total_bgs || backgrounds[4][x].priority <= priorities[index].priority) {
+								index = 4;
+								obj_selected = true;
+							}
+								
+						}
+
+						if (index == total_bgs && !obj_selected)
 							index = 6; //Layer in BGs not found,
 									   //set invalid index
-					}
 
 					if (blend_fail)
 						break;
