@@ -57,6 +57,10 @@ namespace GBA::input {
 		else {
 			do_request = (keys & required) == required;
 		}
+
+		if (do_request) {
+			m_int_control->RequestInterrupt(GBA::memory::InterruptType::KEYPAD);
+		}
 	}
 }
 
