@@ -629,9 +629,6 @@ namespace GBA::ppu {
 			if (backgrounds[4][x].is_present && backgrounds[4][x].palette_id
 				&& (window_id == 3 || windows[window_id].layer_enable[4])
 				&& layer_enabled_global[4]) {
-				if (backgrounds[4][x].priority == 0x2) {
-					bool br = false;
-				}
 				if (!candidate_found || priorities[curr_index].priority >= backgrounds[4][x].priority) {
 					candidate_found = true;
 					layer = 4;

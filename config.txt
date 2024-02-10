@@ -7,4 +7,4 @@ start_paused = true
 scale = 4
 
 [ROM]
-default_rom = C:/Users/CLAUDIO/Desktop/NBA/NoBiosEmu/roms/SuperMarioWorld.gba
+default_rom = C:/Users/CLAUDIO/Desktop/NBA/NoBiosEmu/roms/Zelda.gba
