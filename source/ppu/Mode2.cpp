@@ -8,18 +8,17 @@ namespace GBA::ppu {
 
 		unsigned framebuffer_y = curr_line * 240 * 3;
 
-		bool bg_1 = (m_ctx.m_control >> 8) & 1;
-		bool bg_2 = (m_ctx.m_control >> 9) & 1;
 		bool bg_3 = (m_ctx.m_control >> 10) & 1;
+		bool bg_4 = (m_ctx.m_control >> 11) & 1;
 		bool obj_enable = (m_ctx.m_control >> 12) & 1;
 
 		m_line_data[4] = {};
 
-		if (bg_2)
-			ProcessNormalBackground(1, curr_line);
-
 		if (bg_3)
 			ProcessAffineBackground(2, curr_line);
+
+		if (bg_4)
+			ProcessAffineBackground(3, curr_line);
 
 		if (obj_enable)
 			DrawSprites(curr_line);
