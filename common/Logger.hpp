@@ -14,21 +14,21 @@ namespace GBA::logging {
 		template <typename StringType, typename... Args>
 		void LogError(const char* context, StringType&& format_string, Args&&... args) {
 			std::string buf = "[" + std::string(context) + "]"
-				+ fmt::vformat(format_string, fmt::make_format_args(std::forward<Args>(args)...));
+				+ fmt::vformat(format_string, fmt::make_format_args(args...));
 			log_impl(buf);
 		}
 
 		template <typename StringType, typename... Args>
 		void LogWarning(const char* context, StringType&& format_string, Args&&... args) {
 			std::string buf = "[" + std::string(context) + "]"
-				+ fmt::vformat(format_string, fmt::make_format_args( std::forward<Args>(args)...) );
+				+ fmt::vformat(format_string, fmt::make_format_args(args...) );
 			log_impl(buf);
 		}
 
 		template <typename StringType, typename... Args>
 		void LogInfo(const char* context, StringType&& format_string, Args&&... args) {
 			std::string buf = "[" + std::string(context) + "]"
-				+ fmt::vformat(format_string, fmt::make_format_args(std::forward<Args>(args)...));
+				+ fmt::vformat(format_string, fmt::make_format_args(args...));
 			log_impl(buf);
 		}
 

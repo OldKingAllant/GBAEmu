@@ -53,6 +53,8 @@ namespace GBA::gamepack {
 
 		std::string game_name = std::string(title, len);
 
+		logging::Logger::Instance().LogInfo("Gamepak", " Internal title: {}", game_name);
+
 		backups::BackupTypeSize tpsz = backups::BackupDatabase::GetBackupTypeAndSize("rom_db.txt", game_name);
 
 		switch (tpsz)

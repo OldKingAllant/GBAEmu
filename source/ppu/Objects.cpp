@@ -2,6 +2,8 @@
 
 #include "../../common/Error.hpp"
 
+#include <iostream>
+
 namespace GBA::ppu {
 	using namespace common;
 
@@ -72,7 +74,7 @@ namespace GBA::ppu {
 				end_y = y_coord + y_size * 2;
 			}
 
-			if (end_y >= 256) {
+			if (end_y >= 256 || y_coord >= 255) {
 				y_coord -= 256;
 				end_y -= 256;
 			}
@@ -151,7 +153,11 @@ namespace GBA::ppu {
 
 			int end_y = y_coord + y_size;
 
-			if (end_y >= 256) {
+			if (CHECK_BIT(attr_0, 8) && CHECK_BIT(attr_0, 9)) {
+				end_y = y_coord + y_size * 2;
+			}
+
+			if (end_y >= 256 || y_coord >= 255) {
 				end_y -= 256;
 				y_coord -= 256;
 			}
