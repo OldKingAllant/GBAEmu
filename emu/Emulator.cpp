@@ -12,7 +12,9 @@ namespace GBA::emulation {
 	using namespace common;
 
 	Emulator::Emulator(std::string_view rom_location, std::optional<std::string_view> bios_location) :
-		m_ctx{}, m_bios_loc{bios_location}
+		m_ctx{}, m_bios_loc{bios_location}, 
+		m_rewind_buf_size{}, m_rewind_buf{},
+		m_rewind_pos{}
 	{
 		if (!LoadRom(rom_location))
 			throw std::runtime_error("Could not load rom");
@@ -20,7 +22,10 @@ namespace GBA::emulation {
 	}
 
 	Emulator::Emulator(std::optional<std::string_view> bios_location) :
-		m_ctx{}, m_bios_loc{bios_location} {}
+		m_ctx{}, m_bios_loc{bios_location}, m_rewind_buf_size{}, m_rewind_buf{},
+		m_rewind_pos{}
+	{}
+
 
 	bool Emulator::LoadRom(std::string_view loc) {
 		return m_ctx.pack.LoadFrom(loc);
@@ -139,6 +144,58 @@ namespace GBA::emulation {
 		}
 
 		savestate::LoadFromFile(in, this);
+	}
+
+	bool Emulator::RewindPush() {
+		std::string temp_buf{};
+		savestate::StoreToBuffer(temp_buf, this);
+		
+		m_rewind_buf.push_front(std::move(temp_buf));
+
+		if (m_rewind_buf.size() >= m_rewind_buf_size) {
+			m_rewind_buf.pop_back();
+		}
+
+		return true;
+	}
+
+	bool Emulator::LoadFromCurrentHistoryPosition() {
+		auto state = m_rewind_buf.begin();
+
+		for (u32 curr_pos = 1; curr_pos < m_rewind_pos; curr_pos++) {
+			state++;
+		}
+
+		savestate::LoadFromBuffer(*state, this);
+		return true;
+	}
+
+	bool Emulator::RewindBackward() {
+		if (m_rewind_buf.empty() || m_rewind_pos == m_rewind_buf.size())
+			return false;
+
+		m_rewind_pos++;
+		return LoadFromCurrentHistoryPosition();
+	}
+
+	bool Emulator::RewindForward() {
+		if (m_rewind_buf.empty() || m_rewind_pos == 0)
+			return false;
+
+		m_rewind_pos--;
+		return LoadFromCurrentHistoryPosition();
+	}
+
+	bool Emulator::RewindPop() {
+		if (m_rewind_buf.empty() || m_rewind_pos == 0)
+			return false;
+
+		while (m_rewind_pos > 0) {
+			m_rewind_buf.pop_front();
+			m_rewind_pos--;
+		}
+
+		return true;
 	}
 
 	Emulator::~Emulator() {

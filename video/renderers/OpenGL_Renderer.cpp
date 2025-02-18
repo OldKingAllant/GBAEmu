@@ -21,9 +21,10 @@ namespace GBA::video::renderer {
 		m_gl_data{}, m_quick_save{},
 		m_on_pause{}, m_on_select{},
 		m_save_load{}, m_save_store{}, m_save_state{},
-		m_audio_sync{},
+		m_audio_sync{}, m_rewind{},
 		m_pause{pause}, m_show_menu_bar{false},
-		m_ctrl_status{false}, m_sync_to_audio{true}
+		m_ctrl_status{false}, m_sync_to_audio{true},
+		m_alt_status{false}
 	{
 		m_gl_data.placeholder_data = new float[240 * 160 * 3];
 
@@ -171,11 +172,23 @@ namespace GBA::video::renderer {
 		switch (ev->keysym.scancode)
 		{
 		case SDL_SCANCODE_RIGHT:
-			m_keypad->KeyPressed(Buttons::BUTTON_RIGHT);
+			if (m_alt_status) {
+				if (m_rewind)
+					m_rewind(true);
+			}
+			else {
+				m_keypad->KeyPressed(Buttons::BUTTON_RIGHT);
+			}
 			break;
 
 		case SDL_SCANCODE_LEFT:
-			m_keypad->KeyPressed(Buttons::BUTTON_LEFT);
+			if (m_alt_status) {
+				if (m_rewind)
+					m_rewind(false);
+			}
+			else {
+				m_keypad->KeyPressed(Buttons::BUTTON_LEFT);
+			}
 			break;
 
 		case SDL_SCANCODE_UP:
@@ -224,6 +237,13 @@ namespace GBA::video::renderer {
 				m_quick_save(false);
 			break;
 
+		case SDL_SCANCODE_LALT:
+		case SDL_SCANCODE_RALT:
+			m_alt_status = true;
+			m_pause = true;
+			m_on_pause(true);
+			break;
+
 		case SDL_SCANCODE_C: {
 			if (m_ctrl_status) {
 				m_pause = true;
@@ -248,11 +268,13 @@ namespace GBA::video::renderer {
 		switch (ev->keysym.scancode)
 		{
 		case SDL_SCANCODE_RIGHT:
-			m_keypad->KeyReleased(Buttons::BUTTON_RIGHT);
+			if(!m_alt_status)
+				m_keypad->KeyReleased(Buttons::BUTTON_RIGHT);
 			break;
 
 		case SDL_SCANCODE_LEFT:
-			m_keypad->KeyReleased(Buttons::BUTTON_LEFT);
+			if(!m_alt_status)
+				m_keypad->KeyReleased(Buttons::BUTTON_LEFT);
 			break;
 
 		case SDL_SCANCODE_UP:
@@ -285,6 +307,13 @@ namespace GBA::video::renderer {
 
 		case SDL_SCANCODE_SPACE:
 			m_keypad->KeyReleased(Buttons::BUTTON_START);
+			break;
+
+		case SDL_SCANCODE_LALT:
+		case SDL_SCANCODE_RALT:
+			m_alt_status = false;
+			m_pause = false;
+			m_on_pause(false);
 			break;
 
 		default:

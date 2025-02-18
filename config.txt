@@ -5,6 +5,9 @@ file = ./testRoms/gba_bios.bin
 [EMU]
 start_paused = true
 scale = 4
+rewind_buf_size = 
+rewind_interval_seconds = 
+rewind_enable = true
 
 [ROM]
 default_rom = ./testRoms/Zelda.gba

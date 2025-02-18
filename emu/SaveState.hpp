@@ -16,6 +16,8 @@ namespace GBA::savestate {
 	//Current savestate version
 	static constexpr u32 VERSION = 1;
 
+	static constexpr std::size_t STATE_UPPER_BOUND_SIZE = std::size_t(1024) * 1024;
+
 	/// <summary>
 	/// Savestate struct
 	/// </summary>
@@ -69,4 +71,7 @@ namespace GBA::savestate {
 
 	void LoadFromFile(std::ifstream& fd, emulation::Emulator* emu);
 	void StoreToFile(std::ofstream& fd, emulation::Emulator* emu);
+
+	void StoreToBuffer(std::string& buf, emulation::Emulator* emu);
+	void LoadFromBuffer(std::string const& buf, emulation::Emulator* emu);
 }

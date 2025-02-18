@@ -33,6 +33,9 @@ namespace GBA::config {
 		section.set("start_paused", "true");
 		section.set("scale", "4");
 		section.set("quick_save_path", "./quick_state");
+		section.set("rewind_buf_size", "30");
+		section.set("rewind_interval_seconds", "1");
+		section.set("rewind_enable", "true");
 
 		data.set({ { "EMU", section } });
 	}

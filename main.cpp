@@ -1,4 +1,6 @@
 #include <iostream>
+#include <optional>
+#include <chrono>
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
@@ -15,6 +17,16 @@
 #ifdef main
 #undef main
 #endif // main
+
+static std::optional<int> parse_int(std::string const& str) {
+	try {
+		int value = std::stoi(str);
+		return value;
+	}
+	catch (std::exception const&) {}
+
+	return std::nullopt;
+}
 
 
 int main(int argc, char* argv[]) {
@@ -45,6 +57,8 @@ int main(int argc, char* argv[]) {
 		std::cin.get();
 		std::exit(0);
 	}
+
+	/////////////////////////////////////////////////////////////
 
 	bool paused = conf.data.get("EMU").get("start_paused") == "true";
 	bool has_rom = false;
@@ -87,28 +101,36 @@ int main(int argc, char* argv[]) {
 
 	std::string scale = conf.data.get("EMU").has("scale") ?
 		conf.data.get("EMU").get("scale") :
-		std::string("3");
+		std::string("4");
 
-	unsigned int scale_val = 0;
-
-	try {
-		scale_val = std::stoi(scale);
-	}
-	catch (std::exception const&) {
-		std::cout << "Screen scale is not valid, using default" << std::endl;
-		scale_val = 3;
-	}
+	unsigned int scale_val = parse_int(scale).value_or(4);
 
 	if (scale_val == 0 || scale_val > 10)
 		scale_val = 4;
 
+	unsigned int rewind_buf_size{}, rewind_interval{};
+	bool rewind_enable{ false };
+
+	{
+		rewind_buf_size = unsigned(parse_int(conf.data["EMU"]["rewind_buf_size"]).value_or(30));
+		rewind_interval = unsigned(parse_int(conf.data["EMU"]["rewind_interval_seconds"])
+			.value_or(1));
+		rewind_enable = conf.data["EMU"]["rewind_enable"] == "true";
+	}
+
+	emu->SetRewindBufferSize(GBA::common::u32(rewind_buf_size));
+
+	/////////////////////////////////////////////////////////////////
+
 	GBA::video::renderer::OpenGL opengl_rend{paused};
+
 	opengl_rend.SetKeypad(&emu->GetContext().keypad);
+
 	if (!opengl_rend.Init(scale_val, scale_val)) {
 		std::exit(0);
 	}
 
-	opengl_rend.SetQuickSaveAction([&conf, emu](bool save) {
+	opengl_rend.SetQuickSaveAction([&conf, emu, &opengl_rend](bool save) {
 		std::string quick_save_path = conf.data.has("quick_save_path") ?
 			conf.data.get("EMU").get("quick_save_path") : 
 			std::string{"./quick_state"};
@@ -130,37 +152,86 @@ int main(int argc, char* argv[]) {
 		}
 		else {
 			emu->LoadState(quick_save_path);
+			auto framebuf = emu->GetContext()
+				.ppu
+				.GetFrame();
+			opengl_rend.SetFrame(framebuf);
 		}
 		
 	});
 
-	opengl_rend.SetOnPause([&paused](bool val) { paused = val; });
+	opengl_rend.SetOnPause([&paused, emu](bool val) { 
+		if (paused != val && !val) {
+			emu->RewindPop();
+		}
+
+		paused = val; 
+	});
+
 	opengl_rend.SetRomSelectedAction([&emu_init](std::string rom) {
 		emu_init(rom);
 	});
+
 	opengl_rend.SetSaveSelectedAction([emu](std::string file_path) {
 		if (!emu->GetContext().pack.LoadBackup(file_path))
 			std::cout << "Load failed" << std::endl;
 		else
 			std::cout << "Load successfull" << std::endl;
 	});
+
 	opengl_rend.SetSaveStoreAction([emu](std::string dest) {
 		if (!emu->GetContext().pack.StoreBackup(dest))
 			std::cout << "Save failed" << std::endl;
 		else
 			std::cout << "Save ok" << std::endl;
 	});
-	opengl_rend.SetSaveStateAction([emu](std::string path, bool store) {
+
+	opengl_rend.SetSaveStateAction([emu, &opengl_rend](std::string path, bool store) {
 		if (store)
 			emu->StoreState(path);
-		else
+		else {
 			emu->LoadState(path);
+			auto framebuf = emu->GetContext()
+				.ppu
+				.GetFrame();
+			opengl_rend.SetFrame(framebuf);
+		}
 	});
+
+	opengl_rend.SetRewindAction([emu, &opengl_rend](bool forward) {
+		if (forward) {
+			if (emu->RewindForward()) {
+				auto framebuf = emu->GetContext()
+					.ppu
+					.GetFrame();
+				opengl_rend.SetFrame(framebuf);
+			}
+			else {
+				std::cout << "Cannot forward" << std::endl;
+			}
+		}
+		else {
+			if (emu->RewindBackward()) {
+				auto framebuf = emu->GetContext()
+					.ppu
+					.GetFrame();
+				opengl_rend.SetFrame(framebuf);
+			}
+			else {
+				std::cout << "Cannot backward" << std::endl;
+			}
+		}
+	});
+
 	opengl_rend.SetSyncToAudioCallback([audio](bool sync) { audio->AudioSync(sync); });
 
 	audio->Start();
 
 	auto& ctx = emu->GetContext();
+
+	/////////////////////////////////////////////////////////////////////
+
+	auto last_save_timestamp = std::chrono::system_clock::now();
 
 	while (!opengl_rend.Stopped())
 	{
@@ -177,10 +248,24 @@ int main(int argc, char* argv[]) {
 				auto framebuffer = ctx.ppu.GetFrame();
 				opengl_rend.SetFrame(framebuffer);
 			}
+
+			if (rewind_enable) {
+				auto now = std::chrono::system_clock::now();
+				auto diff = std::chrono::duration_cast<std::chrono::seconds>(
+					now - last_save_timestamp
+				).count();
+
+				if (diff >= long long(rewind_interval)) {
+					last_save_timestamp = now;
+					emu->RewindPush();
+				}
+			}
 		}
 
 		opengl_rend.PresentFrame();
 	}
+
+	//////////////////////////////////////////////////////////////////////////
 
 	audio->Stop();
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string_view>
+#include <deque>
 
 #include "../common/Defs.hpp"
 
@@ -50,6 +51,20 @@ namespace GBA::emulation {
 		void StoreState(std::string const& path);
 		void LoadState(std::string const& path);
 
+		bool RewindPush();
+		bool RewindBackward();
+		bool RewindForward();
+		bool RewindPop();
+
+		void SetRewindBufferSize(common::u32 buf_size) {
+			m_rewind_buf_size = buf_size;
+			m_rewind_pos = 0;
+
+			if (m_rewind_buf.size() >= m_rewind_buf_size) {
+				m_rewind_buf.resize(buf_size);
+			}
+		}
+
 		~Emulator();
 
 		template <typename Ar>
@@ -87,8 +102,15 @@ namespace GBA::emulation {
 		}
 
 	private :
+		bool LoadFromCurrentHistoryPosition();
+
+	private :
 		EmulatorContext m_ctx;
 
 		std::optional<std::string> m_bios_loc;
+
+		common::u32 m_rewind_buf_size;
+		common::u32 m_rewind_pos;
+		std::deque<std::string> m_rewind_buf;
 	};
 }
