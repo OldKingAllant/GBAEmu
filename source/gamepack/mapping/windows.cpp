@@ -6,7 +6,7 @@ namespace GBA::gamepack::mapping {
 		FileMapInfo info{};
 
 		info.file_handle = CreateFileA(
-			fname, GENERIC_READ, 0, NULL,
+			fname, GENERIC_READ, FILE_SHARE_READ, NULL,
 			OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
 			NULL
 		);
@@ -23,7 +23,7 @@ namespace GBA::gamepack::mapping {
 
 		info.file_mapping_obj = CreateFileMappingA(
 			info.file_handle, NULL,
-			PAGE_READONLY, 0, 0, NULL
+			PAGE_WRITECOPY, 0, 0, NULL
 		);
 
 		if (!info.file_mapping_obj)
@@ -31,7 +31,7 @@ namespace GBA::gamepack::mapping {
 
 		info.map_address = MapViewOfFile(
 			info.file_mapping_obj,
-			FILE_MAP_READ, 0, 0,
+			FILE_MAP_COPY, 0, 0,
 			0
 		);
 

@@ -26,7 +26,7 @@ namespace GBA::gamepack::mapping {
         info.file_size = file_status.st_size;
 
         info.map_address = (int8_t*)mmap(nullptr, info.file_size,
-        PROT_READ, MAP_PRIVATE, fd, 0);
+        PROT_WRITE, MAP_PRIVATE, fd, 0);
 
         if(info.map_address == MAP_FAILED)
             return { {}, false };
