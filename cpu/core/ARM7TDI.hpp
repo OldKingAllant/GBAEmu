@@ -30,6 +30,26 @@ namespace GBA::cpu {
 			m_halt = true;
 		}
 
+		template <typename Ar>
+		void save(Ar& ar) const {
+			ar(m_halt);
+			ar(m_ctx.m_regs);
+			ar(m_ctx.m_cpsr);
+			ar(m_ctx.m_spsr);
+			ar(m_ctx.m_pipeline);
+			ar(m_ctx.m_old_pc);
+		}
+
+		template <typename Ar>
+		void load(Ar& ar) {
+			ar(m_halt);
+			ar(m_ctx.m_regs);
+			ar(m_ctx.m_cpsr);
+			ar(m_ctx.m_spsr);
+			ar(m_ctx.m_pipeline);
+			ar(m_ctx.m_old_pc);
+		}
+
 	private :
 		bool CheckIRQ();
 

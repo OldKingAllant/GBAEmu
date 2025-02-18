@@ -12,11 +12,31 @@ namespace GBA::apu {
 		void SetMMIO(memory::MMIO* mmio);
 		void Restart();
 
+		void RegisterEventTypes() override;
+
 		static constexpr uint64_t CPU_CYCLES = 16'780'000;
 		static constexpr uint64_t ENVELOPE_BASE_CYCLES = 262'187;
 		static constexpr uint64_t LEN_CYCLES = 65'547;
 		static constexpr uint64_t DIV_CYCLES = 32'773;
 		static constexpr uint64_t BASE_HZ = 524288;
+
+		template <typename Ar>
+		void save(Ar& ar) const {
+			ar(m_seq);
+			ar(m_enabled);
+			ar(m_lsfr);
+			ar(m_envelope_control.raw);
+			ar(m_control.raw);
+		}
+
+		template <typename Ar>
+		void load(Ar& ar) {
+			ar(m_seq);
+			ar(m_enabled);
+			ar(m_lsfr);
+			ar(m_envelope_control.raw);
+			ar(m_control.raw);
+		}
 
 	private :
 		Sequencer m_seq;

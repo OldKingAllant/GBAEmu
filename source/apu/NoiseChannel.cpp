@@ -80,6 +80,13 @@ namespace GBA::apu {
 			noise_sample_update, userdata, true);
 	}
 
+	void NoiseChannel::RegisterEventTypes() {
+		m_sched->SetEventTypeRodata(memory::EventType::APU_CH4_SAMPLE_UPDATE,
+			noise_sample_update, std::bit_cast<void*>(this));
+		m_sched->SetEventTypeRodata(memory::EventType::APU_CH4_SEQUENCER,
+			noise_seq_update, std::bit_cast<void*>(this));
+	}
+
 	void NoiseChannel::SetMMIO(memory::MMIO* mmio) {
 		u8* env = std::bit_cast<u8*>(&m_envelope_control);
 		u8* cnt = std::bit_cast<u8*>(&m_control);

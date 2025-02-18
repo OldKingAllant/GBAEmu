@@ -27,11 +27,14 @@ namespace GBA::apu {
 
 		void SetScheduler(memory::EventScheduler* sched) {
 			m_sched = sched;
+			this->RegisterEventTypes();
 		}
 
 		i16 GetSample() const { return m_curr_sample; }
 		i16 GetNumAccum() const { return m_sample_accum; }
 		void ResetAccum() { m_sample_accum = 1; }
+
+		virtual void RegisterEventTypes() = 0;
 
 	protected:
 		EnableCallback m_en_callback;

@@ -18,7 +18,7 @@ namespace GBA::video::renderer {
 
 	OpenGL::OpenGL(bool pause) :
 		m_window(nullptr), m_gl_context(nullptr),
-		m_gl_data{}, m_conf_callback{},
+		m_gl_data{}, m_quick_save{},
 		m_on_pause{}, m_on_select{},
 		m_save_load{}, m_save_store{}, m_save_state{},
 		m_audio_sync{},
@@ -212,6 +212,16 @@ namespace GBA::video::renderer {
 
 		case SDL_SCANCODE_ESCAPE:
 			m_show_menu_bar = !m_show_menu_bar;
+			break;
+
+		case SDL_SCANCODE_F5:
+			if (m_quick_save)
+				m_quick_save(true);
+			break;
+
+		case SDL_SCANCODE_F1:
+			if (m_quick_save)
+				m_quick_save(false);
 			break;
 
 		case SDL_SCANCODE_C: {

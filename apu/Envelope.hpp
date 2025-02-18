@@ -21,6 +21,30 @@ namespace GBA::apu {
 
 		void Update();
 
+		template <typename Ar>
+		void save(Ar& ar) const {
+			ar(m_ticks);
+			ar(m_curr_vol);
+			ar(m_shadow.step);
+			ar(m_shadow.dir);
+			ar(m_shadow.init);
+			ar(m_step);
+			ar(m_dir);
+			ar(m_init);
+		}
+
+		template <typename Ar>
+		void load(Ar& ar) {
+			ar(m_ticks);
+			ar(m_curr_vol);
+			ar(m_shadow.step);
+			ar(m_shadow.dir);
+			ar(m_shadow.init);
+			ar(m_step);
+			ar(m_dir);
+			ar(m_init);
+		}
+
 	private:
 		uint64_t m_ticks;
 

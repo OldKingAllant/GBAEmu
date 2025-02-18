@@ -58,6 +58,20 @@ namespace GBA::cpu {
 			}
 		}
 
+		template <typename Ar>
+		void save(Ar& ar) const {
+			ar(m_fetch_pc);
+			ar(m_fetched);
+			ar(m_decoded);
+		}
+
+		template <typename Ar>
+		void load(Ar& ar) {
+			ar(m_fetch_pc);
+			ar(m_fetched);
+			ar(m_decoded);
+		}
+
 	private :
 		u32 m_fetch_pc;
 		u32 m_fetched;

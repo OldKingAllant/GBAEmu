@@ -35,6 +35,18 @@ namespace GBA::input {
 
 		static constexpr common::u32 KEYPAD_REG_OFFSET = 0x130;
 
+		template <typename Ar>
+		void save(Ar& ar) const {
+			ar(m_status);
+			ar(m_control);
+		}
+
+		template <typename Ar>
+		void load(Ar& ar) {
+			ar(m_status);
+			ar(m_control);
+		}
+
 	private :
 		void RequestInterrupt();
 

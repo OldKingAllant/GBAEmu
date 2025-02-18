@@ -1,8 +1,10 @@
 #include "Emulator.hpp"
 
 #include "../common/Logger.hpp"
+#include "SaveState.hpp"
 
 #include <fstream>
+#include <filesystem>
 
 namespace GBA::emulation {
 	LOG_CONTEXT(Emulator);
@@ -114,26 +116,29 @@ namespace GBA::emulation {
 		}
 	}
 
-	bool Emulator::StoreState(std::string const& path) {
-		std::ofstream out{ path, std::ios::out | std::ios::binary };
+	void Emulator::StoreState(std::string const& path) {
+		std::ofstream out{ path, std::ios::out };
 
-		if (!out.is_open())
-			return false;
+		if (!out.is_open()) {
+			fmt::println("Save state failed!");
+			return;
+		}
 
-		m_ctx.apu.StoreState(out);
+		out.close();
+		out.open(path, std::ios::out | std::ios::binary);
 
-		return true;
+		savestate::StoreToFile(out, this);
 	}
 
-	bool Emulator::LoadState(std::string const& path) {
+	void Emulator::LoadState(std::string const& path) {
 		std::ifstream in{ path, std::ios::in | std::ios::binary };
 
-		if (!in.is_open())
-			return false;
+		if (!in.is_open()) {
+			fmt::println("Load state failed!");
+			return;
+		}
 
-		m_ctx.apu.LoadState(in);
-
-		return true;
+		savestate::LoadFromFile(in, this);
 	}
 
 	Emulator::~Emulator() {

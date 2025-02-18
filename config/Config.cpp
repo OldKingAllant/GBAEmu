@@ -31,6 +31,8 @@ namespace GBA::config {
 		section.clear();
 
 		section.set("start_paused", "true");
+		section.set("scale", "4");
+		section.set("quick_save_path", "./quick_state");
 
 		data.set({ { "EMU", section } });
 	}

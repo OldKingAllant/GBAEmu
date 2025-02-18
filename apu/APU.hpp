@@ -2,6 +2,10 @@
 
 #include "../common/Defs.hpp"
 
+#include "SquareChannel.hpp"
+#include "NoiseChannel.hpp"
+#include "WaveChannel.hpp"
+
 #include <functional>
 #include <ostream>
 #include <istream>
@@ -52,6 +56,52 @@ namespace GBA::apu {
 		void LoadState(std::istream& in);
 
 		~APU();
+
+		template <typename Ar>
+		void save(Ar& ar) const {
+			ar(m_curr_samples);
+			ar(m_req_samples);
+			ar(m_internal_A_buffer);
+			ar(m_internal_B_buffer);
+			ar(m_A_pos);
+			ar(m_B_pos);
+			ar(m_freq);
+			ar(m_cycles_before_output);
+			ar(m_curr_ch_samples);
+			ar(m_curr_ch_sample_accum);
+			ar(m_soundcnt_h.raw);
+			ar(m_soundcnt_x.raw);
+			ar(m_soundbias.raw);
+			ar(m_soundcnt_l.raw);
+
+			ar(*m_sound1);
+			ar(*m_sound2);
+			ar(*m_noise);
+			ar(*m_wave);
+		}
+
+		template <typename Ar>
+		void load(Ar& ar) {
+			ar(m_curr_samples);
+			ar(m_req_samples);
+			ar(m_internal_A_buffer);
+			ar(m_internal_B_buffer);
+			ar(m_A_pos);
+			ar(m_B_pos);
+			ar(m_freq);
+			ar(m_cycles_before_output);
+			ar(m_curr_ch_samples);
+			ar(m_curr_ch_sample_accum);
+			ar(m_soundcnt_h.raw);
+			ar(m_soundcnt_x.raw);
+			ar(m_soundbias.raw);
+			ar(m_soundcnt_l.raw);
+
+			ar(*m_sound1);
+			ar(*m_sound2);
+			ar(*m_noise);
+			ar(*m_wave);
+		}
 
 	private :
 		memory::DMA* m_dma1;

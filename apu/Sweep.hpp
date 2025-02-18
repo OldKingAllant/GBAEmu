@@ -26,6 +26,20 @@ namespace GBA::apu {
 
 		static constexpr uint64_t SWEEP_CYCLES = 131'093;
 
+		template <typename Ar>
+		void save(Ar& ar) const {
+			ar(m_control.raw);
+			ar(m_ticks);
+			ar(m_freq);
+		}
+
+		template <typename Ar>
+		void load(Ar& ar) {
+			ar(m_control.raw);
+			ar(m_ticks);
+			ar(m_freq);
+		}
+
 	private:
 		uint64_t m_ticks;
 		u32 m_freq;

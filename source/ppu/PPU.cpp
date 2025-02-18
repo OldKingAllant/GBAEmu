@@ -239,6 +239,19 @@ namespace GBA::ppu {
 	void PPU::SetScheduler(memory::EventScheduler* sched) {
 		m_sched = sched;
 
+		m_sched->SetEventTypeRodata(EventType::HBLANK, HblankEventCallback,
+			std::bit_cast<void*>(this));
+		m_sched->SetEventTypeRodata(EventType::VBLANK, VblankEventCallback,
+			std::bit_cast<void*>(this));
+		m_sched->SetEventTypeRodata(EventType::PPUNORMAL, NormalEventCallback,
+			std::bit_cast<void*>(this));
+		m_sched->SetEventTypeRodata(EventType::SCANLINE_INC, ScanlineEventCallback,
+			std::bit_cast<void*>(this));
+		m_sched->SetEventTypeRodata(EventType::HBLANK_IN_VBLANK, VblankHblankCallback,
+			std::bit_cast<void*>(this));
+		m_sched->SetEventTypeRodata(EventType::END_VBLANK, VblankEndCallback,
+			std::bit_cast<void*>(this));
+
 		sched->ScheduleAbsolute(m_last_event_timestamp +
 			CYCLES_PER_SCANLINE, EventType::HBLANK, HblankEventCallback, this);
 

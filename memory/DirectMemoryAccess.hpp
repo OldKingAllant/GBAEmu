@@ -23,6 +23,40 @@ namespace GBA::memory {
 
 		void TriggerDMA(DMAFireType trigger_type);
 
+		template <typename Ar>
+		void save(Ar& ar) const {
+			ar(m_id);
+			ar(m_source_address);
+			ar(m_dest_address);
+			ar(m_word_count);
+			ar(m_control);
+			ar(m_curr_address);
+			ar(m_curr_word_count);
+			ar(m_curr_word_sz);
+			ar(m_curr_source);
+			ar(m_curr_dest);
+			ar(m_orig_dad);
+			ar(m_sad_inc);
+			ar(m_dad_inc);
+		}
+
+		template <typename Ar>
+		void load(Ar& ar) {
+			ar(m_id);
+			ar(m_source_address);
+			ar(m_dest_address);
+			ar(m_word_count);
+			ar(m_control);
+			ar(m_curr_address);
+			ar(m_curr_word_count);
+			ar(m_curr_word_sz);
+			ar(m_curr_source);
+			ar(m_curr_dest);
+			ar(m_orig_dad);
+			ar(m_sad_inc);
+			ar(m_dad_inc);
+		}
+
 	private :
 		Bus* m_bus;
 		InterruptController* m_int_controller;

@@ -81,6 +81,10 @@ namespace GBA::cpu {
 			return *reinterpret_cast<u32*>(this);
 		}
 
+		operator u32() const {
+			return *reinterpret_cast<u32 const*>(this);
+		}
+
 		CPSR& operator=(u32 value) {
 			*reinterpret_cast<u32*>(this) = value;
 			return *this;
@@ -104,6 +108,19 @@ namespace GBA::cpu {
 			u32 res = first - second;
 
 			overflow = ((first ^ second) & (first ^ res)) >> 31;
+		}
+
+		template <typename Ar>
+		void save(Ar& ar) const {
+			u32 temp{ (u32)*this };
+			ar(temp);
+		}
+
+		template <typename Ar>
+		void load(Ar& ar) {
+			u32 temp{};
+			ar(temp);
+			*this = temp;
 		}
 	};
 

@@ -31,6 +31,24 @@ namespace GBA::timers {
 			1, 64, 256, 1024
 		};
 
+		template <typename Ar>
+		void save(Ar& ar) const {
+			ar(m_registers);
+			ar(m_timer_reload_val);
+			ar(m_timer_internal_counter);
+			ar(m_last_read_timestamp);
+			ar(m_last_event_timestamp);
+		}
+
+		template <typename Ar>
+		void load(Ar& ar) {
+			ar(m_registers);
+			ar(m_timer_reload_val);
+			ar(m_timer_internal_counter);
+			ar(m_last_read_timestamp);
+			ar(m_last_event_timestamp);
+		}
+
 	private :
 		memory::InterruptController* m_int_controller;
 		memory::EventScheduler* m_sched;

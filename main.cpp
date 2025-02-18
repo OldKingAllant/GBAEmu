@@ -108,9 +108,30 @@ int main(int argc, char* argv[]) {
 		std::exit(0);
 	}
 
-	opengl_rend.SetConfigChangeCallback([&conf](std::string _1, std::string _2, std::string _3) {
-		if (!conf.Change(_1, _2, _3))
-			std::cout << "Could not change configuration" << std::endl;
+	opengl_rend.SetQuickSaveAction([&conf, emu](bool save) {
+		std::string quick_save_path = conf.data.has("quick_save_path") ?
+			conf.data.get("EMU").get("quick_save_path") : 
+			std::string{"./quick_state"};
+
+		if (!std::filesystem::is_directory(quick_save_path)) {
+			std::cout << "Invalid quick save path, using default" << std::endl;
+			quick_save_path = "./quick_state";
+		}
+
+		if (!std::filesystem::exists(quick_save_path)) {
+			std::filesystem::create_directories(quick_save_path);
+		}
+
+		std::string fname = emu->GetContext().pack.GetRomPath().stem().string();
+		quick_save_path += "/" + fname + ".state";
+
+		if (save) {
+			emu->StoreState(quick_save_path);
+		}
+		else {
+			emu->LoadState(quick_save_path);
+		}
+		
 	});
 
 	opengl_rend.SetOnPause([&paused](bool val) { paused = val; });
@@ -130,17 +151,10 @@ int main(int argc, char* argv[]) {
 			std::cout << "Save ok" << std::endl;
 	});
 	opengl_rend.SetSaveStateAction([emu](std::string path, bool store) {
-		bool success = false;
-
 		if (store)
-			success = emu->StoreState(path);
+			emu->StoreState(path);
 		else
-			success = emu->LoadState(path);
-
-		if (!success)
-			std::cout << "Savestate action failed" << std::endl;
-		else
-			std::cout << "Success" << std::endl;
+			emu->LoadState(path);
 	});
 	opengl_rend.SetSyncToAudioCallback([audio](bool sync) { audio->AudioSync(sync); });
 

@@ -156,6 +156,9 @@ namespace GBA::apu {
 		m_sound2->SetScheduler(sched);
 		m_noise->SetScheduler(sched);
 		m_wave->SetScheduler(sched);
+
+		m_sched->SetEventTypeRodata(memory::EventType::APU_SAMPLE_OUT,
+			output_sample, std::bit_cast<void*>(this));
 	}
 
 	void APU::MixSample(i16& sample_l, i16& sample_r, ChannelId ch_id) {

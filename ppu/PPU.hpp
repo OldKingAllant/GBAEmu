@@ -5,6 +5,7 @@
 #include "../common/Defs.hpp"
 
 #include <array>
+#include <vector>
 
 namespace GBA::memory {
 	class MMIO;
@@ -20,6 +21,24 @@ namespace GBA::ppu {
 		GBA::common::i16 palette_id;
 		GBA::common::u16 color;
 		GBA::common::u8 priority;
+
+		template <typename Ar>
+		void save(Ar& ar) const {
+			ar(is_present);
+			ar(is_bld_enabled);
+			ar(palette_id);
+			ar(color);
+			ar(priority);
+		}
+
+		template <typename Ar>
+		void load(Ar& ar) {
+			ar(is_present);
+			ar(is_bld_enabled);
+			ar(palette_id);
+			ar(color);
+			ar(priority);
+		}
 	};
 
 	enum class Mode {
@@ -149,6 +168,88 @@ namespace GBA::ppu {
 
 		common::u8* DebuggerGetPalette();
 		common::u8* DebuggerGetVRAM();
+
+		template <typename Ar>
+		void save(Ar& ar) const {
+			using namespace common;
+			
+			std::vector<u8> palette_temp{};
+			std::vector<u8> vram_temp{};
+			std::vector<u8> oam_temp{};
+			std::vector<float> framebuf_temp{};
+
+			palette_temp.resize(0x400);
+			vram_temp.resize(0x18000);
+			oam_temp.resize(0x400);
+			framebuf_temp.resize(size_t(240) * 160 * 3);
+
+			std::copy_n(m_palette_ram, 0x400, palette_temp.begin());
+			std::copy_n(m_vram, 0x18000, vram_temp.begin());
+			std::copy_n(m_oam, 0x400, oam_temp.begin());
+			std::copy_n(m_framebuffer, framebuf_temp.size(), framebuf_temp.begin());
+
+			ar(m_ctx.array);
+			ar(m_mode_cycles);
+			ar(m_curr_mode);
+
+			ar(palette_temp);
+			ar(vram_temp);
+			ar(oam_temp);
+			ar(framebuf_temp);
+
+			ar(m_internal_reference_x);
+			ar(m_internal_reference_y);
+
+			ar(m_frame_ok);
+
+			ar(m_last_event_timestamp);
+
+			ar(line_sprites_ids);
+			ar(line_sprites_count);
+			ar(m_line_data);
+			ar(m_obj_window_pixels);
+		}
+
+		template <typename Ar>
+		void load(Ar& ar) {
+			using namespace common;
+
+			std::vector<u8> palette_temp{};
+			std::vector<u8> vram_temp{};
+			std::vector<u8> oam_temp{};
+			std::vector<float> framebuf_temp{};
+
+			palette_temp.resize(0x400);
+			vram_temp.resize(0x18000);
+			oam_temp.resize(0x400);
+			framebuf_temp.resize(size_t(240) * 160 * 3);
+
+			ar(m_ctx.array);
+			ar(m_mode_cycles);
+			ar(m_curr_mode);
+
+			ar(palette_temp);
+			ar(vram_temp);
+			ar(oam_temp);
+			ar(framebuf_temp);
+
+			ar(m_internal_reference_x);
+			ar(m_internal_reference_y);
+
+			ar(m_frame_ok);
+
+			ar(m_last_event_timestamp);
+
+			ar(line_sprites_ids);
+			ar(line_sprites_count);
+			ar(m_line_data);
+			ar(m_obj_window_pixels);
+
+			std::copy_n(palette_temp.begin(), 0x400, m_palette_ram);
+			std::copy_n(vram_temp.begin(), 0x18000, m_vram);
+			std::copy_n(oam_temp.begin(), 0x400, m_oam);
+			std::copy_n(framebuf_temp.begin(), framebuf_temp.size(), m_framebuffer);
+		}
 
 	private:
 		void InitHandlers(memory::MMIO* mmio);

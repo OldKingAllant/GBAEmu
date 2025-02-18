@@ -37,6 +37,17 @@ namespace GBA::memory {
 
 		void RequestInterrupt(InterruptType type);
 
+		template <typename Ar>
+		void save(Ar& ar) const {
+			ar(m_registers);
+			ar(m_irq_line);
+		}
+
+		template <typename Ar>
+		void load(Ar& ar) {
+			ar(m_registers);
+			ar(m_irq_line);
+		}
 	private :
 		common::u8 m_registers[0xC];
 

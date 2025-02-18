@@ -12,6 +12,7 @@
 #include "../memory/Timers.hpp"
 
 #include <algorithm>
+#include <vector>
 
 namespace GBA::gamepack {
 	class GamePack;
@@ -414,6 +415,72 @@ namespace GBA::memory {
 		}
 
 		TimeManager m_time;
+
+		template <typename Ar>
+		void save(Ar& ar) const {
+			std::vector<u8> wram_temp{};
+			std::vector<u8> iram_temp{};
+
+			wram_temp.resize(0x40000);
+			iram_temp.resize(0x8000);
+
+			std::copy_n(m_wram, 0x40000, wram_temp.begin());
+			std::copy_n(m_iwram, 0x8000, iram_temp.begin());
+
+			ar(m_time);
+			ar(wram_temp);
+			ar(iram_temp);
+
+			ar(m_prefetch.active);
+			ar(m_prefetch.address);
+			ar(m_prefetch.duty);
+			ar(m_prefetch.current_cycles);
+			ar(m_enable_prefetch);
+
+			ar(m_bios_latch);
+			ar(m_open_bus_value);
+			ar(m_open_bus_address);
+
+			ar(active_dmas_count);
+			ar(active_dmas);
+
+			ar(m_post_boot);
+			ar(m_halt_cnt);
+			ar(m_mem_control);
+		}
+
+		template <typename Ar>
+		void load(Ar& ar) {
+			std::vector<u8> wram_temp{};
+			std::vector<u8> iram_temp{};
+
+			wram_temp.resize(0x40000);
+			iram_temp.resize(0x8000);
+
+			ar(m_time);
+			ar(wram_temp);
+			ar(iram_temp);
+
+			ar(m_prefetch.active);
+			ar(m_prefetch.address);
+			ar(m_prefetch.duty);
+			ar(m_prefetch.current_cycles);
+			ar(m_enable_prefetch);
+
+			ar(m_bios_latch);
+			ar(m_open_bus_value);
+			ar(m_open_bus_address);
+
+			ar(active_dmas_count);
+			ar(active_dmas);
+
+			ar(m_post_boot);
+			ar(m_halt_cnt);
+			ar(m_mem_control);
+
+			std::copy_n(wram_temp.begin(), 0x40000, m_wram);
+			std::copy_n(iram_temp.begin(), 0x8000, m_iwram);
+		}
 
 	private :
 		gamepack::GamePack* m_pack;

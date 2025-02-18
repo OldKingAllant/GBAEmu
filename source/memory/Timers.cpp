@@ -161,6 +161,15 @@ namespace GBA::timers {
 
 	void TimerChain::SetEventScheduler(memory::EventScheduler* ev_sched) {
 		m_sched = ev_sched;
+
+		m_sched->SetEventTypeRodata(memory::EventType::TIMER_0_INC,
+			TimerIncremented<0>, std::bit_cast<void*>(this));
+		m_sched->SetEventTypeRodata(memory::EventType::TIMER_1_INC,
+			TimerIncremented<1>, std::bit_cast<void*>(this));
+		m_sched->SetEventTypeRodata(memory::EventType::TIMER_2_INC,
+			TimerIncremented<2>, std::bit_cast<void*>(this));
+		m_sched->SetEventTypeRodata(memory::EventType::TIMER_3_INC,
+			TimerIncremented<3>, std::bit_cast<void*>(this));
 	}
 
 	void TimerChain::SetMMIO(memory::MMIO* mmio) {

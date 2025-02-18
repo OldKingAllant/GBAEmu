@@ -134,6 +134,20 @@ namespace GBA::apu {
 
 	void SquareChannel::SetScheduler(memory::EventScheduler* sched) {
 		m_sched = sched;
+
+		if (m_has_sweep) {
+			m_sched->SetEventTypeRodata(memory::EventType::APU_CH1_SAMPLE_UPDATE,
+				sample_update, std::bit_cast<void*>(this));
+			m_sched->SetEventTypeRodata(memory::EventType::APU_CH1_SEQUENCER,
+				seq_update, std::bit_cast<void*>(this));
+		}
+		else {
+			m_sched->SetEventTypeRodata(memory::EventType::APU_CH2_SAMPLE_UPDATE,
+				sample_update, std::bit_cast<void*>(this));
+			m_sched->SetEventTypeRodata(memory::EventType::APU_CH2_SEQUENCER,
+				seq_update, std::bit_cast<void*>(this));
+		}
+		
 	}
 
 	void SquareChannel::SetEnableCallback(EnableCallback callback) {

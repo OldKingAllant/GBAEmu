@@ -6,9 +6,17 @@ namespace GBA::memory {
 	using namespace common;
 
 	EventScheduler::EventScheduler() :
-		m_events{}, m_num_events{0},
-		m_timestamp{0}
+		m_event_type_rodata{}, m_events{}, 
+		m_num_events{0}, m_timestamp{0}
 	{}
+
+	void EventScheduler::SetEventTypeRodata(EventType ev_ty, Callback callback, void* data) {
+		if (ev_ty > EventType::EVENT_MAX)
+			return;
+
+		m_event_type_rodata[u32(ev_ty)].first = callback;
+		m_event_type_rodata[u32(ev_ty)].second = data;
+	}
 
 	bool EventScheduler::Schedule(u32 cycles, EventType type, Callback callback, void* userdata, bool recursive) {
 		uint64_t next_timestamp = m_timestamp + cycles;

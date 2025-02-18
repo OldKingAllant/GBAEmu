@@ -43,6 +43,26 @@ namespace GBA::apu {
 			{ 1, 1, 1, 1, 1, 1, 0, 0 }
 		};
 
+		template <typename Ar>
+		void save(Ar& ar) const {
+			ar(m_envelope_control.raw);
+			ar(m_control.raw);
+			ar(m_curr_wave_pos);
+			ar(m_curr_freq);
+			ar(m_enabled);
+			ar(m_seq);
+		}
+
+		template <typename Ar>
+		void load(Ar& ar) {
+			ar(m_envelope_control.raw);
+			ar(m_control.raw);
+			ar(m_curr_wave_pos);
+			ar(m_curr_freq);
+			ar(m_enabled);
+			ar(m_seq);
+		}
+
 	private :
 		union {
 			struct {

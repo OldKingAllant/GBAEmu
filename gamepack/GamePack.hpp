@@ -1,15 +1,14 @@
 #pragma once
 
 #include "../common/Defs.hpp"
+
 #include "backups/Backup.hpp"
+#include "gpio/Gpio.hpp"
+
 #include <filesystem>
 
 #include "mapping/FileMapping.hpp"
 #include "Header.hpp"
-
-namespace GBA::gamepack::gpio {
-	class Gpio;
-}
 
 namespace GBA::gamepack {
 	using namespace common;
@@ -38,7 +37,34 @@ namespace GBA::gamepack {
 			return m_head;
 		}
 
+		fs::path const& GetRomPath() const {
+			return m_path;
+		}
+
 		~GamePack();
+
+		template <typename Ar>
+		void save(Ar& ar) const {
+			ar(*m_gpio);
+
+			/*switch (m_backup->GetBackupType())
+			{
+			case backups::BackupType::SRAM:
+				break;
+			case backups::BackupType::EEPROM:
+				break;
+			case backups::BackupType::FLASH:
+				break;
+			default:
+				break;
+			}*/
+			//Ignore backup for now
+		}
+
+		template <typename Ar>
+		void load(Ar& ar) {
+			ar(*m_gpio);
+		}
 
 	private :
 		bool MapFile();

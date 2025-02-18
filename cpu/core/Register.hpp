@@ -98,6 +98,22 @@ namespace GBA::cpu {
 			5, 0, 5, 5, 5, 5
 		};
 
+		template <typename Ar>
+		void save(Ar& ar) const {
+			ar(m_curr_mode);
+			ar(m_curr_regs.array);
+			ar(m_commonly_shared);
+			ar(m_banked_regs);
+		}
+
+		template <typename Ar>
+		void load(Ar& ar) {
+			ar(m_curr_mode);
+			ar(m_curr_regs.array);
+			ar(m_commonly_shared);
+			ar(m_banked_regs);
+		}
+
 	private :
 		u8 m_curr_mode;
 		Bank m_curr_regs;

@@ -1,7 +1,9 @@
 #pragma once
 
 #include "../common/Defs.hpp"
+
 #include <functional>
+#include <array>
 
 namespace GBA::memory {
 	//We could use an std::function
@@ -28,7 +30,8 @@ namespace GBA::memory {
 		APU_CH3_SEQUENCER,
 		APU_CH3_SAMPLE_UPDATE,
 		APU_CH4_SEQUENCER,
-		APU_CH4_SAMPLE_UPDATE
+		APU_CH4_SAMPLE_UPDATE,
+		EVENT_MAX
 	};
 
 	struct Event {
@@ -43,6 +46,8 @@ namespace GBA::memory {
 	public :
 		EventScheduler();
 
+		void SetEventTypeRodata(EventType ev_ty, Callback callback, void* data);
+
 		bool Schedule(common::u32 cycles, EventType type, Callback callback, void* userdata, bool recursive = false);
 		bool ScheduleAbsolute(uint64_t timestamp, EventType type, Callback callback, void* userdata, bool recursive = false);
 		bool Deschedule(EventType type);
@@ -50,7 +55,7 @@ namespace GBA::memory {
 
 		Event const& GetFirstEvent() const;
 
-		uint64_t GetTimestamp() const {
+		inline uint64_t GetTimestamp() const {
 			return m_timestamp;
 		}
 
@@ -58,7 +63,50 @@ namespace GBA::memory {
 
 		static constexpr std::size_t MAX_EVENTS = 30;
 
+		template <typename Ar>
+		void save(Ar& ar) const {
+			using namespace common;
+
+			ar(m_num_events);
+			ar(m_timestamp);
+
+			for (u32 curr_event = 0; curr_event < m_num_events; curr_event++) {
+				ar(m_events[curr_event].base_timestamp);
+				ar(m_events[curr_event].trigger_timestamp);
+				ar(m_events[curr_event].type);
+			}
+		}
+
+		template <typename Ar>
+		void load(Ar& ar) {
+			using namespace common;
+
+			uint64_t old_ev_count{};
+
+			ar(old_ev_count);
+			ar(m_timestamp);
+
+			m_num_events = 0;
+
+			for (u32 curr_event = 0; curr_event < old_ev_count; curr_event++) {
+				uint64_t base{}, trigger{};
+				EventType ty{};
+
+				ar(base);
+				ar(trigger);
+				ar(ty);
+
+				auto callback = m_event_type_rodata[u32(ty)].first;
+				auto data = m_event_type_rodata[u32(ty)].second;
+
+				ScheduleAbsolute(trigger, ty, callback, data);
+			}
+		}
+
+		using EvTypeData = std::pair<Callback, void*>;
+
 	private :
+		std::array<EvTypeData, size_t(EventType::EVENT_MAX)> m_event_type_rodata;
 		Event m_events[MAX_EVENTS];
 		std::size_t m_num_events;
 		std::uint64_t m_timestamp;

@@ -13,6 +13,16 @@ namespace GBA::apu {
 
 		bool Update();
 
+		template <typename Ar>
+		void save(Ar& ar) const {
+			ar(m_curr_len);
+		}
+
+		template <typename Ar>
+		void load(Ar& ar) {
+			ar(m_curr_len);
+		}
+
 	private:
 		u8 m_curr_len;
 	};

@@ -29,7 +29,69 @@ namespace GBA::gamepack::gpio {
 		common::u8 Read() override;
 		void Write(common::u8 pin_values) override;
 
+		virtual GpioDevType GetDevType() const override {
+			return GpioDevType::RTC;
+		}
+
 		~RTC() override = default;
+
+		template <typename Ar>
+		void save(Ar& ar) const {
+			ar(m_communication_enable);
+			ar(m_serial_clock);
+			ar(m_serial_data);
+
+			ar(m_in_buffer);
+			ar(m_out_buffer);
+			
+			ar(m_status);
+			ar(m_comm_dir);
+			ar(m_command);
+
+			ar(m_recv_bits);
+			ar(m_processed_bits);
+			ar(m_wanted_bits);
+
+			ar(m_stat.raw);
+
+			ar(m_time_latch.hour);
+			ar(m_time_latch.minute);
+			ar(m_time_latch.second);
+
+			ar(m_date_latch.year);
+			ar(m_date_latch.month);
+			ar(m_date_latch.day_of_week);
+			ar(m_date_latch.day);
+		}
+
+		template <typename Ar>
+		void load(Ar& ar) {
+			ar(m_communication_enable);
+			ar(m_serial_clock);
+			ar(m_serial_data);
+
+			ar(m_in_buffer);
+			ar(m_out_buffer);
+
+			ar(m_status);
+			ar(m_comm_dir);
+			ar(m_command);
+
+			ar(m_recv_bits);
+			ar(m_processed_bits);
+			ar(m_wanted_bits);
+
+			ar(m_stat.raw);
+
+			ar(m_time_latch.hour);
+			ar(m_time_latch.minute);
+			ar(m_time_latch.second);
+
+			ar(m_date_latch.year);
+			ar(m_date_latch.month);
+			ar(m_date_latch.day_of_week);
+			ar(m_date_latch.day);
+		}
 
 	private :
 		void ProcessInput();

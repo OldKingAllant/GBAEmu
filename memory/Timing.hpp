@@ -176,6 +176,30 @@ namespace GBA::memory {
 			return 1;
 		}
 
+		template <typename Ar>
+		void save(Ar& ar) const {
+			ar(access);
+			ar(m_config_raw);
+			ar(m_curr_cycles);
+
+			ar(m_wait_config.sram);
+			ar(m_wait_config.rom0);
+			ar(m_wait_config.rom1);
+			ar(m_wait_config.rom2);
+		}
+
+		template <typename Ar>
+		void load(Ar& ar) {
+			ar(access);
+			ar(m_config_raw);
+			ar(m_curr_cycles);
+
+			ar(m_wait_config.sram);
+			ar(m_wait_config.rom0);
+			ar(m_wait_config.rom1);
+			ar(m_wait_config.rom2);
+		}
+
 	public :
 		u32 m_config_raw;
 

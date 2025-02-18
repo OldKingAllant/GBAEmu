@@ -25,6 +25,36 @@ namespace GBA::apu {
 		u32 GetFreq() const;
 		u8 GetVolume() const;
 
+		template <typename Ar>
+		void save(Ar& ar) const {
+			ar(m_has_sweep);
+			ar(m_last_timestamp);
+
+			if (m_sweep) {
+				ar(*m_sweep);
+			}
+
+			ar(m_envelope);
+			ar(m_len_counter);
+			ar(m_enable_len_counter);
+			ar(m_curr_update_count);
+		}
+
+		template <typename Ar>
+		void load(Ar& ar) {
+			ar(m_has_sweep);
+			ar(m_last_timestamp);
+
+			if (m_sweep) {
+				ar(*m_sweep);
+			}
+
+			ar(m_envelope);
+			ar(m_len_counter);
+			ar(m_enable_len_counter);
+			ar(m_curr_update_count);
+		}
+
 	private:
 		bool m_has_sweep;
 		std::uint64_t m_last_timestamp;

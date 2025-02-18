@@ -12,7 +12,7 @@ struct SDL_KeyboardEvent;
 namespace GBA::video::renderer {
 	struct OpenglFunctions;
 
-	using ConfigChangeCallback = std::function<void(std::string, std::string, std::string)>;
+	using QuickSaveCallback = std::function<void(bool)>;
 	using OnPause = std::function<void(bool)>;
 	using RomSelected = std::function<void(std::string)>;
 	using SaveLoad = std::function<void(std::string)>;
@@ -33,8 +33,8 @@ namespace GBA::video::renderer {
 
 		void SetFrame(float* buffer) override;
 
-		void SetConfigChangeCallback(ConfigChangeCallback callback) {
-			m_conf_callback = callback;
+		void SetQuickSaveAction(QuickSaveCallback callback) {
+			m_quick_save = callback;
 		}
 
 		void SetOnPause(OnPause callback) {
@@ -98,7 +98,7 @@ namespace GBA::video::renderer {
 			};
 		} m_gl_data;
 
-		ConfigChangeCallback m_conf_callback;
+		QuickSaveCallback m_quick_save;
 		OnPause m_on_pause;
 		RomSelected m_on_select;
 		SaveLoad m_save_load;

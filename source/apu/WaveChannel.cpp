@@ -146,6 +146,13 @@ namespace GBA::apu {
 		}
 	}
 
+	void WaveChannel::RegisterEventTypes() {
+		m_sched->SetEventTypeRodata(memory::EventType::APU_CH3_SAMPLE_UPDATE,
+			wave_sample_update, std::bit_cast<void*>(this));
+		m_sched->SetEventTypeRodata(memory::EventType::APU_CH3_SEQUENCER,
+			wave_seq_update, std::bit_cast<void*>(this));
+	}
+
 	void WaveChannel::Restart() {
 		m_sched->Deschedule(memory::EventType::APU_CH3_SEQUENCER);
 		m_sched->Deschedule(memory::EventType::APU_CH3_SAMPLE_UPDATE);

@@ -47,10 +47,44 @@ namespace GBA::emulation {
 		bool LoadRom(std::string_view loc);
 		void Init();
 
-		bool StoreState(std::string const& path);
-		bool LoadState(std::string const& path);
+		void StoreState(std::string const& path);
+		void LoadState(std::string const& path);
 
 		~Emulator();
+
+		template <typename Ar>
+		void save(Ar& ar) const {
+			ar(m_ctx.processor);
+			ar(m_ctx.bus);
+			ar(m_ctx.pack);
+			ar(m_ctx.ppu);
+			ar(*m_ctx.int_controller);
+			ar(m_ctx.keypad);
+			ar(m_ctx.timers);
+			ar(*m_ctx.all_dma[0]);
+			ar(*m_ctx.all_dma[1]);
+			ar(*m_ctx.all_dma[2]);
+			ar(*m_ctx.all_dma[3]);
+			ar(m_ctx.apu);
+			ar(m_ctx.scheduler);
+		}
+
+		template <typename Ar>
+		void load(Ar& ar) {
+			ar(m_ctx.processor);
+			ar(m_ctx.bus);
+			ar(m_ctx.pack);
+			ar(m_ctx.ppu);
+			ar(*m_ctx.int_controller);
+			ar(m_ctx.keypad);
+			ar(m_ctx.timers);
+			ar(*m_ctx.all_dma[0]);
+			ar(*m_ctx.all_dma[1]);
+			ar(*m_ctx.all_dma[2]);
+			ar(*m_ctx.all_dma[3]);
+			ar(m_ctx.apu);
+			ar(m_ctx.scheduler);
+		}
 
 	private :
 		EmulatorContext m_ctx;

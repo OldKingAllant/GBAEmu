@@ -1,3 +1,7 @@
 x64/*
 GBA_Emulator.*
 testRoms/*
+imgui.ini
+quick_state/*
+*.state
+*.save

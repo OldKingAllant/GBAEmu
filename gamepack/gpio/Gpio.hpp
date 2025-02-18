@@ -3,12 +3,13 @@
 #include "../../common/Defs.hpp"
 #include "../../gamepack/backups/Database.hpp"
 
+#include "GpioDeviceBase.hpp"
+#include "RTC.hpp"
+
 #include <vector>
 
 namespace GBA::gamepack::gpio {
 	using namespace common;
-
-	class GpioDeviceBase;
 
 	enum class PortDirection : u8 {
 		IN,
@@ -31,6 +32,41 @@ namespace GBA::gamepack::gpio {
 		u8 ReadControl() const;
 
 		~Gpio();
+
+		template <typename Ar>
+		void save(Ar& ar) const {
+			ar(m_port_directions.raw);
+			ar(m_read_write);
+
+			for (auto const& [dev, _] : m_devs) {
+				switch (dev->GetDevType())
+				{
+				case GpioDevType::RTC:
+					ar(*dynamic_cast<RTC const*>(dev));
+					break;
+				default:
+					break;
+				}
+			}
+		}
+
+		template <typename Ar>
+		void load(Ar& ar) {
+			ar(m_port_directions.raw);
+			ar(m_read_write);
+
+			for (auto& [dev, _] : m_devs) {
+				switch (dev->GetDevType())
+				{
+				case GpioDevType::RTC:
+					ar(*dynamic_cast<RTC*>(dev));
+					break;
+				default:
+					break;
+				}
+			}
+		}
+
 	private :
 		std::vector<std::pair<GpioDeviceBase*, backups::PinConnections>> m_devs;
 
