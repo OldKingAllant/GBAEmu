@@ -45,7 +45,8 @@ namespace GBA::gamepack {
 
 		template <typename Ar>
 		void save(Ar& ar) const {
-			ar(*m_gpio);
+			if(m_gpio != nullptr)
+				ar(*m_gpio);
 
 			/*switch (m_backup->GetBackupType())
 			{
@@ -63,7 +64,8 @@ namespace GBA::gamepack {
 
 		template <typename Ar>
 		void load(Ar& ar) {
-			ar(*m_gpio);
+			if (m_gpio != nullptr)
+				ar(*m_gpio);
 		}
 
 	private :
