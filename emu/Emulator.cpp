@@ -11,20 +11,27 @@ namespace GBA::emulation {
 
 	using namespace common;
 
-	Emulator::Emulator(std::string_view rom_location, std::optional<std::string_view> bios_location) :
-		m_ctx{}, m_bios_loc{bios_location}, 
+	Emulator::Emulator() :
+		m_ctx{}, m_bios_loc{},
 		m_rewind_buf_size{}, m_rewind_buf{},
-		m_rewind_pos{}
+		m_rewind_pos{}, m_reset_state{},
+		m_is_init{false}
+	{}
+
+	Emulator::Emulator(std::string_view rom_location, std::string_view bios_location) :
+		Emulator()
 	{
+		m_bios_loc = bios_location;
 		if (!LoadRom(rom_location))
 			throw std::runtime_error("Could not load rom");
 		Init();
 	}
 
-	Emulator::Emulator(std::optional<std::string_view> bios_location) :
-		m_ctx{}, m_bios_loc{bios_location}, m_rewind_buf_size{}, m_rewind_buf{},
-		m_rewind_pos{}
-	{}
+	Emulator::Emulator(std::string_view bios_location) :
+		Emulator()
+	{
+		m_bios_loc = bios_location;
+	}
 
 
 	bool Emulator::LoadRom(std::string_view loc) {
@@ -48,10 +55,7 @@ namespace GBA::emulation {
 		m_ctx.ppu.SetMMIO(m_ctx.bus.GetMMIO(), &m_ctx.bus);
 		m_ctx.bus.SetPPU(&m_ctx.ppu);
 
-		if (m_bios_loc.has_value())
-			UseBIOS();
-		else
-			m_ctx.processor.SkipBios();
+		UseBIOS();
 
 		m_ctx.keypad.SetMMIO(m_ctx.bus.GetMMIO());
 		m_ctx.keypad.SetInterruptController(m_ctx.int_controller);
@@ -83,6 +87,11 @@ namespace GBA::emulation {
 		m_ctx.timers.SetAPU(&m_ctx.apu);
 	}
 
+	void Emulator::SaveResetState() {
+		savestate::StoreToBuffer(m_reset_state, this);
+		m_is_init = true;
+	}
+
 	void Emulator::EmulateFor(u32 num_instructions) {
 		while (num_instructions--) {
 			if(m_ctx.bus.GetActiveDma() == 4)
@@ -98,7 +107,7 @@ namespace GBA::emulation {
 	}
 
 	void Emulator::UseBIOS() {
-		m_ctx.bus.LoadBIOS(m_bios_loc.value());
+		m_ctx.bus.LoadBIOS(m_bios_loc);
 		m_ctx.processor.GetContext().m_pipeline.Bubble<cpu::InstructionMode::ARM>(0x0);
 	}
 
@@ -195,6 +204,16 @@ namespace GBA::emulation {
 			m_rewind_pos--;
 		}
 
+		return true;
+	}
+
+	bool Emulator::Reset() {
+		if (!m_is_init)
+			return false;
+
+		savestate::LoadFromBuffer(m_reset_state, this);
+		m_rewind_buf.clear();
+		m_rewind_pos = 0;
 		return true;
 	}
 

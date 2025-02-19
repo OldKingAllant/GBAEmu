@@ -20,6 +20,7 @@ namespace GBA::video::renderer {
 	using SaveStateRequest = std::function<void(std::string, bool)>;
 	using SyncToAudioCallback = std::function<void(bool)>;
 	using RewindCallback = std::function<void(bool)>;
+	using ResetCallback = std::function<void()>;
 
 	class OpenGL : public VideoOutput {
 	public :
@@ -64,6 +65,10 @@ namespace GBA::video::renderer {
 
 		void SetRewindAction(RewindCallback callback) {
 			m_rewind = callback;
+		}
+
+		void SetResetAction(ResetCallback callback) {
+			m_reset = callback;
 		}
 
 		~OpenGL() override;
@@ -111,6 +116,7 @@ namespace GBA::video::renderer {
 		SaveStateRequest m_save_state;
 		SyncToAudioCallback m_audio_sync;
 		RewindCallback m_rewind;
+		ResetCallback m_reset;
 
 		bool m_pause;
 		bool m_show_menu_bar;

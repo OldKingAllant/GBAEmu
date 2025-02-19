@@ -32,8 +32,8 @@ namespace GBA::emulation {
 
 	class Emulator {
 	public :
-		Emulator(std::string_view rom_location, std::optional<std::string_view> bios_location = std::nullopt);
-		Emulator(std::optional<std::string_view> bios_location = std::nullopt);
+		Emulator(std::string_view rom_location, std::string_view bios_location);
+		Emulator(std::string_view bios_location);
 
 		EmulatorContext& GetContext() {
 			return m_ctx;
@@ -51,10 +51,14 @@ namespace GBA::emulation {
 		void StoreState(std::string const& path);
 		void LoadState(std::string const& path);
 
+		void SaveResetState();
+
 		bool RewindPush();
 		bool RewindBackward();
 		bool RewindForward();
 		bool RewindPop();
+
+		bool Reset();
 
 		void SetRewindBufferSize(common::u32 buf_size) {
 			m_rewind_buf_size = buf_size;
@@ -102,15 +106,20 @@ namespace GBA::emulation {
 		}
 
 	private :
+		Emulator();
+
 		bool LoadFromCurrentHistoryPosition();
 
 	private :
 		EmulatorContext m_ctx;
 
-		std::optional<std::string> m_bios_loc;
+		std::string m_bios_loc;
 
 		common::u32 m_rewind_buf_size;
 		common::u32 m_rewind_pos;
 		std::deque<std::string> m_rewind_buf;
+
+		std::string m_reset_state;
+		bool m_is_init;
 	};
 }

@@ -22,6 +22,7 @@ namespace GBA::video::renderer {
 		m_on_pause{}, m_on_select{},
 		m_save_load{}, m_save_store{}, m_save_state{},
 		m_audio_sync{}, m_rewind{},
+		m_reset{},
 		m_pause{pause}, m_show_menu_bar{false},
 		m_ctrl_status{false}, m_sync_to_audio{true},
 		m_alt_status{false}
@@ -463,6 +464,10 @@ namespace GBA::video::renderer {
 				}
 
 				SDL_GL_SetSwapInterval(m_sync_to_audio);
+
+				if (ImGui::Button("Reset") && m_reset) {
+					m_reset();
+				}
 
 				ImGui::EndMenu();
 			}

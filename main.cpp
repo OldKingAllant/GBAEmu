@@ -41,7 +41,7 @@ int main(int argc, char* argv[]) {
 	std::string bios_path = conf.data.get("BIOS").get("file");
 
 	GBA::emulation::Emulator* emu = new GBA::emulation::Emulator{
-		 std::optional{ std::string_view(bios_path) }
+		std::string_view(bios_path)
 	};
 
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
@@ -90,6 +90,8 @@ int main(int argc, char* argv[]) {
 		);
 
 		ctx.apu.SetFreq(44100);
+
+		emu->SaveResetState();
 
 		has_rom = true;
 	};
@@ -220,6 +222,18 @@ int main(int argc, char* argv[]) {
 			else {
 				std::cout << "Cannot backward" << std::endl;
 			}
+		}
+	});
+
+	opengl_rend.SetResetAction([emu, &opengl_rend]() {
+		if (emu->Reset()) {
+			auto framebuf = emu->GetContext()
+				.ppu
+				.GetFrame();
+			opengl_rend.SetFrame(framebuf);
+		}
+		else {
+			std::cout << "Reset failed" << std::endl;
 		}
 	});
 
