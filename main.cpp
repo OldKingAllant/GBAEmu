@@ -78,7 +78,19 @@ int main(int argc, char* argv[]) {
 
 		emu->Init();
 
-		if (conf.data.get("BIOS").get("skip") == "true")
+		if (conf.data["EMU"]["startup_load_save"] == "true") {
+			std::string save_path = conf.data["EMU"].has("game_save_path") ?
+				conf.data["EMU"]["game_save_path"] : "./saves";
+
+			std::string fname = emu->GetContext().pack.GetRomPath().stem().string();
+			save_path += "/" + fname + ".save";
+
+			if (std::filesystem::exists(save_path)) {
+				emu->GetContext().pack.LoadBackup(std::filesystem::path(save_path));
+			}
+		}
+
+		if (conf.data["BIOS"]["skip"] == "true")
 			emu->SkipBios();
 
 		auto& ctx = emu->GetContext();
@@ -244,6 +256,19 @@ int main(int argc, char* argv[]) {
 	auto& ctx = emu->GetContext();
 
 	/////////////////////////////////////////////////////////////////////
+	using GBA::cheats::CheatType;
+	/*emu->AddCheat({
+		"FF363D32 86978AE6",
+		"9E9098F2 D85C96B3",
+		"3769FF8D 71474369"
+	}, CheatType::ACTION_REPLAY);*/
+
+	emu->AddCheat({
+		"FF363D32 86978AE6",
+		"9E9098F2 D85C96B3", 
+		"3769FF8D 71474369"
+	}, CheatType::ACTION_REPLAY, "Items cost $1");
+	emu->EnableCheat("Items cost $1");
 
 	auto last_save_timestamp = std::chrono::system_clock::now();
 

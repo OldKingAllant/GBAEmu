@@ -2,6 +2,9 @@
 
 #include <string_view>
 #include <deque>
+#include <vector>
+#include <list>
+#include <unordered_map>
 
 #include "../common/Defs.hpp"
 
@@ -15,6 +18,8 @@
 #include "../memory/Timers.hpp"
 #include "../memory/DirectMemoryAccess.hpp"
 #include "../apu/APU.hpp"
+
+#include "Cheats.hpp"
 
 namespace GBA::emulation {
 	struct EmulatorContext {
@@ -48,10 +53,14 @@ namespace GBA::emulation {
 		bool LoadRom(std::string_view loc);
 		void Init();
 
+		//////////////////////////
+
 		void StoreState(std::string const& path);
 		void LoadState(std::string const& path);
 
 		void SaveResetState();
+
+		//////////////////////////
 
 		bool RewindPush();
 		bool RewindBackward();
@@ -68,6 +77,14 @@ namespace GBA::emulation {
 				m_rewind_buf.resize(buf_size);
 			}
 		}
+
+		/////////////////////////
+
+		bool AddCheat(std::vector<std::string> lines, cheats::CheatType ty, std::string name);
+		bool EnableCheat(std::string const& name);
+		void DisableCheat(std::string const& name);
+
+		/////////////////////////
 
 		~Emulator();
 
@@ -110,6 +127,8 @@ namespace GBA::emulation {
 
 		bool LoadFromCurrentHistoryPosition();
 
+		void ProcessCheats();
+
 	private :
 		EmulatorContext m_ctx;
 
@@ -121,5 +140,8 @@ namespace GBA::emulation {
 
 		std::string m_reset_state;
 		bool m_is_init;
+
+		std::unordered_map<std::string, cheats::CheatSet> m_cheats;
+		std::list<std::string> m_enabled_cheats;
 	};
 }

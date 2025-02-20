@@ -15,7 +15,8 @@ namespace GBA::emulation {
 		m_ctx{}, m_bios_loc{},
 		m_rewind_buf_size{}, m_rewind_buf{},
 		m_rewind_pos{}, m_reset_state{},
-		m_is_init{false}
+		m_is_init{false}, m_cheats{},
+		m_enabled_cheats{}
 	{}
 
 	Emulator::Emulator(std::string_view rom_location, std::string_view bios_location) :
@@ -117,6 +118,8 @@ namespace GBA::emulation {
 	}
 
 	void Emulator::RunTillVblank() {
+		ProcessCheats();
+
 		while (!m_ctx.ppu.HasFrame()) {
 			if (m_ctx.bus.GetActiveDma() == 4)
 				m_ctx.processor.Step();
@@ -215,6 +218,44 @@ namespace GBA::emulation {
 		m_rewind_buf.clear();
 		m_rewind_pos = 0;
 		return true;
+	}
+
+	bool Emulator::AddCheat(std::vector<std::string> lines, cheats::CheatType ty, std::string name) {
+		if (m_cheats.find(name) != m_cheats.cend()) { return false; }
+
+		auto cheat_set = cheats::ParseCheat(lines, ty);
+
+		if (!cheat_set.directives.empty()) {
+			m_cheats[name] = cheat_set;
+		}
+
+		return !cheat_set.directives.empty();
+	}
+
+	bool Emulator::EnableCheat(std::string const& name) {
+		if (m_cheats.find(name) == m_cheats.cend()) { return false; }
+		if (std::find(m_enabled_cheats.cbegin(), m_enabled_cheats.cend(), name)
+			!= m_enabled_cheats.cend()) 
+		{ return false; }
+
+		m_enabled_cheats.push_back(name);
+		return true;
+	}
+
+	void Emulator::DisableCheat(std::string const& name) {
+		auto pos = std::find(m_enabled_cheats.begin(),
+			m_enabled_cheats.end(),
+			name);
+
+		if(pos != m_enabled_cheats.end())
+			m_enabled_cheats.erase(pos);
+	}
+
+	void Emulator::ProcessCheats() {
+		for (auto const& cheat_name : m_enabled_cheats) {
+			auto& cheat_set = m_cheats[cheat_name];
+			cheats::RunCheatInterpreter(cheat_set, this);
+		}
 	}
 
 	Emulator::~Emulator() {

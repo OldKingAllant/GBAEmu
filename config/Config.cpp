@@ -36,6 +36,8 @@ namespace GBA::config {
 		section.set("rewind_buf_size", "30");
 		section.set("rewind_interval_seconds", "1");
 		section.set("rewind_enable", "true");
+		section.set("game_save_path", "./saves");
+		section.set("startup_load_save", "true");
 
 		data.set({ { "EMU", section } });
 	}

@@ -8,6 +8,7 @@ scale = 4
 rewind_buf_size = 
 rewind_interval_seconds = 
 rewind_enable = true
+startup_load_save = true
 
 [ROM]
-default_rom = ./testRoms/Zelda.gba
+default_rom = ./testRoms/PokemonEmerald.gba

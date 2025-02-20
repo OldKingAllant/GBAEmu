@@ -3,5 +3,6 @@ GBA_Emulator.*
 testRoms/*
 imgui.ini
 quick_state/*
+saves/*
 *.state
 *.save
