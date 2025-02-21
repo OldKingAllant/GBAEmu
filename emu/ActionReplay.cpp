@@ -188,6 +188,55 @@ namespace GBA::cheats {
 	}
 
 	template <typename It>
+	static bool _AR_Special(std::list<CheatDirective>& list, It& directive_iter,
+		std::array<uint32_t, 4>& seeds,
+		uint32_t address,
+		uint32_t value) {
+		auto special_match = AR_OpcodeMatchSpecial(value >> 24);
+
+		switch (special_match)
+		{
+		case AR_OpcodeMatchSpecial::ROM_PATCH_1:
+		case AR_OpcodeMatchSpecial::ROM_PATCH_2:
+		case AR_OpcodeMatchSpecial::ROM_PATCH_3:
+		case AR_OpcodeMatchSpecial::ROM_PATCH_4: {
+			uint32_t enc_value = *directive_iter++;
+			uint32_t enc_zero = *directive_iter++;
+			auto decrypted = _AR_Decrypt_Code(
+				enc_value, enc_zero, seeds
+			);
+
+			auto patch_value = decrypted.first;
+			auto zero = decrypted.second;
+
+			if (zero != 0x0) {
+				fmt::println("[CHEATS] Warning! Encountered AR patch without zero");
+			}
+
+			auto offset = value & 0xFF'FF'FF;
+
+			CheatDirective directive{};
+
+			directive.ty = DirectiveType::ROM_PATCH;
+			directive.cmd.patch = {
+				.applied = false,
+				.offset  = offset << 1,
+				.value   = uint16_t(patch_value)
+			};
+
+			list.push_back(directive);
+		}
+			break;
+		default:
+			fmt::println("[CHEATS] Unimplemented AR special: {:#x}",
+				uint32_t(special_match));
+			return false;
+		}
+
+		return true;
+	}
+
+	template <typename It>
 	static bool _AR_ListAppend(std::list<CheatDirective>& list, It& directive_iter, 
 		std::array<uint32_t, 4>& seeds) {
 		uint32_t enc_l{}, enc_r{};
@@ -202,13 +251,19 @@ namespace GBA::cheats {
 		auto address = opcodes.first;
 		auto value = opcodes.second;
 
+		CheatDirective directive{};
+
 		auto value_match = AR_OpcodeMatchSpecial(value);
 		auto address_match = AR_OpcodeMatchSpecial(address);
 
 		switch (value_match)
 		{
 		case AR_OpcodeMatchSpecial::ID_CODE:
-			fmt::println("[CHEATS] Ignoring ID_CODE");
+			directive.ty = DirectiveType::ID_CODE;
+			directive.cmd.idcode = {
+				.code = address
+			};
+			list.push_back(directive);
 			return true;
 		default:
 			break;
@@ -222,8 +277,8 @@ namespace GBA::cheats {
 			return true;
 		case AR_OpcodeMatchSpecial::SPECIAL:
 			if (value != 0x0) {
-				fmt::println("[CHEATS] Unimplemented special AR");
-				return false;
+				return _AR_Special(list, directive_iter, 
+					seeds, address, value);
 			}
 			return true;
 		default:
@@ -231,8 +286,6 @@ namespace GBA::cheats {
 		}
 
 		auto opcode = AR_OpcodeMatch(address >> 24);
-
-		CheatDirective directive{};
 
 		auto high_address_nibble = address & 0x00F0'0000;
 		auto low_address = address & 0x000F'FFFF;
@@ -245,13 +298,33 @@ namespace GBA::cheats {
 		switch (opcode)
 		{
 		case AR_OpcodeMatch::HOOK:
-			fmt::println("[CHEATS] Ignoring AR hook routine");
-			return true;
+			directive.ty = DirectiveType::HOOK;
+			directive.cmd.hook = {
+				.hook_address = address & 0xFF'FF'FF,
+				.params = uint16_t(value)
+			};
+			break;
 		case AR_OpcodeMatch::WRITE_8:
 			directive.ty = DirectiveType::WRITE_RAM_8;
 			directive.cmd.ram_write8 = { 
 				.address = (high_address_nibble << 4) | low_address,
-				.value = uint8_t(value) 
+				.offset = (value >> 8) & 0xFF'FF'FF,
+				.value = uint8_t(value)
+			};
+			break;
+		case AR_OpcodeMatch::WRITE_16:
+			directive.ty = DirectiveType::WRITE_RAM_16;
+			directive.cmd.ram_write16 = {
+				.address = (high_address_nibble << 4) | low_address,
+				.offset = ((value >> 16) & 0xFFFF) << 1,
+				.value = uint16_t(value)
+			};
+			break;
+		case AR_OpcodeMatch::WRITE_32:
+			directive.ty = DirectiveType::WRITE_RAM_32;
+			directive.cmd.ram_write32 = {
+				.address = (high_address_nibble << 4) | low_address,
+				.value = value
 			};
 			break;
 		case AR_OpcodeMatch::INDIRECT_16:

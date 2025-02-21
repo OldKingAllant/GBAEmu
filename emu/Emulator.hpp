@@ -84,6 +84,9 @@ namespace GBA::emulation {
 		bool EnableCheat(std::string const& name);
 		void DisableCheat(std::string const& name);
 
+		void AddHook(uint32_t pc, std::string const& name);
+		void RemoveHook(std::string const& name);
+
 		/////////////////////////
 
 		~Emulator();
@@ -143,5 +146,7 @@ namespace GBA::emulation {
 
 		std::unordered_map<std::string, cheats::CheatSet> m_cheats;
 		std::list<std::string> m_enabled_cheats;
+
+		std::unordered_multimap<uint32_t, std::string> m_hooks;
 	};
 }

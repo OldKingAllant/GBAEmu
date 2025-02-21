@@ -257,18 +257,15 @@ int main(int argc, char* argv[]) {
 
 	/////////////////////////////////////////////////////////////////////
 	using GBA::cheats::CheatType;
-	/*emu->AddCheat({
-		"FF363D32 86978AE6",
-		"9E9098F2 D85C96B3",
-		"3769FF8D 71474369"
-	}, CheatType::ACTION_REPLAY);*/
-
+	
 	emu->AddCheat({
-		"FF363D32 86978AE6",
-		"9E9098F2 D85C96B3", 
-		"3769FF8D 71474369"
-	}, CheatType::ACTION_REPLAY, "Items cost $1");
-	emu->EnableCheat("Items cost $1");
+		"D8BAE4D9 4864DCE5"
+		"A86CDBA5 19BA49B3"
+		"A57E2EDE A5AFF3E4"
+		"1C7B3231 B494738C"
+		"C051CCF6 975E8DA1"
+	}, CheatType::ACTION_REPLAY, "Infinite money");
+	emu->EnableCheat("Infinite money");
 
 	auto last_save_timestamp = std::chrono::system_clock::now();
 

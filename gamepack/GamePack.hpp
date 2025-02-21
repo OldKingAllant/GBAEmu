@@ -68,6 +68,8 @@ namespace GBA::gamepack {
 				ar(*m_gpio);
 		}
 
+		u16 Patch(u32 address, u16 value);
+
 	private :
 		bool MapFile();
 		bool UnMapFile();

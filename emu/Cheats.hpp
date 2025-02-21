@@ -24,7 +24,10 @@ namespace GBA::cheats {
 		IF_BLOCK,
 		INDIRECT_WRITE_8,
 		INDIRECT_WRITE_16,
-		INDIRECT_WRITE_32
+		INDIRECT_WRITE_32,
+		HOOK,
+		ID_CODE,
+		ROM_PATCH
 	};
 
 	enum class Condition {
@@ -47,9 +50,30 @@ namespace GBA::cheats {
 	namespace directive_detail {
 		struct Nop {};
 
+		struct HookRoutine {
+			uint32_t hook_address;
+			uint16_t params;
+		};
+
+		struct IdCode {
+			uint32_t code;
+		};
+
 		struct RamWrite8 {
 			uint32_t address;
+			uint32_t offset;
 			uint8_t value;
+		};
+
+		struct RamWrite16 {
+			uint32_t address;
+			uint32_t offset;
+			uint16_t value;
+		};
+
+		struct RamWrite32 {
+			uint32_t address;
+			uint32_t value;
 		};
 
 		struct IfBlock {
@@ -69,11 +93,23 @@ namespace GBA::cheats {
 			uint16_t value;
 		};
 
+		struct RomPatch {
+			bool applied;
+			uint32_t offset;
+			uint16_t value;
+			uint16_t old_value;
+		};
+
 		union DirectiveCommand {
-			Nop			   nop;
-			RamWrite8	   ram_write8;
-			IfBlock		   if_block;
+			Nop				nop;
+			RamWrite8		ram_write8;
+			RamWrite16		ram_write16;
+			RamWrite32		ram_write32;
+			IfBlock		    if_block;
 			IndirectWrite16 indirect16;
+			HookRoutine     hook;
+			IdCode          idcode;
+			RomPatch        patch;
 		};
 	}
 
@@ -83,11 +119,16 @@ namespace GBA::cheats {
 	};
 
 	struct CheatSet {
-		CheatType ty;
+		CheatType ty = CheatType::ACTION_REPLAY;
 		std::list<CheatDirective> directives = {};
+		bool enabled	      = false;
+		bool contains_hook    = false;
+		bool contains_pathces = false;
 	};
 
 	CheatSet ParseCheat(std::vector<std::string> const& lines, CheatType ty);
 
 	bool RunCheatInterpreter(CheatSet& cheat_set, emulation::Emulator* emu);
+	bool ApplyCheatPatches(std::string const& name, CheatSet& cheat_set, emulation::Emulator* emu);
+	bool RestoreCheatPatches(std::string const& name, CheatSet& cheat_set, emulation::Emulator* emu);
 }

@@ -75,6 +75,25 @@ namespace GBA::cheats {
 			break;
 		}
 
+		bool has_hook = std::find_if(
+			set.directives.cbegin(),
+			set.directives.cend(),
+			[](auto const& directive) {
+				return directive.ty == DirectiveType::HOOK;
+			}
+		) != set.directives.cend();
+
+		bool has_patch = std::find_if(
+			set.directives.cbegin(),
+			set.directives.cend(),
+			[](auto const& directive) {
+				return directive.ty == DirectiveType::ROM_PATCH;
+			}
+		) != set.directives.cend();
+
+		set.contains_hook = has_hook;
+		set.contains_pathces = has_patch;
+
 		return set;
 	}
 
@@ -88,6 +107,20 @@ namespace GBA::cheats {
 			break;
 		case DirectiveType::WRITE_RAM_8: {
 			auto& cmd = directive_iter->cmd.ram_write8;
+			auto address = cmd.address + cmd.offset;
+			auto value = cmd.value;
+			emu->GetContext().bus.Write(address, value);
+		}
+			break;
+		case DirectiveType::WRITE_RAM_16: {
+			auto& cmd = directive_iter->cmd.ram_write16;
+			auto address = cmd.address + cmd.offset;
+			auto value = cmd.value;
+			emu->GetContext().bus.Write(address, value);
+		}
+			break;
+		case DirectiveType::WRITE_RAM_32: {
+			auto& cmd = directive_iter->cmd.ram_write32;
 			auto address = cmd.address;
 			auto value = cmd.value;
 			emu->GetContext().bus.Write(address, value);
@@ -197,6 +230,10 @@ namespace GBA::cheats {
 			bus.Write(effective_address, directive.value);
 		}
 			break;
+		case DirectiveType::ID_CODE:
+		case DirectiveType::HOOK:
+		case DirectiveType::ROM_PATCH:
+			break;
 		default:
 			fmt::println("[CHEATS] Encountered unknown instruction");
 			error::DebugBreak();
@@ -214,6 +251,78 @@ namespace GBA::cheats {
 			directive_iter++;
 		}
 
+		return true;
+	}
+
+	bool ApplyCheatPatches(std::string const& name, CheatSet& cheat_set, emulation::Emulator* emu) {
+		auto game_code =
+			*std::bit_cast<uint32_t*>(
+				&emu->GetContext().pack.GetHeader().gameMaker[0]
+			);
+
+		if (!cheat_set.contains_hook && !cheat_set.contains_pathces)
+			return true;
+
+		for (auto& directive : cheat_set.directives) {
+			switch (directive.ty)
+			{
+			case DirectiveType::ID_CODE:
+				if (directive.cmd.idcode.code != game_code)
+					return false;
+				break;
+			case DirectiveType::HOOK: {
+				auto address_base = memory::MEMORY_RANGE::ROM_REG_1;
+				auto address = directive.cmd.hook.hook_address +
+					(uint32_t(address_base) << 24);
+				emu->AddHook(address, name);
+			}
+				break;
+			case DirectiveType::ROM_PATCH: {
+				auto& rom_patch = directive.cmd.patch;
+
+				if (rom_patch.applied)
+					break;
+
+				rom_patch.applied = true;
+				rom_patch.old_value = emu->GetContext()
+					.pack.Patch(rom_patch.offset, rom_patch.value);
+			}
+				break;
+			default:
+				break;
+			}
+		}
+
+		return true;
+	}
+
+	bool RestoreCheatPatches(std::string const& name, CheatSet& cheat_set, emulation::Emulator* emu) {
+		if (!cheat_set.contains_hook && !cheat_set.contains_pathces)
+			return true;
+
+		for (auto& directive : cheat_set.directives) {
+			switch (directive.ty)
+			{
+			case DirectiveType::HOOK: {
+				emu->RemoveHook(name);
+			}
+				break;
+			case DirectiveType::ROM_PATCH: {
+				auto& rom_patch = directive.cmd.patch;
+
+				if (!rom_patch.applied)
+					break;
+
+				rom_patch.applied = false;
+				emu->GetContext()
+					.pack.Patch(rom_patch.offset, rom_patch.old_value);
+			}
+				break;
+			default:
+				break;
+			}
+		}
+		
 		return true;
 	}
 }

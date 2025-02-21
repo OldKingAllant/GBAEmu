@@ -3,14 +3,6 @@
 #include "Cheats.hpp"
 
 namespace GBA::cheats {
-	enum class AR_Opcodes {
-		HOOK,
-		ID_CODE,
-		SEEDS,
-		WRITE_8,
-		WRITE_16,
-		WRITE_32
-	};
 
 	enum class AR_OpcodeMatch {
 		HOOK        = 0xC4,
@@ -24,9 +16,13 @@ namespace GBA::cheats {
 	};
 
 	enum class AR_OpcodeMatchSpecial : uint32_t {
-		ID_CODE = 0x001DC0DE,
-		SEEDS   = 0xDEADFACE,
-		SPECIAL = 0x00000000
+		ID_CODE		= 0x001DC0DE,
+		SEEDS		= 0xDEADFACE,
+		SPECIAL		= 0x00000000,
+		ROM_PATCH_1 = 0x18,
+		ROM_PATCH_2 = 0x1A,
+		ROM_PATCH_3 = 0x1C,
+		ROM_PATCH_4 = 0x1E
 	};
 
 	enum class AR_Cond {

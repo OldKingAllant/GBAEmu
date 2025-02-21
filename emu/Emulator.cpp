@@ -16,7 +16,8 @@ namespace GBA::emulation {
 		m_rewind_buf_size{}, m_rewind_buf{},
 		m_rewind_pos{}, m_reset_state{},
 		m_is_init{false}, m_cheats{},
-		m_enabled_cheats{}
+		m_enabled_cheats{},
+		m_hooks{}
 	{}
 
 	Emulator::Emulator(std::string_view rom_location, std::string_view bios_location) :
@@ -121,8 +122,21 @@ namespace GBA::emulation {
 		ProcessCheats();
 
 		while (!m_ctx.ppu.HasFrame()) {
-			if (m_ctx.bus.GetActiveDma() == 4)
+			if (m_ctx.bus.GetActiveDma() == 4) {
 				m_ctx.processor.Step();
+
+				if (!m_hooks.empty()) {
+					auto curr_pc = m_ctx.processor.GetContext()
+						.m_regs.GetReg(15);
+					auto hooks = m_hooks.equal_range(curr_pc);
+
+					for (; hooks.first != hooks.second; hooks.first++) {
+						auto const& hook = hooks.first->second;
+						auto& cheat_set = m_cheats[hook];
+						cheats::RunCheatInterpreter(cheat_set, this);
+					}
+				}
+			}
 			else {
 				u8 dma = m_ctx.bus.GetActiveDma();
 
@@ -238,6 +252,12 @@ namespace GBA::emulation {
 			!= m_enabled_cheats.cend()) 
 		{ return false; }
 
+		auto& cheat_set = m_cheats[name];
+		cheat_set.enabled = true;
+
+		if (!cheats::ApplyCheatPatches(name, cheat_set, this))
+			return false;
+
 		m_enabled_cheats.push_back(name);
 		return true;
 	}
@@ -249,13 +269,46 @@ namespace GBA::emulation {
 
 		if(pos != m_enabled_cheats.end())
 			m_enabled_cheats.erase(pos);
+
+		auto& cheat_set = m_cheats[name];
+		cheat_set.enabled = false;
+
+		cheats::RestoreCheatPatches(name, cheat_set, this);
 	}
 
 	void Emulator::ProcessCheats() {
 		for (auto const& cheat_name : m_enabled_cheats) {
 			auto& cheat_set = m_cheats[cheat_name];
-			cheats::RunCheatInterpreter(cheat_set, this);
+			if (!cheat_set.contains_hook) {
+				cheats::RunCheatInterpreter(cheat_set, this);
+			}
 		}
+	}
+
+	void Emulator::AddHook(uint32_t pc, std::string const& name) {
+		auto range = m_hooks.equal_range(pc);
+
+		if (std::find_if(
+			range.first, range.second,
+			[&name](auto const& hook) {
+				return hook.second == name;
+			}
+		) != range.second)
+			return;
+
+		m_hooks.insert({ pc, name });
+	}
+
+	void Emulator::RemoveHook(std::string const& name) {
+		auto position = std::find_if(
+			m_hooks.begin(), m_hooks.end(),
+			[&name](auto const& hook) {
+				return hook.second == name;
+			}
+		);
+
+		if (position != m_hooks.end())
+			m_hooks.erase(position);
 	}
 
 	Emulator::~Emulator() {

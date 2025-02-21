@@ -207,6 +207,13 @@ namespace GBA::gamepack {
 			m_backup->Write(address, value);
 	}
 
+	u16 GamePack::Patch(u32 address, u16 value) {
+		auto value_ptr = std::bit_cast<u16*>(m_rom + address);
+		u16 temp = *value_ptr;
+		*value_ptr = value;
+		return temp;
+	}
+
 	GamePack::~GamePack() {
 		UnMapFile();
 
