@@ -78,27 +78,139 @@ namespace GBA::cheats {
 		return set;
 	}
 
+	using DirectiveIt = std::list<CheatDirective>::const_iterator;
+	
+	static bool InterpretDirective(DirectiveIt& directive_iter, 
+		emulation::Emulator* emu) {
+		switch (directive_iter->ty)
+		{
+		case DirectiveType::NONE:
+			break;
+		case DirectiveType::WRITE_RAM_8: {
+			auto& cmd = directive_iter->cmd.ram_write8;
+			auto address = cmd.address;
+			auto value = cmd.value;
+			emu->GetContext().bus.Write(address, value);
+		}
+			break;
+		case DirectiveType::IF_BLOCK: {
+			uint32_t operand = directive_iter->cmd.if_block.operand;
+			uint32_t compare{ 0 };
+			uint32_t address = directive_iter->cmd.if_block.address;
+			auto condition = directive_iter->cmd.if_block.cond;
+
+			bool condition_is_always_false = false;
+
+			auto& bus = emu->GetContext().bus;
+
+			switch (directive_iter->cmd.if_block.operand_size)
+			{
+			case ConditionOperand::SIZE_8:
+				compare = bus.Read<uint8_t>(address);
+				break;
+			case ConditionOperand::SIZE_16:
+				compare = bus.Read<uint16_t>(address);
+				break;
+			case ConditionOperand::SIZE_32:
+				compare = bus.Read<uint32_t>(address);
+				break;
+			case ConditionOperand::ALWAYS_FALSE:
+				condition_is_always_false = true;
+				break;
+			}
+
+			bool is_true = false;
+
+			if (!condition_is_always_false) {
+				switch (condition)
+				{
+				case Condition::EQ:
+					is_true = operand == compare;
+					break;
+				case Condition::NE:
+					is_true = operand != compare;
+					break;
+				case Condition::LT:
+					is_true = int(compare) < int(operand);
+					break;
+				case Condition::GT:
+					is_true = int(compare) > int(operand);
+					break;
+				case Condition::LTU:
+					is_true = compare < operand;
+					break;
+				case Condition::GTU:
+					is_true = compare > operand;
+					break;
+				case Condition::AND:
+					is_true = operand && compare;
+					break;
+				default:
+					break;
+				}
+			}
+
+			auto& directive = directive_iter->cmd.if_block;
+
+			if (is_true) {
+				for (uint32_t curr_directive = 0;
+					curr_directive < directive.then_size;
+					curr_directive++) {
+					directive_iter++;
+					InterpretDirective(directive_iter, emu);
+				}
+
+				if (directive.has_else) {
+					for(uint32_t skip = 0; skip < directive.else_size - 1;
+						skip++, directive_iter++) {}
+				}
+			}
+			else {
+				for (uint32_t skip = 0; skip < directive.then_size - 1;
+					skip++) {
+					directive_iter++;
+				}
+
+				if (directive.has_else) {
+					for (uint32_t curr_directive = 0;
+						curr_directive < directive.else_size;
+						curr_directive++) {
+						directive_iter++;
+						InterpretDirective(directive_iter, emu);
+					}
+				}
+				else {
+					directive_iter++;
+				}
+			}
+		}
+			break;
+		case DirectiveType::INDIRECT_WRITE_16: {
+			auto& directive = directive_iter->cmd.indirect16;
+			auto address_indirect = directive.address;
+
+			auto& bus = emu->GetContext().bus;
+
+			auto effective_address = bus.Read<uint32_t>(address_indirect);
+			effective_address += directive.offset;
+
+			bus.Write(effective_address, directive.value);
+		}
+			break;
+		default:
+			fmt::println("[CHEATS] Encountered unknown instruction");
+			error::DebugBreak();
+			break;
+		}
+
+		return true;
+	}
+
 	bool RunCheatInterpreter(CheatSet& cheat_set, emulation::Emulator* emu) {
 		auto directive_iter = cheat_set.directives.begin();
 
 		while(directive_iter != cheat_set.directives.end()) {
-			switch (directive_iter->ty)
-			{
-			case DirectiveType::NONE:
-				break;
-			case DirectiveType::WRITE_RAM_8: {
-				auto& cmd = directive_iter->cmd.ram_write8;
-				auto address = cmd.address;
-				auto value = cmd.value;
-				emu->GetContext().bus.Write(address, value);
-			}
-				break;
-			default:
-				fmt::println("[CHEATS] Encountered unknown instruction");
-				error::DebugBreak();
-				break;
-			}
-
+			InterpretDirective(directive_iter, emu);
 			directive_iter++;
 		}
 

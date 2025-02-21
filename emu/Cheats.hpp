@@ -21,7 +21,27 @@ namespace GBA::cheats {
 		WRITE_RAM_8,
 		WRITE_RAM_16,
 		WRITE_RAM_32,
-		IF_BLOCK
+		IF_BLOCK,
+		INDIRECT_WRITE_8,
+		INDIRECT_WRITE_16,
+		INDIRECT_WRITE_32
+	};
+
+	enum class Condition {
+		EQ,
+		NE,
+		LT,
+		GT,
+		LTU,
+		GTU,
+		AND
+	};
+
+	enum class ConditionOperand {
+		SIZE_8,
+		SIZE_16,
+		SIZE_32,
+		ALWAYS_FALSE
 	};
 
 	namespace directive_detail {
@@ -33,12 +53,27 @@ namespace GBA::cheats {
 		};
 
 		struct IfBlock {
+			Condition cond;
+			ConditionOperand operand_size;
+			bool has_else;
+			uint32_t else_location;
+			uint32_t else_size;
+			uint32_t then_size;
+			uint32_t address;
+			uint32_t operand;
+		};
 
+		struct IndirectWrite16 {
+			uint32_t address;
+			uint32_t offset;
+			uint16_t value;
 		};
 
 		union DirectiveCommand {
-			Nop nop;
-			RamWrite8 ram_write8;
+			Nop			   nop;
+			RamWrite8	   ram_write8;
+			IfBlock		   if_block;
+			IndirectWrite16 indirect16;
 		};
 	}
 

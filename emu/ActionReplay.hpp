@@ -13,11 +13,14 @@ namespace GBA::cheats {
 	};
 
 	enum class AR_OpcodeMatch {
-		HOOK     = 0xC4,
-		WRITE_8  = 0x00,
-		WRITE_16 = 0x02,
-		WRITE_32 = 0x04,
-		IF_COND  = 0x38 
+		HOOK        = 0xC4,
+		WRITE_8     = 0x00,
+		WRITE_16    = 0x02,
+		WRITE_32    = 0x04,
+		IF_COND     = 0x38,
+		INDIRECT_8  = 0x40,
+		INDIRECT_16 = 0x42,
+		INDIRECT_32 = 0x44
 	};
 
 	enum class AR_OpcodeMatchSpecial : uint32_t {

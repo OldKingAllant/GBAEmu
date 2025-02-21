@@ -1,4 +1,5 @@
 #include "ActionReplay.hpp"
+#include "../common/Error.hpp"
 
 #include <fmt/format.h>
 
@@ -95,6 +96,93 @@ namespace GBA::cheats {
 			fmt::println("[CHEATS] Unimplemented AR action OFF");
 			return false;
 		}
+
+		directive_detail::IfBlock if_block{};
+
+		switch (condition)
+		{
+		case AR_Cond::EQ:
+			if_block.cond = Condition::EQ;
+			break;
+		case AR_Cond::NE:
+			if_block.cond = Condition::NE;
+			break;
+		case AR_Cond::LT:
+			if_block.cond = Condition::LT;
+			break;
+		case AR_Cond::GT:
+			if_block.cond = Condition::GT;
+			break;
+		case AR_Cond::LTU:
+			if_block.cond = Condition::LTU;
+			break;
+		case AR_Cond::GTU:
+			if_block.cond = Condition::GTU;
+			break;
+		case AR_Cond::AND:
+			if_block.cond = Condition::AND;
+			break;
+		default:
+			break;
+		}
+
+		auto operand_size_bytes{ uint32_t(0) };
+
+		switch (size)
+		{
+		case AR_CondSize::SIZE_8:
+			if_block.operand_size = ConditionOperand::SIZE_8;
+			operand_size_bytes = 1;
+			break;
+		case AR_CondSize::SIZE_16:
+			if_block.operand_size = ConditionOperand::SIZE_16;
+			operand_size_bytes = 2;
+			break;
+		case AR_CondSize::SIZE_32:
+			if_block.operand_size = ConditionOperand::SIZE_32;
+			operand_size_bytes = 4;
+			break;
+		case AR_CondSize::FALSE:
+			if_block.operand_size = ConditionOperand::ALWAYS_FALSE;
+			break;
+		default:
+			break;
+		}
+
+		if_block.has_else = false;
+		if_block.else_location = 0;
+		if_block.else_size = 0;
+
+		switch (action)
+		{
+		case AR_CondAction::NEXT_1:
+			if_block.then_size = 1;
+			break;
+		case AR_CondAction::NEXT_2:
+			if_block.then_size = 2;
+			break;
+		case AR_CondAction::BLOCK:
+			fmt::println("[CHEATS] Unimplemented AR if action: BLOCK");
+			error::DebugBreak();
+			break;
+		case AR_CondAction::OFF:
+			break;
+		default:
+			break;
+		}
+
+		auto high_address_nibble = address & 0x00F0'0000;
+		auto low_address = address & 0x000F'FFFF;
+
+		if_block.address = (high_address_nibble << 4) | low_address;
+		if_block.operand = value & (0xFF'FF'FF'FF >> ((4 - operand_size_bytes) * 8));
+
+		CheatDirective directive{};
+
+		directive.ty = DirectiveType::IF_BLOCK;
+		directive.cmd.if_block = if_block;
+
+		list.push_back(directive);
 		
 		return true;
 	}
@@ -164,6 +252,14 @@ namespace GBA::cheats {
 			directive.cmd.ram_write8 = { 
 				.address = (high_address_nibble << 4) | low_address,
 				.value = uint8_t(value) 
+			};
+			break;
+		case AR_OpcodeMatch::INDIRECT_16:
+			directive.ty = DirectiveType::INDIRECT_WRITE_16;
+			directive.cmd.indirect16 = {
+				.address = (high_address_nibble << 4) | low_address,
+				.offset  = ((value >> 16) & 0xFF'FF) << 1,
+				.value   = uint16_t(value)
 			};
 			break;
 		default:
