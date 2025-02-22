@@ -263,9 +263,14 @@ int main(int argc, char* argv[]) {
 		"A86CDBA5 19BA49B3"
 		"A57E2EDE A5AFF3E4"
 		"1C7B3231 B494738C"
-		"C051CCF6 975E8DA1"
-	}, CheatType::ACTION_REPLAY, "Infinite money");
-	emu->EnableCheat("Infinite money");
+		"C6511EC5 0F15C8E0"
+		"4689920D 5CFF6FFE"
+		"8631B929 014933DF"
+		"10257B84 3365249C"
+		"AEA23F29 64EDD481"
+		"166577A1 EB80A832"
+	}, CheatType::ACTION_REPLAY, "All TM/HM");
+	emu->EnableCheat("All TM/HM");
 
 	auto last_save_timestamp = std::chrono::system_clock::now();
 

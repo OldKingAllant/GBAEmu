@@ -227,6 +227,39 @@ namespace GBA::cheats {
 			list.push_back(directive);
 		}
 			break;
+		case AR_OpcodeMatchSpecial::SLIDE_32: {
+			uint32_t enc_value = *directive_iter++;
+			uint32_t enc_step_inc = *directive_iter++;
+			auto decrypted = _AR_Decrypt_Code(
+				enc_value, enc_step_inc, seeds
+			);
+
+			auto high_address_nibble = value & 0x00F0'0000;
+			auto low_address = value & 0x000F'FFFF;
+
+			auto base_address = (high_address_nibble << 4) | low_address;
+			auto init_value = decrypted.first;
+
+			auto step_inc = decrypted.second;
+
+			auto value_inc = (step_inc >> 24) & 0xFF;
+			auto repeat = (step_inc >> 16) & 0xFF;
+			auto address_inc = step_inc & 0xFFFF;
+
+			CheatDirective directive{};
+
+			directive.ty = DirectiveType::SLIDE_32;
+			directive.cmd.slide32 = {
+				.base        = base_address,
+				.init_value  = init_value,
+				.address_inc = address_inc,
+				.value_inc   = value_inc,
+				.repeat      = repeat
+			};
+
+			list.push_back(directive);
+		}
+			break;
 		default:
 			fmt::println("[CHEATS] Unimplemented AR special: {:#x}",
 				uint32_t(special_match));

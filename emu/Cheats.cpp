@@ -234,6 +234,25 @@ namespace GBA::cheats {
 		case DirectiveType::HOOK:
 		case DirectiveType::ROM_PATCH:
 			break;
+		case DirectiveType::SLIDE_32: {
+			auto& bus = emu->GetContext().bus;
+
+			auto& directive = directive_iter->cmd.slide32;
+
+			auto curr_address = directive.base;
+			auto value = directive.init_value;
+			auto address_inc = directive.address_inc << 2;
+			auto value_inc = directive.value_inc;
+
+			auto n_repeat = directive.repeat;
+
+			while (n_repeat--) {
+				bus.Write(curr_address, value);
+				value += value_inc;
+				curr_address += address_inc;
+			}
+		}
+			break;
 		default:
 			fmt::println("[CHEATS] Encountered unknown instruction");
 			error::DebugBreak();

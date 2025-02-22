@@ -22,7 +22,8 @@ namespace GBA::cheats {
 		ROM_PATCH_1 = 0x18,
 		ROM_PATCH_2 = 0x1A,
 		ROM_PATCH_3 = 0x1C,
-		ROM_PATCH_4 = 0x1E
+		ROM_PATCH_4 = 0x1E,
+		SLIDE_32    = 0x84
 	};
 
 	enum class AR_Cond {
