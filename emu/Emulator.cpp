@@ -259,6 +259,14 @@ namespace GBA::emulation {
 		return !cheat_set.directives.empty();
 	}
 
+	void Emulator::RemoveCheat(std::string const& name) {
+		auto position = m_cheats.find(name);
+		if (position == m_cheats.cend()) { return; }
+
+		DisableCheat(name);
+		m_cheats.erase(position);
+	}
+
 	bool Emulator::EnableCheat(std::string const& name) {
 		if (m_cheats.find(name) == m_cheats.cend()) { return false; }
 		if (std::find(m_enabled_cheats.cbegin(), m_enabled_cheats.cend(), name)
@@ -280,8 +288,10 @@ namespace GBA::emulation {
 			m_enabled_cheats.end(),
 			name);
 
-		if(pos != m_enabled_cheats.end())
-			m_enabled_cheats.erase(pos);
+		if (pos == m_enabled_cheats.end())
+			return;
+		
+		m_enabled_cheats.erase(pos);
 
 		auto& cheat_set = m_cheats[name];
 		cheat_set.enabled = false;

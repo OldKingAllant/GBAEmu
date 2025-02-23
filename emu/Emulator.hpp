@@ -85,6 +85,7 @@ namespace GBA::emulation {
 		}
 
 		bool AddCheat(std::vector<std::string> lines, cheats::CheatType ty, std::string name);
+		void RemoveCheat(std::string const& name);
 		bool EnableCheat(std::string const& name);
 		void DisableCheat(std::string const& name);
 

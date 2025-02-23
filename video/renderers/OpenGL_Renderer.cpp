@@ -442,10 +442,24 @@ namespace GBA::video::renderer {
 
 			auto& inserted_cheats = m_emu->GetCheats();
 
-			for (auto& [name, cheat_set] : inserted_cheats) {
-				bool is_enabled = cheat_set.enabled;
+			std::vector<std::string> cheats_for_deletion{};
 
-				if (ImGui::Checkbox(name.c_str(), &is_enabled)) {
+			for (uint32_t curr_id = 0; auto & [name, cheat_set] : inserted_cheats) {
+				bool is_enabled = cheat_set.enabled;
+				bool was_removed = false;
+
+				auto widget_name = fmt::format("Remove##cheat_{}", curr_id);
+				curr_id++;
+
+				if (ImGui::Button(widget_name.c_str())) {
+					was_removed = true;
+					cheats_for_deletion.push_back(name);
+				}
+				else {
+					ImGui::SameLine();
+				}
+
+				if (!was_removed && ImGui::Checkbox(name.c_str(), &is_enabled)) {
 					if (is_enabled) {
 						//Was off
 						if (m_emu->EnableCheat(name))
@@ -461,6 +475,11 @@ namespace GBA::video::renderer {
 					}
 				}
 
+			}
+
+			for (auto& cheat_name : cheats_for_deletion) {
+				fmt::println("[CHEATS] Removing \"{}\"", cheat_name);
+				m_emu->RemoveCheat(cheat_name);
 			}
 
 			ImGui::EndMenu();
