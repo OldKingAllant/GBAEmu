@@ -3,12 +3,12 @@
 #include "../common/Defs.hpp"
 
 #include "backups/Backup.hpp"
+#include "backups/Database.hpp"
 #include "gpio/Gpio.hpp"
-
-#include <filesystem>
-
 #include "mapping/FileMapping.hpp"
 #include "Header.hpp"
+
+#include <filesystem>
 
 namespace GBA::gamepack {
 	using namespace common;
@@ -47,19 +47,6 @@ namespace GBA::gamepack {
 		void save(Ar& ar) const {
 			if(m_gpio != nullptr)
 				ar(*m_gpio);
-
-			/*switch (m_backup->GetBackupType())
-			{
-			case backups::BackupType::SRAM:
-				break;
-			case backups::BackupType::EEPROM:
-				break;
-			case backups::BackupType::FLASH:
-				break;
-			default:
-				break;
-			}*/
-			//Ignore backup for now
 		}
 
 		template <typename Ar>
@@ -70,6 +57,10 @@ namespace GBA::gamepack {
 
 		u16 Patch(u32 address, u16 value);
 
+		std::unordered_map<std::string, backups::CheatEntry> const& GetCheats() const {
+			return m_cheats;
+		}
+
 	private :
 		bool MapFile();
 		bool UnMapFile();
@@ -77,13 +68,11 @@ namespace GBA::gamepack {
 		u8* m_rom;
 		backups::Backup* m_backup;
 		fs::path m_path;
-
 		mapping::FileMapInfo m_info;
-
 		GamePackHeader m_head;
-		
 		u32 m_backup_address_start;
-
 		gpio::Gpio* m_gpio;
+
+		std::unordered_map<std::string, backups::CheatEntry> m_cheats;
 	};
 }

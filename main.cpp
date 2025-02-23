@@ -132,11 +132,13 @@ int main(int argc, char* argv[]) {
 		rewind_enable = conf.data["EMU"]["rewind_enable"] == "true";
 	}
 
+	bool enable_hooks = conf.data["CHEATS"]["enable_hooks"] == "true";
+
 	emu->SetRewindBufferSize(GBA::common::u32(rewind_buf_size));
 
 	/////////////////////////////////////////////////////////////////
 
-	GBA::video::renderer::OpenGL opengl_rend{paused};
+	GBA::video::renderer::OpenGL opengl_rend{paused, enable_hooks};
 
 	opengl_rend.SetKeypad(&emu->GetContext().keypad);
 
@@ -249,7 +251,13 @@ int main(int argc, char* argv[]) {
 		}
 	});
 
+	opengl_rend.SetHooksEnableAction([emu](bool set_enable) {
+		emu->EnableHooksGlobal(set_enable);
+	});
+
 	opengl_rend.SetSyncToAudioCallback([audio](bool sync) { audio->AudioSync(sync); });
+
+	opengl_rend.SetEmu(emu);
 
 	audio->Start();
 
@@ -257,20 +265,6 @@ int main(int argc, char* argv[]) {
 
 	/////////////////////////////////////////////////////////////////////
 	using GBA::cheats::CheatType;
-	
-	emu->AddCheat({
-		"D8BAE4D9 4864DCE5"
-		"A86CDBA5 19BA49B3"
-		"A57E2EDE A5AFF3E4"
-		"1C7B3231 B494738C"
-		"C6511EC5 0F15C8E0"
-		"4689920D 5CFF6FFE"
-		"8631B929 014933DF"
-		"10257B84 3365249C"
-		"AEA23F29 64EDD481"
-		"166577A1 EB80A832"
-	}, CheatType::ACTION_REPLAY, "All TM/HM");
-	emu->EnableCheat("All TM/HM");
 
 	auto last_save_timestamp = std::chrono::system_clock::now();
 

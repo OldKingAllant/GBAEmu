@@ -1,0 +1,25 @@
+#[game code]
+#single_line = visible name:0:type:directive0,directive1,...
+#multiline = visible name:count:type
+#multiline.1 = directive0
+#multiline.2 = directive1
+
+#where type is either AR (Action Replay),GS (Game Shark) or CB (Code Breaker)
+#and count is the number of lines of the cheat (if split on multiple lines, else 0)
+#Lines belonging to the same cheat must be one after the other
+
+[POKEMON EMER]
+aurora_ticket = Aurora ticket:0:AR:483511F5,E6C8E537
+
+all_tm_hm = All TMs/HMs:10:AR
+all_tm_hm.1 = D8BAE4D9 4864DCE5
+all_tm_hm.2 = A86CDBA5 19BA49B3
+all_tm_hm.3 = A57E2EDE A5AFF3E4
+all_tm_hm.4 = 1C7B3231 B494738C
+all_tm_hm.5 = C6511EC5 0F15C8E0
+all_tm_hm.6 = 4689920D 5CFF6FFE
+all_tm_hm.7 = 8631B929 014933DF
+all_tm_hm.8 = 10257B84 3365249C
+all_tm_hm.9 = AEA23F29 64EDD481
+all_tm_hm.10 = 166577A1 EB80A832
+

@@ -23,7 +23,9 @@ namespace GBA::gamepack {
 	GamePack::GamePack() :
 		m_rom(nullptr), m_backup(nullptr),
 		m_path(), m_info{}, m_head{},
-		m_backup_address_start{}, m_gpio(nullptr) {}
+		m_backup_address_start{}, m_gpio(nullptr),
+		m_cheats{} 
+	{}
 
 	bool GamePack::LoadFrom(fs::path const& path) {
 		if (!fs::exists(path))
@@ -93,6 +95,8 @@ namespace GBA::gamepack {
 			for (auto const& [dev, conns] : gpio)
 				m_gpio->AddDevice(dev, conns);
 		}
+
+		m_cheats = backups::BackupDatabase::GetCheats("cheats.txt", game_name);
 
 		return true;
 	}

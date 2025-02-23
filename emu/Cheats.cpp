@@ -44,12 +44,13 @@ namespace GBA::cheats {
 		std::vector<uint32_t> directives{};
 
 		for (auto const& line : lines) {
+			
 			std::string new_line = line;
 			new_line.erase(
-				std::remove(
+				std::remove_if(
 					new_line.begin(),
 					new_line.end(),
-					' '),
+					[](char ch) { return bool(isspace(ch)); }),
 				new_line.end()
 			);
 

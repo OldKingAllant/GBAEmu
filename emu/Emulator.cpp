@@ -17,7 +17,8 @@ namespace GBA::emulation {
 		m_rewind_pos{}, m_reset_state{},
 		m_is_init{false}, m_cheats{},
 		m_enabled_cheats{},
-		m_hooks{}
+		m_hooks{}, 
+		m_enable_hooks{false}
 	{}
 
 	Emulator::Emulator(std::string_view rom_location, std::string_view bios_location) :
@@ -87,6 +88,16 @@ namespace GBA::emulation {
 		m_ctx.apu.SetScheduler(&m_ctx.scheduler);
 
 		m_ctx.timers.SetAPU(&m_ctx.apu);
+
+		auto& db_cheats = m_ctx.pack.GetCheats();
+
+		for (auto& [cheat_name, cheat_entry] : db_cheats) {
+			AddCheat(
+				cheat_entry.lines,
+				cheat_entry.ty,
+				cheat_name
+			);
+		}
 	}
 
 	void Emulator::SaveResetState() {
@@ -119,13 +130,15 @@ namespace GBA::emulation {
 	}
 
 	void Emulator::RunTillVblank() {
-		ProcessCheats();
+		if (m_enable_hooks) {
+			ProcessCheats();
+		}
 
 		while (!m_ctx.ppu.HasFrame()) {
 			if (m_ctx.bus.GetActiveDma() == 4) {
 				m_ctx.processor.Step();
 
-				if (!m_hooks.empty()) {
+				if (m_enable_hooks && !m_hooks.empty()) {
 					auto curr_pc = m_ctx.processor.GetContext()
 						.m_regs.GetReg(15);
 					auto hooks = m_hooks.equal_range(curr_pc);

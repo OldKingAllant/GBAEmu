@@ -80,12 +80,20 @@ namespace GBA::emulation {
 
 		/////////////////////////
 
+		inline void EnableHooksGlobal(bool set_enabled) {
+			m_enable_hooks = set_enabled;
+		}
+
 		bool AddCheat(std::vector<std::string> lines, cheats::CheatType ty, std::string name);
 		bool EnableCheat(std::string const& name);
 		void DisableCheat(std::string const& name);
 
 		void AddHook(uint32_t pc, std::string const& name);
 		void RemoveHook(std::string const& name);
+
+		inline std::unordered_map<std::string, cheats::CheatSet> const& GetCheats() const {
+			return m_cheats;
+		}
 
 		/////////////////////////
 
@@ -148,5 +156,7 @@ namespace GBA::emulation {
 		std::list<std::string> m_enabled_cheats;
 
 		std::unordered_multimap<uint32_t, std::string> m_hooks;
+
+		bool m_enable_hooks;
 	};
 }

@@ -13,7 +13,8 @@ namespace GBA::emulation {
 namespace GBA::cheats {
 	enum class CheatType {
 		GAMESHARK,
-		ACTION_REPLAY
+		ACTION_REPLAY,
+		CODE_BREAKER
 	};
 
 	enum class DirectiveType {

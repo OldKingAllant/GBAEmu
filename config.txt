@@ -12,3 +12,6 @@ startup_load_save = true
 
 [ROM]
 default_rom = ./testRoms/PokemonEmerald.gba
+
+[cheats]
+enable_hooks = 

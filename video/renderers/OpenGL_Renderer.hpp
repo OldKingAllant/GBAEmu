@@ -9,6 +9,10 @@
 struct SDL_Window;
 struct SDL_KeyboardEvent;
 
+namespace GBA::emulation {
+	class Emulator;
+}
+
 namespace GBA::video::renderer {
 	struct OpenglFunctions;
 
@@ -21,10 +25,11 @@ namespace GBA::video::renderer {
 	using SyncToAudioCallback = std::function<void(bool)>;
 	using RewindCallback = std::function<void(bool)>;
 	using ResetCallback = std::function<void()>;
+	using HooksEnableCallback = std::function<void(bool)>;
 
 	class OpenGL : public VideoOutput {
 	public :
-		OpenGL(bool pause);
+		OpenGL(bool pause, bool hooks_enable);
 
 		bool Init(unsigned scale_x, unsigned scale_y) override;
 
@@ -71,6 +76,14 @@ namespace GBA::video::renderer {
 			m_reset = callback;
 		}
 
+		void SetHooksEnableAction(HooksEnableCallback callback) {
+			m_hooks = callback;
+		}
+
+		inline void SetEmu(emulation::Emulator* emu) {
+			m_emu = emu;
+		}
+
 		~OpenGL() override;
 
 	private :
@@ -81,6 +94,8 @@ namespace GBA::video::renderer {
 		void KeyUp(SDL_KeyboardEvent* ev);
 
 		void FileMenu();
+		void CheatMenu();
+		void CheatInsertWindow();
 
 		std::string FileDialog(std::string title, std::string filters);
 
@@ -117,11 +132,17 @@ namespace GBA::video::renderer {
 		SyncToAudioCallback m_audio_sync;
 		RewindCallback m_rewind;
 		ResetCallback m_reset;
+		HooksEnableCallback m_hooks;
 
 		bool m_pause;
 		bool m_show_menu_bar;
 		bool m_ctrl_status;
 		bool m_sync_to_audio;
 		bool m_alt_status;
+		bool m_enable_hooks;
+
+		emulation::Emulator* m_emu;
+
+		bool m_show_cheat_insert_win;
 	};
 }

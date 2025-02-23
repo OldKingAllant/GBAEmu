@@ -5,27 +5,34 @@
 
 #include "../../common/Logger.hpp"
 #include "../../memory/Keypad.hpp"
+#include "../../emu/Emulator.hpp"
 #include "detail/OpengGLFunctions.hpp"
 
 #include "../../ImGui/imgui.h"
 #include "../../ImGui/backends/imgui_impl_sdl2.h"
 #include "../../ImGui/backends/imgui_impl_opengl3.h"
+#include "../../ImGui/misc/cpp/imgui_stdlib.h"
 
 #include "../../thirdparty/ImGuiFileDialog/ImGuiFileDialog.h"
+
+#include <vector>
+
+#include <fmt/format.h>
 
 namespace GBA::video::renderer {
 	LOG_CONTEXT(OpenGLRenderer);
 
-	OpenGL::OpenGL(bool pause) :
+	OpenGL::OpenGL(bool pause, bool hooks_enable) :
 		m_window(nullptr), m_gl_context(nullptr),
 		m_gl_data{}, m_quick_save{},
 		m_on_pause{}, m_on_select{},
 		m_save_load{}, m_save_store{}, m_save_state{},
 		m_audio_sync{}, m_rewind{},
-		m_reset{},
+		m_reset{}, m_hooks{},
 		m_pause{pause}, m_show_menu_bar{false},
 		m_ctrl_status{false}, m_sync_to_audio{true},
-		m_alt_status{false}
+		m_alt_status{false}, m_enable_hooks{hooks_enable},
+		m_emu{nullptr}, m_show_cheat_insert_win{false}
 	{
 		m_gl_data.placeholder_data = new float[240 * 160 * 3];
 
@@ -422,6 +429,117 @@ namespace GBA::video::renderer {
 		}
 	}
 
+	void OpenGL::CheatMenu() {
+		if (ImGui::BeginMenu("Cheats")) {
+			ImGui::Checkbox("Show insert window", &m_show_cheat_insert_win);
+			ImGui::Checkbox("Enable hooks", &m_enable_hooks);
+
+			if (m_hooks) {
+				m_hooks(m_enable_hooks);
+			}
+
+			ImGui::Separator();
+
+			auto& inserted_cheats = m_emu->GetCheats();
+
+			for (auto& [name, cheat_set] : inserted_cheats) {
+				bool is_enabled = cheat_set.enabled;
+
+				if (ImGui::Checkbox(name.c_str(), &is_enabled)) {
+					if (is_enabled) {
+						//Was off
+						if (m_emu->EnableCheat(name))
+							fmt::println("[CHEATS] Enabled \"{}\"", name);
+						else 
+							fmt::println("[CHEATS] Could not enable \"{}\"", name);
+					}
+					else {
+						//Was on
+						m_emu->DisableCheat(name);
+						fmt::println("[CHEATS] Disabled \"{}\"", name);
+						fmt::println("[CHEATS] You may need to reset depending on the cheat");
+					}
+				}
+
+			}
+
+			ImGui::EndMenu();
+		}
+	}
+
+	void OpenGL::CheatInsertWindow() {
+		static int current_type{ 0 };
+		static std::string curr_message{};
+		static std::string cheat_name{}, cheat_lines{};
+
+		ImGui::Begin("Cheat insert", &m_show_cheat_insert_win);
+
+		ImGui::InputText("Cheat name", &cheat_name);
+		ImGui::InputTextMultiline("Cheat", &cheat_lines, ImVec2(0, 0),
+			ImGuiInputTextFlags_CharsHexadecimal);
+
+		constexpr const char* TYPES[] = {
+			"AR", "CB", "GS"
+		};
+
+		constexpr auto NUM_TYPES = std::distance(
+			std::begin(TYPES), std::end(TYPES)
+		);
+
+		ImGui::Combo("Cheat type", &current_type, TYPES, NUM_TYPES);
+
+		if(ImGui::Button("Insert")) {
+			cheats::CheatType ty{};
+
+			switch (current_type)
+			{
+			case 0:
+				ty = cheats::CheatType::ACTION_REPLAY;
+				break;
+			case 1:
+				ty = cheats::CheatType::CODE_BREAKER;
+				break;
+			case 2:
+				ty = cheats::CheatType::GAMESHARK;
+				break;
+			default:
+				break;
+			}
+
+			if (cheat_name.empty()) {
+				curr_message = "Name cannot be empty";
+			}
+			else if (cheat_lines.empty()) {
+				curr_message = "Please insert cheat";
+			}
+			else if (m_emu->AddCheat({ cheat_lines }, ty, cheat_name)) {
+				curr_message = "Insert ok";
+			}
+			else {
+				curr_message = "Could not insert cheat";
+			}
+		}
+
+		ImGui::SameLine();
+
+		if (ImGui::Button("Clear input")) {
+			current_type = 0;
+			cheat_name.clear();
+			cheat_lines.clear();
+		}
+
+		if (!curr_message.empty()) {
+			ImGui::Text("%s", curr_message.c_str());
+			ImGui::SameLine();
+
+			if (ImGui::Button("Clear")) {
+				curr_message.clear();
+			}
+		}
+
+		ImGui::End();
+	}
+
 	void OpenGL::PresentFrame() {
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
@@ -472,7 +590,13 @@ namespace GBA::video::renderer {
 				ImGui::EndMenu();
 			}
 
+			CheatMenu();
+
 			ImGui::EndMainMenuBar();
+
+			if (m_show_cheat_insert_win) {
+				CheatInsertWindow();
+			}
 
 			ImGui::Render();
 			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
