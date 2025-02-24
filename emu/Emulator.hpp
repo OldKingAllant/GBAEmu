@@ -62,6 +62,25 @@ namespace GBA::emulation {
 
 		//////////////////////////
 
+		void SetRewindEnable(bool enable_rewind);
+
+		inline bool IsRewindEnabled() const {
+			return m_enable_rewind;
+		}
+
+		inline uint32_t GetCurrentRewindBufferSize() const {
+			return uint32_t(m_rewind_buf.size());
+		}
+
+		inline uint32_t GetMaxRewindBufferSize() const {
+			return m_rewind_buf_size;
+		}
+
+		inline void RewindClearBuffer() {
+			m_rewind_pos = 0;
+			m_rewind_buf.clear();
+		}
+
 		bool RewindPush();
 		bool RewindBackward();
 		bool RewindForward();
@@ -73,7 +92,7 @@ namespace GBA::emulation {
 			m_rewind_buf_size = buf_size;
 			m_rewind_pos = 0;
 
-			if (m_rewind_buf.size() >= m_rewind_buf_size) {
+			if (m_rewind_buf.size() > m_rewind_buf_size) {
 				m_rewind_buf.resize(buf_size);
 			}
 		}
@@ -149,6 +168,7 @@ namespace GBA::emulation {
 		common::u32 m_rewind_buf_size;
 		common::u32 m_rewind_pos;
 		std::deque<std::string> m_rewind_buf;
+		bool m_enable_rewind;
 
 		std::string m_reset_state;
 		bool m_is_init;

@@ -559,6 +559,32 @@ namespace GBA::video::renderer {
 		ImGui::End();
 	}
 
+	void OpenGL::RewindMenu() {
+		if (ImGui::BeginMenu("Rewind")) {
+			bool is_enabled = m_emu->IsRewindEnabled();
+
+			if (ImGui::Checkbox("Enabled", &is_enabled)) {
+				m_emu->SetRewindEnable(is_enabled);
+			}
+
+			ImGui::Text("Current buffer size: %d", m_emu->GetCurrentRewindBufferSize());
+			ImGui::SameLine();
+
+			if (ImGui::Button("Clear")) {
+				m_emu->RewindClearBuffer();
+			}
+
+			auto max_size = int(m_emu->GetMaxRewindBufferSize());
+
+			if (ImGui::SliderInt("Max buffer size", &max_size, 1, 60,
+				"%d", ImGuiSliderFlags_AlwaysClamp)) {
+				m_emu->SetRewindBufferSize(common::u32(max_size));
+			}
+
+			ImGui::EndMenu();
+		}
+	}
+
 	void OpenGL::PresentFrame() {
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
@@ -610,6 +636,7 @@ namespace GBA::video::renderer {
 			}
 
 			CheatMenu();
+			RewindMenu();
 
 			ImGui::EndMainMenuBar();
 

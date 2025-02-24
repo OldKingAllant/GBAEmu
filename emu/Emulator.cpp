@@ -14,11 +14,12 @@ namespace GBA::emulation {
 	Emulator::Emulator() :
 		m_ctx{}, m_bios_loc{},
 		m_rewind_buf_size{}, m_rewind_buf{},
-		m_rewind_pos{}, m_reset_state{},
-		m_is_init{false}, m_cheats{},
-		m_enabled_cheats{},
-		m_hooks{}, 
-		m_enable_hooks{false}
+		m_rewind_pos{}, m_enable_rewind{false},
+		
+		m_reset_state{}, m_is_init{false}, 
+		
+		m_cheats{}, m_enabled_cheats{},
+		m_hooks{}, m_enable_hooks{false}
 	{}
 
 	Emulator::Emulator(std::string_view rom_location, std::string_view bios_location) :
@@ -185,13 +186,21 @@ namespace GBA::emulation {
 		savestate::LoadFromFile(in, this);
 	}
 
+	void Emulator::SetRewindEnable(bool enable_rewind) {
+		if (!enable_rewind && m_enable_rewind) {
+			m_rewind_pos = 0;
+			m_rewind_buf.clear();
+		}
+		m_enable_rewind = enable_rewind;
+	}
+
 	bool Emulator::RewindPush() {
 		std::string temp_buf{};
 		savestate::StoreToBuffer(temp_buf, this);
 		
 		m_rewind_buf.push_front(std::move(temp_buf));
 
-		if (m_rewind_buf.size() >= m_rewind_buf_size) {
+		if (m_rewind_buf.size() > m_rewind_buf_size) {
 			m_rewind_buf.pop_back();
 		}
 

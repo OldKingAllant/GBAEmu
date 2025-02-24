@@ -134,6 +134,7 @@ int main(int argc, char* argv[]) {
 
 	bool enable_hooks = conf.data["CHEATS"]["enable_hooks"] == "true";
 
+	emu->SetRewindEnable(rewind_enable);
 	emu->SetRewindBufferSize(GBA::common::u32(rewind_buf_size));
 
 	/////////////////////////////////////////////////////////////////
@@ -284,7 +285,7 @@ int main(int argc, char* argv[]) {
 				opengl_rend.SetFrame(framebuffer);
 			}
 
-			if (rewind_enable) {
+			if (emu->IsRewindEnabled()) {
 				auto now = std::chrono::system_clock::now();
 				auto diff = std::chrono::duration_cast<std::chrono::seconds>(
 					now - last_save_timestamp
