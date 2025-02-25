@@ -23,3 +23,5 @@ all_tm_hm.8 = 10257B84 3365249C
 all_tm_hm.9 = AEA23F29 64EDD481
 all_tm_hm.10 = 166577A1 EB80A832
 
+birth_island_warp = Warp to birth island:0:AR:E5AC0043,E1C4C8F0
+

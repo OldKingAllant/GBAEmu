@@ -2,6 +2,7 @@
 
 #include "GameShark.hpp"
 #include "ActionReplay.hpp"
+#include "CodeBreaker.hpp"
 
 #include "Emulator.hpp"
 
@@ -10,7 +11,7 @@
 #include <fmt/format.h>
 
 namespace GBA::cheats {
-	static std::vector<uint32_t> ParseHex(std::string const& line) {
+	static std::vector<uint32_t> ParseHex(std::string const& line, bool alternate_size) {
 		std::vector<uint32_t> directives{};
 		uint32_t curr_digit = 0;
 		uint32_t curr_val = 0;
@@ -30,7 +31,11 @@ namespace GBA::cheats {
 			uint32_t digit = to_digit(ch);
 			curr_val |= (digit << (28 - curr_digit * 4));
 
-			if (++curr_digit == 8) {
+			auto size_odd = bool(directives.size() & 1);
+			uint32_t curr_limit = alternate_size ?
+				(size_odd ? 4 : 8) : 8;
+
+			if (++curr_digit == curr_limit) {
 				directives.push_back(curr_val);
 				curr_digit = 0;
 				curr_val = 0;
@@ -54,7 +59,8 @@ namespace GBA::cheats {
 				new_line.end()
 			);
 
-			auto parsed_directives = ParseHex(new_line);
+			auto parsed_directives = ParseHex(new_line,
+				ty == CheatType::CODE_BREAKER);
 			directives.insert(directives.end(),
 				parsed_directives.cbegin(),
 				parsed_directives.cend());
@@ -71,6 +77,9 @@ namespace GBA::cheats {
 			break;
 		case CheatType::ACTION_REPLAY:
 			set.directives = ParseActionReplayDirectives(directives);
+			break;
+		case CheatType::CODE_BREAKER:
+			set.directives = ParseCodeBreakerDirectives(directives);
 			break;
 		default:
 			break;
@@ -234,6 +243,7 @@ namespace GBA::cheats {
 		case DirectiveType::ID_CODE:
 		case DirectiveType::HOOK:
 		case DirectiveType::ROM_PATCH:
+		case DirectiveType::CRC:
 			break;
 		case DirectiveType::SLIDE_32: {
 			auto& bus = emu->GetContext().bus;
@@ -243,6 +253,25 @@ namespace GBA::cheats {
 			auto curr_address = directive.base;
 			auto value = directive.init_value;
 			auto address_inc = directive.address_inc << 2;
+			auto value_inc = directive.value_inc;
+
+			auto n_repeat = directive.repeat;
+
+			while (n_repeat--) {
+				bus.Write(curr_address, value);
+				value += value_inc;
+				curr_address += address_inc;
+			}
+		}
+			break;
+		case DirectiveType::SLIDE_16: {
+			auto& bus = emu->GetContext().bus;
+
+			auto& directive = directive_iter->cmd.slide16;
+
+			auto curr_address = directive.base;
+			auto value = directive.init_value;
+			auto address_inc = directive.address_inc;
 			auto value_inc = directive.value_inc;
 
 			auto n_repeat = directive.repeat;

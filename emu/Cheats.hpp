@@ -29,7 +29,9 @@ namespace GBA::cheats {
 		HOOK,
 		ID_CODE,
 		ROM_PATCH,
-		SLIDE_32
+		SLIDE_32,
+		SLIDE_16,
+		CRC
 	};
 
 	enum class Condition {
@@ -110,6 +112,19 @@ namespace GBA::cheats {
 			uint32_t repeat;
 		};
 
+		struct CRC {
+			uint16_t crc;
+			bool disable_irq;
+		};
+
+		struct SlideWrite16 {
+			uint32_t base;
+			uint16_t init_value;
+			uint32_t address_inc;
+			uint16_t value_inc;
+			uint32_t repeat;
+		};
+
 		union DirectiveCommand {
 			Nop				nop;
 			RamWrite8		ram_write8;
@@ -121,6 +136,8 @@ namespace GBA::cheats {
 			IdCode          idcode;
 			RomPatch        patch;
 			SlideWrite32    slide32;
+			SlideWrite16    slide16;
+			CRC             crc;
 		};
 	}
 

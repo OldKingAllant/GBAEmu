@@ -267,6 +267,15 @@ int main(int argc, char* argv[]) {
 	/////////////////////////////////////////////////////////////////////
 	using GBA::cheats::CheatType;
 
+	emu->AddCheat({
+		"9266FA6C 97BD"
+		"905B5ED3 5F81"
+		"B76A68E5 FAB1"
+		"6DB720FF D630"
+		"79BA7465 DC00"
+	}, CheatType::CODE_BREAKER, "Infinite PP");
+	emu->EnableCheat("Infinite PP");
+
 	auto last_save_timestamp = std::chrono::system_clock::now();
 
 	while (!opengl_rend.Stopped())
