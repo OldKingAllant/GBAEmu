@@ -362,6 +362,7 @@ namespace GBA::memory {
 
 		void LoadBIOS(std::string const& location);
 		void LoadBiosResetOpcode();
+		void LoadBiosSWIOpcode();
 
 		MMIO* GetMMIO() {
 			return mmio;

@@ -3,6 +3,8 @@
 #include "../emu/Emulator.hpp"
 #include "../common/Error.hpp"
 
+#include "BiosMath.hpp"
+
 #include <unordered_map>
 #include <string>
 #include <vector>
@@ -75,7 +77,7 @@ namespace GBA::hle {
 		table.insert({ id, descriptor  });
 	}
 
-	static std::unordered_map<u8, FunctionDescriptor> GenerateFunctionTable() {
+	static std::unordered_map<u8, FunctionDescriptor> GenerateDescriptorTable() {
 		std::unordered_map<u8, FunctionDescriptor> ftable{};
 
 		std::unordered_map<std::string, u8> signatures = {
@@ -89,7 +91,7 @@ namespace GBA::hle {
 		return ftable;
 	}
 
-	static const auto FUNCTION_TABLE = GenerateFunctionTable();
+	static const auto DESCRIPTOR_TABLE = GenerateDescriptorTable();
 
 	static void LogParameter(u8 param_pos,
 		std::pair<std::string, ArgType> const& param, memory::Bus* bus, 
@@ -117,9 +119,9 @@ namespace GBA::hle {
 	}
 
 	static void LogFunctionCall(uint8_t id, memory::Bus* bus, cpu::CPUContext& ctx) {
-		auto descriptor_iter = FUNCTION_TABLE.find(id);
+		auto descriptor_iter = DESCRIPTOR_TABLE.find(id);
 
-		if (descriptor_iter == FUNCTION_TABLE.cend()) {
+		if (descriptor_iter == DESCRIPTOR_TABLE.cend()) {
 			fmt::println("[HLE] Function {:#04x} called", id);
 			return;
 		}
@@ -141,9 +143,34 @@ namespace GBA::hle {
 		fmt::println("[HLE] {}", os.str());
 	}
 
+	static FunctionTable CreateFunctionTable() {
+		FunctionTable ftable{};
+
+		std::fill_n(ftable.begin(), ftable.size(), nullptr);
+
+		math::RegisterMath(ftable);
+
+		return ftable;
+	}
+
+	static auto FUNCTION_TABLE = CreateFunctionTable();
+
+	void RegisterFunction(FunctionTable& table, u8 id, FunctionHandler handler) {
+		table[id] = handler;
+	}
+
 	bool HleBiosRoutine(uint8_t id, memory::Bus* bus, cpu::CPUContext& ctx, bool& branch) {
 		if (ctx.m_emu->IsHleLogEnabled()) {
 			LogFunctionCall(id, bus, ctx);
+		}
+
+		if (FUNCTION_TABLE[id] != nullptr) {
+			bool handled = FUNCTION_TABLE[id](bus, ctx, branch);
+
+			if (handled) {
+				bus->LoadBiosSWIOpcode();
+				return true;
+			}
 		}
 
 		return false;
