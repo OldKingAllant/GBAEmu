@@ -2,7 +2,7 @@
 skip = false
 file = ./testRoms/gba_bios.bin
 enable_hle = true
-log_hle = false
+log_hle = true
 
 [EMU]
 start_paused = true

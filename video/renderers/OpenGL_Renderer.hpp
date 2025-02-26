@@ -97,6 +97,7 @@ namespace GBA::video::renderer {
 		void CheatMenu();
 		void CheatInsertWindow();
 		void RewindMenu();
+		void EmulationMenu();
 
 		std::string FileDialog(std::string title, std::string filters);
 

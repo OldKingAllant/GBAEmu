@@ -585,6 +585,40 @@ namespace GBA::video::renderer {
 		}
 	}
 
+	void OpenGL::EmulationMenu() {
+		if (ImGui::BeginMenu("Emulation")) {
+			ImGui::Checkbox("Pause", &m_pause);
+
+			if (m_on_pause)
+				m_on_pause(m_pause);
+
+			ImGui::Checkbox("Audio sync (60fps)", &m_sync_to_audio);
+
+			if (m_audio_sync) {
+				m_audio_sync(m_sync_to_audio);
+			}
+
+			SDL_GL_SetSwapInterval(m_sync_to_audio);
+
+			bool hle_on  = m_emu->IsHleEnabled();
+			bool hle_log = m_emu->IsHleLogEnabled();
+
+			if (ImGui::Checkbox("HLE functions", &hle_on)) {
+				m_emu->SetHleEnable(hle_on);
+			}
+
+			if (ImGui::Checkbox("HLE logging  ", &hle_log)) {
+				m_emu->SetLogHleEnable(hle_log);
+			}
+
+			if (ImGui::Button("Reset") && m_reset) {
+				m_reset();
+			}
+
+			ImGui::EndMenu();
+		}
+	}
+
 	void OpenGL::UpdateWindowTitle() {
 		auto const& internal_name = m_emu->GetContext()
 			.pack.GetInternalName();
@@ -622,28 +656,7 @@ namespace GBA::video::renderer {
 			ImGui::BeginMainMenuBar();
 
 			FileMenu();
-
-			if (ImGui::BeginMenu("Emulation")) {
-				ImGui::Checkbox("Pause", &m_pause);
-
-				if (m_on_pause)
-					m_on_pause(m_pause);
-
-				ImGui::Checkbox("Audio sync (60fps)", &m_sync_to_audio);
-
-				if (m_audio_sync) {
-					m_audio_sync(m_sync_to_audio);
-				}
-
-				SDL_GL_SetSwapInterval(m_sync_to_audio);
-
-				if (ImGui::Button("Reset") && m_reset) {
-					m_reset();
-				}
-
-				ImGui::EndMenu();
-			}
-
+			EmulationMenu();
 			CheatMenu();
 			RewindMenu();
 

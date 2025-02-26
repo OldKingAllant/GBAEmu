@@ -5,6 +5,7 @@
 
 #include "BiosMath.hpp"
 #include "BiosAffine.hpp"
+#include "BiosMisc.hpp"
 
 #include <unordered_map>
 #include <string>
@@ -86,6 +87,8 @@ namespace GBA::hle {
 		std::unordered_map<u8, FunctionDescriptor> ftable{};
 
 		std::unordered_map<std::string, u8> signatures = {
+			{ "IntrWait()"                 , 0x04 },
+			{ "VBlankIntrWait()"           , 0x05 },
 			{ "Div(num=INT32,denom=INT32,)", 0x06 },
 			{ "Sqrt(num=UINT32,)"          , 0x08 },
 			{ "ArcTan(tan=UINT32,)"        , 0x09 },
@@ -176,6 +179,7 @@ namespace GBA::hle {
 
 		math::RegisterMath(ftable);
 		affine::RegisterAffine(ftable);
+		misc::RegisterMisc(ftable);
 
 		return ftable;
 	}
