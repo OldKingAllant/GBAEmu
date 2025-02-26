@@ -24,6 +24,10 @@ namespace GBA::cpu {
 			return m_ctx;
 		}
 
+		CPUContext const& GetContext() const {
+			return m_ctx;
+		}
+
 		void SetInterruptControl(memory::InterruptController* int_controller);
 
 		inline void SetHalted() {

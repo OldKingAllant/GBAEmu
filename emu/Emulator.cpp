@@ -19,7 +19,9 @@ namespace GBA::emulation {
 		m_reset_state{}, m_is_init{false}, 
 		
 		m_cheats{}, m_enabled_cheats{},
-		m_hooks{}, m_enable_hooks{false}
+		m_hooks{}, m_enable_hooks{false},
+
+		m_log_hle{false}
 	{}
 
 	Emulator::Emulator(std::string_view rom_location, std::string_view bios_location) :
@@ -99,6 +101,9 @@ namespace GBA::emulation {
 				cheat_name
 			);
 		}
+
+		m_ctx.processor.GetContext()
+			.m_emu = this;
 	}
 
 	void Emulator::SaveResetState() {

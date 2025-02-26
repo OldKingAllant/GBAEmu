@@ -133,9 +133,14 @@ int main(int argc, char* argv[]) {
 	}
 
 	bool enable_hooks = conf.data["CHEATS"]["enable_hooks"] == "true";
+	bool enable_hle   = conf.data["BIOS"]["enable_hle"] == "true";
+	bool log_hle      = conf.data["BIOS"]["log_hle"] == "true";
 
 	emu->SetRewindEnable(rewind_enable);
 	emu->SetRewindBufferSize(GBA::common::u32(rewind_buf_size));
+
+	emu->SetHleEnable(enable_hle);
+	emu->SetLogHleEnable(log_hle);
 
 	/////////////////////////////////////////////////////////////////
 
@@ -267,14 +272,14 @@ int main(int argc, char* argv[]) {
 	/////////////////////////////////////////////////////////////////////
 	using GBA::cheats::CheatType;
 
-	emu->AddCheat({
+	/*emu->AddCheat({
 		"9266FA6C 97BD"
 		"905B5ED3 5F81"
 		"B76A68E5 FAB1"
-		"6DB720FF D630"
-		"79BA7465 DC00"
-	}, CheatType::CODE_BREAKER, "Infinite PP");
-	emu->EnableCheat("Infinite PP");
+		"A66B81E9 6120"
+		"E64F14E9 EAA1"
+	}, CheatType::CODE_BREAKER, "Wild pokemon is altaria");
+	emu->EnableCheat("Wild pokemon is altaria");*/
 
 	auto last_save_timestamp = std::chrono::system_clock::now();
 

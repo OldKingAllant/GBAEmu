@@ -6,6 +6,8 @@
 
 #include "../../../cpu/thumb/TableGen2.hpp"
 
+#include "../../../hle/BiosHle.hpp"
+
 #include <bit>
 
 namespace GBA::cpu::thumb{
@@ -1139,10 +1141,14 @@ namespace GBA::cpu::thumb{
 	}
 
 	void ThumbFormat17(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
+		if (ctx.m_hle_enable) {
+			auto function_id = uint8_t(instr);
+			if (hle::HleBiosRoutine(function_id, bus, ctx, branch))
+				return;
+		}
+
 		ctx.EnterException(ExceptionCode::SOFTI, 2);
-
 		branch = true;
-
 		bus->m_time.access = Access::Seq;
 	}
 

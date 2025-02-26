@@ -117,6 +117,26 @@ namespace GBA::emulation {
 
 		/////////////////////////
 
+		inline void SetHleEnable(bool hle_enable) {
+			m_ctx.processor.GetContext()
+				.m_hle_enable = hle_enable;
+		}
+
+		inline bool IsHleEnabled() const {
+			return m_ctx.processor.GetContext()
+				.m_hle_enable;
+		}
+
+		inline void SetLogHleEnable(bool log_enable) {
+			m_log_hle = log_enable;
+		}
+
+		inline bool IsHleLogEnabled() const {
+			return m_log_hle;
+		}
+
+		////////////////////////
+
 		~Emulator();
 
 		template <typename Ar>
@@ -179,5 +199,6 @@ namespace GBA::emulation {
 		std::unordered_multimap<uint32_t, std::string> m_hooks;
 
 		bool m_enable_hooks;
+		bool m_log_hle;
 	};
 }

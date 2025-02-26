@@ -4,6 +4,10 @@
 #include "./Register.hpp"
 #include "./Pipeline.hpp"
 
+namespace GBA::emulation {
+	class Emulator;
+}
+
 namespace GBA::cpu {
 	struct CPUContext {
 		RegisterManager m_regs;
@@ -11,6 +15,8 @@ namespace GBA::cpu {
 		CPSR m_spsr[5];
 		Pipeline m_pipeline;
 		u32 m_old_pc;
+		bool m_hle_enable;
+		emulation::Emulator* m_emu;
 
 		void EnterException(ExceptionCode exc, u8 pc_offset);
 		void RestorePreviousMode(u32 old_pc);
