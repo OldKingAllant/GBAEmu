@@ -61,6 +61,10 @@ namespace GBA::gamepack {
 			return m_cheats;
 		}
 
+		std::string const& GetInternalName() const {
+			return m_internal_name;
+		}
+
 	private :
 		bool MapFile();
 		bool UnMapFile();
@@ -74,5 +78,6 @@ namespace GBA::gamepack {
 		gpio::Gpio* m_gpio;
 
 		std::unordered_map<std::string, backups::CheatEntry> m_cheats;
+		std::string m_internal_name;
 	};
 }

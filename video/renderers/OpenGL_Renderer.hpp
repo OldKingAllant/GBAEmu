@@ -100,6 +100,8 @@ namespace GBA::video::renderer {
 
 		std::string FileDialog(std::string title, std::string filters);
 
+		void UpdateWindowTitle();
+
 	private :
 		SDL_Window* m_window;
 		void* m_gl_context;

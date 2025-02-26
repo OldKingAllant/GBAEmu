@@ -24,7 +24,7 @@ namespace GBA::gamepack {
 		m_rom(nullptr), m_backup(nullptr),
 		m_path(), m_info{}, m_head{},
 		m_backup_address_start{}, m_gpio(nullptr),
-		m_cheats{} 
+		m_cheats{}, m_internal_name{}
 	{}
 
 	bool GamePack::LoadFrom(fs::path const& path) {
@@ -97,6 +97,8 @@ namespace GBA::gamepack {
 		}
 
 		m_cheats = backups::BackupDatabase::GetCheats("cheats.txt", game_name);
+
+		m_internal_name = std::move(game_name);
 
 		return true;
 	}

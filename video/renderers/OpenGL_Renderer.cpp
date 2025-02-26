@@ -585,7 +585,16 @@ namespace GBA::video::renderer {
 		}
 	}
 
+	void OpenGL::UpdateWindowTitle() {
+		auto const& internal_name = m_emu->GetContext()
+			.pack.GetInternalName();
+
+		SDL_SetWindowTitle(m_window, internal_name.c_str());
+	}
+
 	void OpenGL::PresentFrame() {
+		UpdateWindowTitle();
+
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 
