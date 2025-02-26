@@ -1,6 +1,7 @@
 #include "../../../cpu/arm/ARM_Implementation.hpp"
 #include "../../../cpu/core/CPUContext.hpp"
 #include "../../../memory/Bus.hpp"
+#include "../../../hle/BiosHle.hpp"
 
 #include <bit>
 
@@ -1170,7 +1171,11 @@ namespace GBA::cpu::arm{
 		* 1S -> Prefetch
 		* 1S + 1N -> Pipeline flush
 		*/
-		//u32 argument = instr.data & 0xFFFFFF;
+		if (ctx.m_hle_enable) {
+			auto function_id = u8(instr.data >> 16);
+			if (hle::HleBiosRoutine(function_id, bus, ctx, branch))
+				return;
+		}
 
 		ctx.EnterException(ExceptionCode::SOFTI, 4);
 

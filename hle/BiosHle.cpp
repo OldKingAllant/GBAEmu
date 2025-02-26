@@ -4,6 +4,7 @@
 #include "../common/Error.hpp"
 
 #include "BiosMath.hpp"
+#include "BiosAffine.hpp"
 
 #include <unordered_map>
 #include <string>
@@ -16,7 +17,9 @@ namespace GBA::hle {
 	using namespace common;
 
 	enum class ArgType {
-		INT32
+		INT32,
+		UINT32,
+		AFFINE_STRIDE
 	};
 
 	struct FunctionDescriptor {
@@ -26,7 +29,9 @@ namespace GBA::hle {
 
 	static ArgType GetDatatypeFromString(std::string const& type_str) {
 		static const std::unordered_map<std::string, ArgType> types = {
-			{"INT32", ArgType::INT32}
+			{"INT32", ArgType::INT32},
+			{"UINT32", ArgType::UINT32},
+			{"AFFINE_STRIDE", ArgType::AFFINE_STRIDE}
 		};
 
 		auto iter = types.find(type_str);
@@ -81,7 +86,11 @@ namespace GBA::hle {
 		std::unordered_map<u8, FunctionDescriptor> ftable{};
 
 		std::unordered_map<std::string, u8> signatures = {
-			{ "Div(num=INT32,denom=INT32,)", 0x6 }
+			{ "Div(num=INT32,denom=INT32,)", 0x06 },
+			{ "Sqrt(num=UINT32,)"          , 0x08 },
+			{ "ArcTan(tan=UINT32,)"        , 0x09 },
+			{ "ArcTan2(x=UINT32,y=UINT32,)", 0x0A },
+			{ "ObjAffineSet(src=UINT32,dst=UINT32,len=INT32,stride=AFFINE_STRIDE,)", 0x0F }
 		};
 
 		for (auto const& [signature, id] : signatures) {
@@ -111,6 +120,23 @@ namespace GBA::hle {
 			auto param_as_int = int32_t(param_value);
 			os << param_as_int;
 		}
+			break;
+		case ArgType::UINT32: 
+			os << fmt::format("{:#010x}", param_value);
+			break;
+		case ArgType::AFFINE_STRIDE:
+			switch (param_value)
+			{
+			case 0x2:
+				os << "CONTINUOUS";
+				break;
+			case 0x8:
+				os << "OAM";
+				break;
+			default:
+				os << "INVALID";
+				break;
+			}
 			break;
 		default:
 			os << "UNIMPLEMENTED";
@@ -149,6 +175,7 @@ namespace GBA::hle {
 		std::fill_n(ftable.begin(), ftable.size(), nullptr);
 
 		math::RegisterMath(ftable);
+		affine::RegisterAffine(ftable);
 
 		return ftable;
 	}
