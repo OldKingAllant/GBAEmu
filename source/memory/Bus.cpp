@@ -20,12 +20,16 @@ namespace GBA::memory {
 		m_pack(nullptr), m_wram(nullptr),
 		m_iwram(nullptr), m_prefetch{}, 
 		m_time{}, m_enable_prefetch(false), 
-		m_bios_latch{0x00}, m_open_bus_value{0x00},
+		m_bios_latch{0x00}, m_processor{nullptr},
+		m_open_bus_value{0x00},
 		m_open_bus_address{0x00}, m_ppu(nullptr), 
 		m_bios(nullptr), m_sched(nullptr),
 		active_dmas_count{}, active_dmas{},
 		dmas{}, m_post_boot{}, m_halt_cnt{},
-		m_mem_control{}, m_timers(nullptr)
+		m_mem_control{}, m_timers(nullptr),
+		m_enable_fastmem{false},
+		m_fastmem_was_init{false},
+		m_page_table{}
 	{
 		m_wram = new u8[0x40000];
 		m_iwram = new u8[0x8000];
@@ -295,17 +299,75 @@ namespace GBA::memory {
 		dmas[3]->TriggerDMA(trigger_type);
 	}
 
+	void Bus::InitFastmem(bool precise_bios, bool precise_ppu) {
+		if (m_fastmem_was_init)
+			return;
+
+		m_page_table = std::make_unique<_PageTableEntry[]>(FASTMEM_NUM_PAGES);
+
+		static_assert((REGIONS_LEN[u8(MEMORY_RANGE::BIOS)] + 1) % FASTMEM_PAGE_SIZE == 0, "Page size should divide all regions extents");
+		static_assert((REGIONS_LEN[u8(MEMORY_RANGE::EWRAM)] + 1) % FASTMEM_PAGE_SIZE == 0, "Page size should divide all regions extents");
+		static_assert((REGIONS_LEN[u8(MEMORY_RANGE::IWRAM)] + 1) % FASTMEM_PAGE_SIZE == 0, "Page size should divide all regions extents");
+		static_assert((REGIONS_LEN[u8(MEMORY_RANGE::VRAM)] + 1) % FASTMEM_PAGE_SIZE == 0, "Page size should divide all regions extents");
+
+		constexpr auto BIOS_BASE = u32(MEMORY_RANGE::BIOS) << 24;
+		constexpr auto ERAM_BASE = u32(MEMORY_RANGE::EWRAM) << 24;
+		constexpr auto IRAM_BASE = u32(MEMORY_RANGE::IWRAM) << 24;
+		constexpr auto VRAM_BASE = u32(MEMORY_RANGE::VRAM) << 24;
+
+		constexpr auto BIOS_BASE_PAGE = BIOS_BASE / FASTMEM_PAGE_SIZE;
+		constexpr auto ERAM_BASE_PAGE = ERAM_BASE / FASTMEM_PAGE_SIZE;
+		constexpr auto IRAM_BASE_PAGE = IRAM_BASE / FASTMEM_PAGE_SIZE;
+		constexpr auto VRAM_BASE_PAGE = VRAM_BASE / FASTMEM_PAGE_SIZE;
+
+		constexpr auto BIOS_END_PAGE = BIOS_BASE_PAGE + FASTMEM_BIOS_PAGES;
+		constexpr auto ERAM_END_PAGE = ERAM_BASE_PAGE + FASTMEM_EWRAM_PAGES;
+		constexpr auto IRAM_END_PAGE = IRAM_BASE_PAGE + FASTMEM_IWRAM_PAGES;
+		constexpr auto VRAM_END_PAGE = VRAM_BASE_PAGE + FASTMEM_VRAM_PAGES;
+
+		if (!precise_bios) {
+			for (u32 curr_page = BIOS_BASE_PAGE; curr_page < BIOS_END_PAGE; curr_page++) {
+				const auto page_inside_region = curr_page - BIOS_BASE_PAGE;
+				m_page_table[curr_page].page_address = m_bios + (page_inside_region * FASTMEM_PAGE_SIZE);
+				m_page_table[curr_page].num_cycles = &TimeManager::BIOS_ACCESS_TIME;
+				m_page_table[curr_page].read_only = true;
+			}
+		}
+
+		for (u32 curr_page = ERAM_BASE_PAGE; curr_page < ERAM_END_PAGE; curr_page++) {
+			const auto page_inside_region = curr_page - ERAM_BASE_PAGE;
+			m_page_table[curr_page].page_address = m_wram + (page_inside_region * FASTMEM_PAGE_SIZE);
+			m_page_table[curr_page].num_cycles = &TimeManager::ERAM_ACCESS_TIME;
+			m_page_table[curr_page].word_access_multiplier = 1;
+			m_page_table[curr_page].read_only = false;
+		}
+
+		for (u32 curr_page = IRAM_BASE_PAGE; curr_page < IRAM_END_PAGE; curr_page++) {
+			const auto page_inside_region = curr_page - IRAM_BASE_PAGE;
+			m_page_table[curr_page].page_address = m_iwram + (page_inside_region * FASTMEM_PAGE_SIZE);
+			m_page_table[curr_page].num_cycles = &TimeManager::IRAM_ACCESS_TIME;
+			m_page_table[curr_page].read_only = false;
+		}
+
+		if (!precise_ppu) {
+			auto vram_ptr = m_ppu->DebuggerGetVRAM();
+
+			for (u32 curr_page = VRAM_BASE_PAGE; curr_page < VRAM_END_PAGE; curr_page++) {
+				const auto page_inside_region = curr_page - VRAM_BASE_PAGE;
+				m_page_table[curr_page].page_address = vram_ptr + (page_inside_region * FASTMEM_PAGE_SIZE);
+				m_page_table[curr_page].num_cycles = &TimeManager::VRAM_ACCESS_TIME;
+				m_page_table[curr_page].word_access_multiplier = 1;
+				m_page_table[curr_page].read_only = false;
+			}
+		}
+
+		m_fastmem_was_init = true;
+	}
+
 	Bus::~Bus() {
-		if (m_iwram)
-			delete[] m_iwram;
-
-		if (m_wram)
-			delete[] m_wram;
-
-		if (mmio)
-			delete mmio;
-
-		if (m_bios)
-			delete[] m_bios;
+		delete[] m_iwram;
+		delete[] m_wram;
+		delete mmio;
+		delete[] m_bios;
 	}
 }

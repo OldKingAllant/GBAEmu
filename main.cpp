@@ -132,9 +132,12 @@ int main(int argc, char* argv[]) {
 		rewind_enable = conf.data["EMU"]["rewind_enable"] == "true";
 	}
 
-	bool enable_hooks = conf.data["CHEATS"]["enable_hooks"] == "true";
-	bool enable_hle   = conf.data["BIOS"]["enable_hle"] == "true";
-	bool log_hle      = conf.data["BIOS"]["log_hle"] == "true";
+	bool enable_hooks   = conf.data["CHEATS"]["enable_hooks"] == "true";
+	bool enable_hle     = conf.data["BIOS"]["enable_hle"] == "true";
+	bool log_hle        = conf.data["BIOS"]["log_hle"] == "true";
+	bool enable_fastmem = conf.data["EMU"]["enable_fastmem"] == "true";
+	bool precise_bios   = conf.data["EMU"]["precise_bios_access"] == "true";
+	bool precise_ppu    = conf.data["EMU"]["precise_ppu_access"] == "true";
 
 	emu->SetRewindEnable(rewind_enable);
 	emu->SetRewindBufferSize(GBA::common::u32(rewind_buf_size));
@@ -269,17 +272,9 @@ int main(int argc, char* argv[]) {
 
 	auto& ctx = emu->GetContext();
 
-	/////////////////////////////////////////////////////////////////////
-	using GBA::cheats::CheatType;
+	ctx.bus.SetFastmemEnable(enable_fastmem, precise_bios, precise_ppu);
 
-	/*emu->AddCheat({
-		"9266FA6C 97BD"
-		"905B5ED3 5F81"
-		"B76A68E5 FAB1"
-		"A66B81E9 6120"
-		"E64F14E9 EAA1"
-	}, CheatType::CODE_BREAKER, "Wild pokemon is altaria");
-	emu->EnableCheat("Wild pokemon is altaria");*/
+	/////////////////////////////////////////////////////////////////////
 
 	auto last_save_timestamp = std::chrono::system_clock::now();
 
@@ -318,11 +313,9 @@ int main(int argc, char* argv[]) {
 	//////////////////////////////////////////////////////////////////////////
 
 	audio->Stop();
-
 	SDL_Quit();
 
 	delete emu;
-
 	conf.Store("config.txt");
 
 	std::cin.get();

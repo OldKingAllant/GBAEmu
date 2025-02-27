@@ -32,7 +32,8 @@ namespace GBA::video::renderer {
 		m_pause{pause}, m_show_menu_bar{false},
 		m_ctrl_status{false}, m_sync_to_audio{true},
 		m_alt_status{false}, m_enable_hooks{hooks_enable},
-		m_emu{nullptr}, m_show_cheat_insert_win{false}
+		m_emu{nullptr}, m_show_cheat_insert_win{false},
+		m_last_frame_timestamp{}, m_curr_fps{}
 	{
 		m_gl_data.placeholder_data = new float[240 * 160 * 3];
 
@@ -620,10 +621,27 @@ namespace GBA::video::renderer {
 	}
 
 	void OpenGL::UpdateWindowTitle() {
+		static uint64_t last_fps_count{0};
+
 		auto const& internal_name = m_emu->GetContext()
 			.pack.GetInternalName();
 
-		SDL_SetWindowTitle(m_window, internal_name.c_str());
+		m_curr_fps += 1;
+		auto now = std::chrono::system_clock::now();
+		auto diff = std::chrono::duration_cast<std::chrono::seconds>(
+			now - m_last_frame_timestamp
+		).count();
+
+		if (diff >= 1) {
+			m_last_frame_timestamp = now;
+			last_fps_count = m_curr_fps;
+			m_curr_fps = 0;
+		}
+
+		auto title = fmt::format("GBA | {} | {} fps",
+			internal_name, last_fps_count);
+
+		SDL_SetWindowTitle(m_window, title.c_str());
 	}
 
 	void OpenGL::PresentFrame() {

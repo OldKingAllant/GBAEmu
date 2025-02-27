@@ -299,7 +299,7 @@ namespace GBA::cpu::thumb{
 
 			while (rlist) {
 				if (rlist & 1) {
-					bus->Write<u32>(base, ctx.m_regs.GetReg(reg_id));
+					bus->WriteFast<u32>(base, ctx.m_regs.GetReg(reg_id));
 					base += 4;
 					bus->m_time.access = Access::Seq;
 				}
@@ -309,7 +309,7 @@ namespace GBA::cpu::thumb{
 			}
 
 			if constexpr (LrPc) {
-				bus->Write<u32>(base, ctx.m_regs.GetReg(14));
+				bus->WriteFast<u32>(base, ctx.m_regs.GetReg(14));
 				base += 4;
 			}
 
@@ -330,7 +330,7 @@ namespace GBA::cpu::thumb{
 
 			while (rlist) {
 				if (rlist & 1) {
-					u32 value = bus->Read<u32>(base);
+					u32 value = bus->ReadFast<u32>(base);
 					ctx.m_regs.SetReg(reg_id, value);
 					base += 4;
 					bus->m_time.access = Access::Seq;
@@ -341,7 +341,7 @@ namespace GBA::cpu::thumb{
 			}
 
 			if constexpr (LrPc) {
-				u32 value = bus->Read<u32>(base);
+				u32 value = bus->ReadFast<u32>(base);
 				ctx.m_regs.SetReg(15, value);
 				base += 4;
 				branch = true;
@@ -367,7 +367,7 @@ namespace GBA::cpu::thumb{
 
 			if (!rlist) {
 				u32 value = ctx.m_regs.GetReg(15) + 6;
-				bus->Write<u32>(base, value);
+				bus->WriteFast<u32>(base, value);
 
 				ctx.m_regs.SetReg(base_reg, base + 0x40);
 				return;
@@ -379,12 +379,12 @@ namespace GBA::cpu::thumb{
 				if (rlist & 1) {
 					if (reg_id == base_reg) {
 						if (base == orig_base)
-							bus->Write<u32>(base, orig_base);
+							bus->WriteFast<u32>(base, orig_base);
 						else
-							bus->Write<u32>(base, new_base);
+							bus->WriteFast<u32>(base, new_base);
 					}
 					else
-						bus->Write<u32>(base, ctx.m_regs.GetReg(reg_id));
+						bus->WriteFast<u32>(base, ctx.m_regs.GetReg(reg_id));
 
 					base += 4;
 
@@ -412,7 +412,7 @@ namespace GBA::cpu::thumb{
 			bus->m_time.access = Access::NonSeq;
 
 			if (!rlist) {
-				u32 value = bus->Read<u32>(base);
+				u32 value = bus->ReadFast<u32>(base);
 				ctx.m_regs.SetReg(15, value);
 				branch = true;
 				ctx.m_regs.SetReg(base_reg, base + 0x40);
@@ -423,7 +423,7 @@ namespace GBA::cpu::thumb{
 
 			while (rlist) {
 				if (rlist & 1) {
-					u32 value = bus->Read<u32>(base);
+					u32 value = bus->ReadFast<u32>(base);
 
 					ctx.m_regs.SetReg(reg_id, value);
 
@@ -955,7 +955,7 @@ namespace GBA::cpu::thumb{
 
 		bus->m_time.access = Access::NonSeq;
 
-		u32 value = bus->Read<u32>(address);
+		u32 value = bus->ReadFast<u32>(address);
 
 		value = std::rotr(value, (address & 3) * 8);
 
@@ -979,20 +979,20 @@ namespace GBA::cpu::thumb{
 
 		if constexpr (Opcode == 0) {
 			u32 value = ctx.m_regs.GetReg(rd);
-			bus->Write<u32>(address, value);
+			bus->WriteFast<u32>(address, value);
 		}
 		else if constexpr (Opcode == 1) {
 			u32 value = ctx.m_regs.GetReg(rd);
-			bus->Write<u8>(address, (u8)value);
+			bus->WriteFast<u8>(address, (u8)value);
 		}
 		else if constexpr (Opcode == 2) {
-			u32 value = bus->Read<u32>(address);
+			u32 value = bus->ReadFast<u32>(address);
 			value = std::rotr(value, (address & 3) * 8);
 			ctx.m_regs.SetReg(rd, value);
 			bus->InternalCycles(1);
 		}
 		else if constexpr (Opcode == 3) {
-			u32 value = bus->Read<u8>(address);
+			u32 value = bus->ReadFast<u8>(address);
 			ctx.m_regs.SetReg(rd, value);
 			bus->InternalCycles(1);
 		}
@@ -1013,15 +1013,15 @@ namespace GBA::cpu::thumb{
 
 		if constexpr (Opcode == 0) {
 			u32 value = ctx.m_regs.GetReg(rd);
-			bus->Write<u16>(address, (u16)value);
+			bus->WriteFast<u16>(address, (u16)value);
 		}
 		else if constexpr (Opcode == 1) {
-			i32 value = (i8)bus->Read<u8>(address);
+			i32 value = (i8)bus->ReadFast<u8>(address);
 			ctx.m_regs.SetReg(rd, value);
 			bus->InternalCycles(1);
 		}
 		else if constexpr (Opcode == 2) {
-			u32 value = bus->Read<u16>(address);
+			u32 value = bus->ReadFast<u16>(address);
 			value = std::rotr(value, (address & 1) * 8);
 			ctx.m_regs.SetReg(rd, value);
 			bus->InternalCycles(1);
@@ -1030,9 +1030,9 @@ namespace GBA::cpu::thumb{
 			i32 value = 0;
 
 			if (address & 1)
-				value = (i8)bus->Read<u8>(address);
+				value = (i8)bus->ReadFast<u8>(address);
 			else
-				value = (i16)bus->Read<u16>(address);
+				value = (i16)bus->ReadFast<u16>(address);
 
 			ctx.m_regs.SetReg(rd, value);
 			bus->InternalCycles(1);
@@ -1054,21 +1054,21 @@ namespace GBA::cpu::thumb{
 		if constexpr (Opcode == 0) {
 			address += offset * 4;
 			u32 value = ctx.m_regs.GetReg(rd);
-			bus->Write<u32>(address, value);
+			bus->WriteFast<u32>(address, value);
 		}
 		else if constexpr (Opcode == 1) {
 			address += offset * 4;
-			u32 value = bus->Read<u32>(address);
+			u32 value = bus->ReadFast<u32>(address);
 			value = std::rotr(value, (address & 3) * 8);
 			ctx.m_regs.SetReg(rd, value);
 			bus->InternalCycles(1);
 		}
 		else if constexpr (Opcode == 2) {
 			u32 value = ctx.m_regs.GetReg(rd);
-			bus->Write<u8>(address + offset, (u8)value);
+			bus->WriteFast<u8>(address + offset, (u8)value);
 		}
 		else if constexpr (Opcode == 3) {
-			u8 value = bus->Read<u8>(address + offset);
+			u8 value = bus->ReadFast<u8>(address + offset);
 
 			ctx.m_regs.SetReg(rd, value);
 			bus->InternalCycles(1);
@@ -1087,10 +1087,10 @@ namespace GBA::cpu::thumb{
 		bus->m_time.access = Access::NonSeq;
 
 		if constexpr (!Load) {
-			bus->Write<u16>(address, (u16)ctx.m_regs.GetReg(rd));
+			bus->WriteFast<u16>(address, (u16)ctx.m_regs.GetReg(rd));
 		}
 		else {
-			u32 value = bus->Read<u16>(address);
+			u32 value = bus->ReadFast<u16>(address);
 			value = std::rotr(value, (address & 1) * 8);
 
 			ctx.m_regs.SetReg(rd, value);
@@ -1111,10 +1111,10 @@ namespace GBA::cpu::thumb{
 
 		if constexpr (!Load) {
 			u32 value = ctx.m_regs.GetReg(rd);
-			bus->Write<u32>(address, value);
+			bus->WriteFast<u32>(address, value);
 		}
 		else {
-			u32 value = bus->Read<u32>(address);
+			u32 value = bus->ReadFast<u32>(address);
 			value = std::rotr(value, (address & 3) * 8);
 			ctx.m_regs.SetReg(rd, value);
 

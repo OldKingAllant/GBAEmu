@@ -40,7 +40,7 @@ namespace GBA::memory {
 			return temp;
 		}
 
-		u32 GetCycles() {
+		inline u32 GetCycles() const {
 			return m_curr_cycles;
 		}
 		
@@ -140,7 +140,7 @@ namespace GBA::memory {
 
 		void UpdateWaitstate(u32 reg);
 
-		u32 ReadConfig() const {
+		inline u32 ReadConfig() const {
 			return m_config_raw;
 		}
 
@@ -154,7 +154,12 @@ namespace GBA::memory {
 			{ 8, 1 }
 		};
 
-		u32 GetSequentialAccess(MEMORY_RANGE region) {
+		static const inline u32 BIOS_ACCESS_TIME = 1;
+		static const inline u32 ERAM_ACCESS_TIME = 3;
+		static const inline u32 IRAM_ACCESS_TIME = 1;
+		static const inline u32 VRAM_ACCESS_TIME = 1;
+
+		inline u32 GetSequentialAccess(MEMORY_RANGE region) const {
 			switch (region)
 			{
 			case GBA::memory::MEMORY_RANGE::ROM_REG_1:

@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <vector>
+#include <memory>
 
 namespace GBA::gamepack {
 	class GamePack;
@@ -127,8 +128,6 @@ namespace GBA::memory {
 				}
 				else {
 					return_value = 0;
-					//logging::Logger::Instance().LogInfo("Memory_bus",
-						//" Accessing invalid/unused port {:x}", address);
 				}
 				break;
 
@@ -242,10 +241,6 @@ namespace GBA::memory {
 				if (addr_low < IO_SIZE && !UNUSED_REGISTERS_MAP[addr_low]) {
 					mmio->Write<Type>(addr_low, value);
 				}
-				else {
-					//logging::Logger::Instance().LogInfo("Memory_bus",
-						//" Accessing invalid/unused port {:x}", address);
-				}
 
 				break;
 
@@ -317,6 +312,72 @@ namespace GBA::memory {
 			m_open_bus_address = address;
 
 			m_sched->Advance(num_cycles);
+		}
+
+		template <typename Ty>
+		Ty ReadFast(u32 address, bool code = false) {
+			if (!m_enable_fastmem) {
+				return Read<Ty>(address, code);
+			}
+
+			constexpr u32 ADDRESS_MASK = ~(u32(sizeof(Ty)) - 1);
+			address &= ADDRESS_MASK;
+
+			const auto page_number = address / FASTMEM_PAGE_SIZE;
+			const auto page_offset = address % FASTMEM_PAGE_SIZE;
+
+			auto const& page = m_page_table[page_number];
+
+			if (page.page_address == nullptr) {
+				return Read<Ty>(address, code);
+			}
+
+			auto read_val = *reinterpret_cast<Ty*>(page.page_address + page_offset);
+			auto num_cycles = (*page.num_cycles);
+
+			if constexpr (sizeof(Ty) == 4) {
+				num_cycles += num_cycles * page.word_access_multiplier;
+			}
+
+			m_sched->Advance(num_cycles);
+
+			m_open_bus_value = read_val;
+			m_open_bus_address = address;
+			
+			return read_val;
+		}
+
+		template <typename Type>
+		void WriteFast(u32 address, Type value) {
+			if (!m_enable_fastmem) {
+				Write(address, value);
+				return;
+			}
+
+			constexpr u32 ADDRESS_MASK = ~(u32(sizeof(Type)) - 1);
+			address &= ADDRESS_MASK;
+
+			const auto page_number = address / FASTMEM_PAGE_SIZE;
+			const auto page_offset = address % FASTMEM_PAGE_SIZE;
+
+			auto const& page = m_page_table[page_number];
+
+			if (page.page_address == nullptr || page.read_only) {
+				Write(address, value);
+				return;
+			}
+
+			*reinterpret_cast<Type*>(page.page_address + page_offset) = value;
+			auto num_cycles = (*page.num_cycles);
+
+			if constexpr (sizeof(Type) == 4) {
+				num_cycles += num_cycles * page.word_access_multiplier;
+			}
+
+			m_sched->Advance(num_cycles);
+
+			m_open_bus_value = value;
+			m_open_bus_address = address;
 		}
 
 		/*
@@ -483,6 +544,21 @@ namespace GBA::memory {
 			std::copy_n(iram_temp.begin(), 0x8000, m_iwram);
 		}
 
+		inline void SetFastmemEnable(bool enable_fastmem, bool precise_bios, bool precise_ppu) {
+			m_enable_fastmem = enable_fastmem;
+
+			if (enable_fastmem) {
+				InitFastmem(precise_bios, precise_ppu);
+			}
+		}
+
+		inline bool IsFastmemEnabled() const {
+			return m_enable_fastmem;
+		}
+
+	private :
+		void InitFastmem(bool precise_bios, bool precise_ppu);
+
 	private :
 		gamepack::GamePack* m_pack;
 
@@ -526,5 +602,26 @@ namespace GBA::memory {
 		u32 m_mem_control;
 
 		timers::TimerChain* m_timers;
+
+		bool m_enable_fastmem;
+		bool m_fastmem_was_init;
+
+		static constexpr uint64_t FASTMEM_PAGE_SIZE = 8192;
+		static constexpr uint64_t FASTMEM_ADDRESS_SPACE_SIZE = 4'294'967'296;
+		static constexpr uint64_t FASTMEM_NUM_PAGES = FASTMEM_ADDRESS_SPACE_SIZE / FASTMEM_PAGE_SIZE;
+
+		static constexpr uint64_t FASTMEM_BIOS_PAGES = (REGIONS_LEN[u8(MEMORY_RANGE::BIOS)] + 1) / FASTMEM_PAGE_SIZE;
+		static constexpr uint64_t FASTMEM_EWRAM_PAGES = (REGIONS_LEN[u8(MEMORY_RANGE::EWRAM)] + 1) / FASTMEM_PAGE_SIZE;
+		static constexpr uint64_t FASTMEM_IWRAM_PAGES = (REGIONS_LEN[u8(MEMORY_RANGE::IWRAM)] + 1) / FASTMEM_PAGE_SIZE;
+		static constexpr uint64_t FASTMEM_VRAM_PAGES = (REGIONS_LEN[u8(MEMORY_RANGE::VRAM)] + 1) / FASTMEM_PAGE_SIZE;
+
+		struct _PageTableEntry {
+			u8* page_address = nullptr;
+			uint32_t const* num_cycles = nullptr;
+			uint32_t word_access_multiplier = 0;
+			bool read_only = false;
+		};
+
+		std::unique_ptr<_PageTableEntry[]> m_page_table;
 	};
 }

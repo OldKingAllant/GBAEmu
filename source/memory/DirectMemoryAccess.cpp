@@ -174,12 +174,12 @@ namespace GBA::memory {
 
 		if (m_curr_word_count) {
 			if (m_curr_word_sz == 2) {
-				u16 read = m_bus->Read<u16>(m_curr_source);
-				m_bus->Write<u16>(m_curr_dest, read);
+				u16 read = m_bus->ReadFast<u16>(m_curr_source);
+				m_bus->WriteFast<u16>(m_curr_dest, read);
 			}
 			else {
-				u32 read = m_bus->Read<u32>(m_curr_source);
-				m_bus->Write<u32>(m_curr_dest, read);
+				u32 read = m_bus->ReadFast<u32>(m_curr_source);
+				m_bus->WriteFast<u32>(m_curr_dest, read);
 			}
 
 			m_curr_address += m_curr_word_sz;

@@ -2,7 +2,7 @@
 skip = false
 file = ./testRoms/gba_bios.bin
 enable_hle = true
-log_hle = true
+log_hle = false
 
 [EMU]
 start_paused = true
@@ -11,10 +11,13 @@ rewind_buf_size =
 rewind_interval_seconds = 
 rewind_enable = true
 startup_load_save = true
+enable_fastmem = false
+precise_bios_access = false
+precise_ppu_access = false
 
 [ROM]
-#default_rom = ./testRoms/tonc/obj_aff.gba
-default_rom = ./testRoms/Zelda.gba
+#default_rom = ./testRoms/tonc/m7_ex.gba
+default_rom = ./testRoms/PokemonEmerald.gba
 
 [cheats]
 enable_hooks = 

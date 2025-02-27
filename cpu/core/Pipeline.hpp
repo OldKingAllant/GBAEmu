@@ -39,11 +39,11 @@ namespace GBA::cpu {
 			m_decoded = m_fetched;
 
 			if constexpr (InstrSet == InstructionMode::ARM) {
-				m_fetched = m_bus->Read<u32>(m_fetch_pc, true);
+				m_fetched = m_bus->ReadFast<u32>(m_fetch_pc, true);
 				m_fetch_pc += 4;
 			}
 			else {
-				m_fetched = m_bus->Read<u16>(m_fetch_pc, true);
+				m_fetched = m_bus->ReadFast<u16>(m_fetch_pc, true);
 				m_fetch_pc += 2;
 			}
 		}

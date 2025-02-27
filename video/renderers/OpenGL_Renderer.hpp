@@ -5,6 +5,7 @@
 #include <functional>
 #include <vector>
 #include <string>
+#include <chrono>
 
 struct SDL_Window;
 struct SDL_KeyboardEvent;
@@ -148,5 +149,8 @@ namespace GBA::video::renderer {
 		emulation::Emulator* m_emu;
 
 		bool m_show_cheat_insert_win;
+
+		std::chrono::system_clock::time_point m_last_frame_timestamp;
+		uint64_t m_curr_fps;
 	};
 }

@@ -295,7 +295,7 @@ namespace GBA::cpu::arm{
 
 					bus->m_time.access = Access::NonSeq;
 
-					bus->Write<u16>(base, to_write);
+					bus->WriteFast<u16>(base, to_write);
 				}
 				else if constexpr (Opcode == 2) {
 					LOG_ERROR("LDRD not implemented");
@@ -310,7 +310,7 @@ namespace GBA::cpu::arm{
 				if constexpr (Opcode == 1) {
 					bus->m_time.access = Access::NonSeq;
 
-					u32 value = bus->Read<u16>(base);
+					u32 value = bus->ReadFast<u16>(base);
 
 					value = std::rotr(value, 8 * (base & 1));
 
@@ -321,7 +321,7 @@ namespace GBA::cpu::arm{
 				else if constexpr (Opcode == 2) {
 					bus->m_time.access = Access::NonSeq;
 
-					int32_t value = (int8_t)bus->Read<u8>(base);
+					int32_t value = (int8_t)bus->ReadFast<u8>(base);
 					ctx.m_regs.SetReg(reg, value);
 
 					bus->InternalCycles(1);
@@ -332,9 +332,9 @@ namespace GBA::cpu::arm{
 					bus->m_time.access = Access::NonSeq;
 
 					if (base & 1)
-						value = (int8_t)bus->Read<u8>(base);
+						value = (int8_t)bus->ReadFast<u8>(base);
 					else
-						value = (int16_t)bus->Read<u16>(base);
+						value = (int16_t)bus->ReadFast<u16>(base);
 
 					ctx.m_regs.SetReg(reg, value);
 
@@ -705,7 +705,7 @@ namespace GBA::cpu::arm{
 					offset = 0x4;
 			}
 
-			bus->Write<u32>((i32)base + offset, ctx.m_regs.GetReg(15) + 12);
+			bus->WriteFast<u32>((i32)base + offset, ctx.m_regs.GetReg(15) + 12);
 
 			instr.writeback = true;
 			
@@ -744,7 +744,7 @@ namespace GBA::cpu::arm{
 
 					base += pre_increment;
 
-					bus->Write<u32>(base, reg_value);
+					bus->WriteFast<u32>(base, reg_value);
 
 					base += post_increment;
 
@@ -769,7 +769,7 @@ namespace GBA::cpu::arm{
 
 					base += pre_increment;
 
-					bus->Write<u32>(base, reg_value);
+					bus->WriteFast<u32>(base, reg_value);
 
 					base += post_increment;
 
@@ -811,7 +811,7 @@ namespace GBA::cpu::arm{
 					offset = 0x4;
 			}
 
-			u32 value = bus->Read<u32>((i32)base + offset);
+			u32 value = bus->ReadFast<u32>((i32)base + offset);
 
 			ctx.m_regs.SetReg(15, value);
 
@@ -837,7 +837,7 @@ namespace GBA::cpu::arm{
 				if (list & 1) {
 					base += pre_increment;
 
-					ctx.m_regs.SetReg(Mode::User ,reg_id, bus->Read<u32>(base));
+					ctx.m_regs.SetReg(Mode::User ,reg_id, bus->ReadFast<u32>(base));
 
 					base += post_increment;
 
@@ -853,7 +853,7 @@ namespace GBA::cpu::arm{
 				if (list & 1) {
 					base += pre_increment;
 
-					ctx.m_regs.SetReg(reg_id, bus->Read<u32>(base));
+					ctx.m_regs.SetReg(reg_id, bus->ReadFast<u32>(base));
 
 					base += post_increment;
 
@@ -1199,18 +1199,18 @@ namespace GBA::cpu::arm{
 		bus->m_time.access = Access::NonSeq;
 		
 		if constexpr (SwapByte) {
-			u32 mem_value = bus->Read<u8>(base);
+			u32 mem_value = bus->ReadFast<u8>(base);
 			ctx.m_regs.SetReg(dest_reg, mem_value);
-			bus->Write<u8>(base, (u8)reg_value);
+			bus->WriteFast<u8>(base, (u8)reg_value);
 		}
 		else {
-			u32 mem_value = bus->Read<u32>(base);
+			u32 mem_value = bus->ReadFast<u32>(base);
 
 			mem_value = std::rotr(mem_value,
 				(base & 3) * 8);
 
 			ctx.m_regs.SetReg(dest_reg, mem_value);
-			bus->Write<u32>(base, reg_value);
+			bus->WriteFast<u32>(base, reg_value);
 		}
 
 		bus->InternalCycles(1);
@@ -1432,9 +1432,9 @@ namespace GBA::cpu::arm{
 			bus->m_time.access = Access::NonSeq;
 
 			if constexpr (Byte)
-				value = bus->Read<u8>(base);
+				value = bus->ReadFast<u8>(base);
 			else {
-				value = bus->Read<u32>(base);
+				value = bus->ReadFast<u32>(base);
 				u8 shift = (base & 3) * 8;
 				value = (value >> shift) | (value << (32 - shift));
 			}
@@ -1450,9 +1450,9 @@ namespace GBA::cpu::arm{
 			bus->m_time.access = Access::NonSeq;
 
 			if constexpr (Byte)
-				bus->Write<u8>(base, value & 0xFF);
+				bus->WriteFast<u8>(base, value & 0xFF);
 			else
-				bus->Write<u32>(base, value);
+				bus->WriteFast<u32>(base, value);
 		}
 
 		if constexpr (!PreInc) {
