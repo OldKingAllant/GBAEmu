@@ -31,7 +31,13 @@ namespace GBA::cheats {
 		ROM_PATCH,
 		SLIDE_32,
 		SLIDE_16,
-		CRC
+		SLIDE_8,
+		CRC,
+		SUM_8,
+		SUM_16,
+		SUM_32,
+		IO_WRITE_16,
+		IO_WRITE_32
 	};
 
 	enum class Condition {
@@ -91,10 +97,22 @@ namespace GBA::cheats {
 			uint32_t operand;
 		};
 
+		struct IndirectWrite8 {
+			uint32_t address;
+			uint32_t offset;
+			uint8_t value;
+		};
+
 		struct IndirectWrite16 {
 			uint32_t address;
 			uint32_t offset;
 			uint16_t value;
+		};
+
+		struct IndirectWrite32 {
+			uint32_t address;
+			uint32_t offset;
+			uint32_t value;
 		};
 
 		struct RomPatch {
@@ -125,19 +143,60 @@ namespace GBA::cheats {
 			uint32_t repeat;
 		};
 
+		struct SlideWrite8 {
+			uint32_t base;
+			uint8_t init_value;
+			uint32_t address_inc;
+			uint8_t value_inc;
+			uint32_t repeat;
+		};
+
+		struct Sum8 {
+			uint32_t address;
+			uint8_t value;
+		};
+
+		struct Sum16 {
+			uint32_t address;
+			uint16_t value;
+		};
+
+		struct Sum32 {
+			uint32_t address;
+			uint32_t value;
+		};
+
+		struct IOWrite16 {
+			uint32_t address;
+			uint16_t value;
+		};
+
+		struct IOWrite32 {
+			uint32_t address;
+			uint32_t value;
+		};
+
 		union DirectiveCommand {
 			Nop				nop;
 			RamWrite8		ram_write8;
 			RamWrite16		ram_write16;
 			RamWrite32		ram_write32;
 			IfBlock		    if_block;
+			IndirectWrite8  indirect8;
 			IndirectWrite16 indirect16;
+			IndirectWrite32 indirect32;
 			HookRoutine     hook;
 			IdCode          idcode;
 			RomPatch        patch;
 			SlideWrite32    slide32;
 			SlideWrite16    slide16;
+			SlideWrite8     slide8;
 			CRC             crc;
+			Sum8			sum8;
+			Sum16			sum16;
+			Sum32			sum32;
+			IOWrite16       io16;
+			IOWrite32       io32;
 		};
 	}
 

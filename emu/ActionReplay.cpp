@@ -260,6 +260,72 @@ namespace GBA::cheats {
 			list.push_back(directive);
 		}
 			break;
+		case AR_OpcodeMatchSpecial::SLIDE_16: {
+			uint32_t enc_value = *directive_iter++;
+			uint32_t enc_step_inc = *directive_iter++;
+			auto decrypted = _AR_Decrypt_Code(
+				enc_value, enc_step_inc, seeds
+			);
+
+			auto high_address_nibble = value & 0x00F0'0000;
+			auto low_address = value & 0x000F'FFFF;
+
+			auto base_address = (high_address_nibble << 4) | low_address;
+			auto init_value = uint16_t(decrypted.first);
+
+			auto step_inc = decrypted.second;
+
+			auto value_inc = (step_inc >> 24) & 0xFF;
+			auto repeat = (step_inc >> 16) & 0xFF;
+			auto address_inc = step_inc & 0xFFFF;
+
+			CheatDirective directive{};
+
+			directive.ty = DirectiveType::SLIDE_16;
+			directive.cmd.slide16 = {
+				.base = base_address,
+				.init_value = init_value,
+				.address_inc = address_inc,
+				.value_inc = uint16_t(value_inc),
+				.repeat = repeat
+			};
+
+			list.push_back(directive);
+		}
+			break;
+		case AR_OpcodeMatchSpecial::SLIDE_8: {
+			uint32_t enc_value = *directive_iter++;
+			uint32_t enc_step_inc = *directive_iter++;
+			auto decrypted = _AR_Decrypt_Code(
+				enc_value, enc_step_inc, seeds
+			);
+
+			auto high_address_nibble = value & 0x00F0'0000;
+			auto low_address = value & 0x000F'FFFF;
+
+			auto base_address = (high_address_nibble << 4) | low_address;
+			auto init_value = uint8_t(decrypted.first);
+
+			auto step_inc = decrypted.second;
+
+			auto value_inc = (step_inc >> 24) & 0xFF;
+			auto repeat = (step_inc >> 16) & 0xFF;
+			auto address_inc = step_inc & 0xFFFF;
+
+			CheatDirective directive{};
+
+			directive.ty = DirectiveType::SLIDE_8;
+			directive.cmd.slide8 = {
+				.base = base_address,
+				.init_value = init_value,
+				.address_inc = address_inc,
+				.value_inc = uint8_t(value_inc),
+				.repeat = repeat
+			};
+
+			list.push_back(directive);
+		}
+			break;
 		default:
 			fmt::println("[CHEATS] Unimplemented AR special: {:#x}",
 				uint32_t(special_match));
@@ -360,12 +426,63 @@ namespace GBA::cheats {
 				.value = value
 			};
 			break;
+		case AR_OpcodeMatch::INDIRECT_8:
+			directive.ty = DirectiveType::INDIRECT_WRITE_8;
+			directive.cmd.indirect8 = {
+				.address = (high_address_nibble << 4) | low_address,
+				.offset = ((value >> 8) & 0xFF'FF'FF),
+				.value = uint8_t(value)
+			};
+			break;
 		case AR_OpcodeMatch::INDIRECT_16:
 			directive.ty = DirectiveType::INDIRECT_WRITE_16;
 			directive.cmd.indirect16 = {
 				.address = (high_address_nibble << 4) | low_address,
 				.offset  = ((value >> 16) & 0xFF'FF) << 1,
 				.value   = uint16_t(value)
+			};
+			break;
+		case AR_OpcodeMatch::INDIRECT_32:
+			directive.ty = DirectiveType::INDIRECT_WRITE_32;
+			directive.cmd.indirect32 = {
+				.address = (high_address_nibble << 4) | low_address,
+				.offset = 0,
+				.value = value
+			};
+			break;
+		case AR_OpcodeMatch::SUM_8:
+			directive.ty = DirectiveType::SUM_8;
+			directive.cmd.sum8 = {
+				.address = (high_address_nibble << 4) | low_address,
+				.value = uint8_t(value)
+			};
+			break;
+		case AR_OpcodeMatch::SUM_16:
+			directive.ty = DirectiveType::SUM_16;
+			directive.cmd.sum16 = {
+				.address = (high_address_nibble << 4) | low_address,
+				.value = uint16_t(value)
+			};
+			break;
+		case AR_OpcodeMatch::SUM_32:
+			directive.ty = DirectiveType::SUM_32;
+			directive.cmd.sum32 = {
+				.address = (high_address_nibble << 4) | low_address,
+				.value = value
+			};
+			break;
+		case AR_OpcodeMatch::IO_WRITE_16:
+			directive.ty = DirectiveType::IO_WRITE_16;
+			directive.cmd.io16 = {
+				.address = address & 0xFF'FF'FF,
+				.value = uint16_t(value)
+			};
+			break;
+		case AR_OpcodeMatch::IO_WRITE_32:
+			directive.ty = DirectiveType::IO_WRITE_32;
+			directive.cmd.io32 = {
+				.address = address & 0xFF'FF'FF,
+				.value = value
 			};
 			break;
 		default:

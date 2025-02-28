@@ -276,6 +276,18 @@ int main(int argc, char* argv[]) {
 
 	/////////////////////////////////////////////////////////////////////
 
+	using GBA::cheats::CheatType;
+
+	emu->AddCheat(
+		{ 
+		"4B650206 ED9CC5F7"
+		"44ED2313 60335CD5"
+		},
+		CheatType::ACTION_REPLAY,
+		"Levitate"
+	);
+	emu->EnableCheat("Levitate");
+
 	auto last_save_timestamp = std::chrono::system_clock::now();
 
 	while (!opengl_rend.Stopped())

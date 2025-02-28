@@ -12,7 +12,12 @@ namespace GBA::cheats {
 		IF_COND     = 0x38,
 		INDIRECT_8  = 0x40,
 		INDIRECT_16 = 0x42,
-		INDIRECT_32 = 0x44
+		INDIRECT_32 = 0x44,
+		SUM_8       = 0x80,
+		SUM_16		= 0x82,
+		SUM_32		= 0x84,
+		IO_WRITE_16 = 0xC6,
+		IO_WRITE_32 = 0xC7
 	};
 
 	enum class AR_OpcodeMatchSpecial : uint32_t {
@@ -23,6 +28,8 @@ namespace GBA::cheats {
 		ROM_PATCH_2 = 0x1A,
 		ROM_PATCH_3 = 0x1C,
 		ROM_PATCH_4 = 0x1E,
+		SLIDE_8		= 0x80,
+		SLIDE_16	= 0x82,
 		SLIDE_32    = 0x84
 	};
 
