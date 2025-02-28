@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <vector>
 #include <memory>
+#include <bit>
 
 namespace GBA::gamepack {
 	class GamePack;
@@ -323,8 +324,8 @@ namespace GBA::memory {
 			constexpr u32 ADDRESS_MASK = ~(u32(sizeof(Ty)) - 1);
 			address &= ADDRESS_MASK;
 
-			const auto page_number = address / FASTMEM_PAGE_SIZE;
-			const auto page_offset = address % FASTMEM_PAGE_SIZE;
+			const auto page_number = address >> FASTMEM_ADDR_SHIFT;
+			const auto page_offset = address & (FASTMEM_PAGE_SIZE - 1);
 
 			auto const& page = m_page_table[page_number];
 
@@ -357,8 +358,8 @@ namespace GBA::memory {
 			constexpr u32 ADDRESS_MASK = ~(u32(sizeof(Type)) - 1);
 			address &= ADDRESS_MASK;
 
-			const auto page_number = address / FASTMEM_PAGE_SIZE;
-			const auto page_offset = address % FASTMEM_PAGE_SIZE;
+			const auto page_number = address >> FASTMEM_ADDR_SHIFT;
+			const auto page_offset = address & (FASTMEM_PAGE_SIZE - 1);
 
 			auto const& page = m_page_table[page_number];
 
@@ -607,6 +608,7 @@ namespace GBA::memory {
 		bool m_fastmem_was_init;
 
 		static constexpr uint64_t FASTMEM_PAGE_SIZE = 8192;
+		static constexpr uint64_t FASTMEM_ADDR_SHIFT = std::countr_zero(FASTMEM_PAGE_SIZE);
 		static constexpr uint64_t FASTMEM_ADDRESS_SPACE_SIZE = 4'294'967'296;
 		static constexpr uint64_t FASTMEM_NUM_PAGES = FASTMEM_ADDRESS_SPACE_SIZE / FASTMEM_PAGE_SIZE;
 
