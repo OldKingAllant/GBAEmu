@@ -169,7 +169,7 @@ namespace GBA::cpu {
 		return false;
 	}
 
-	u8 ARM7TDI::Step() {
+	void ARM7TDI::Step() {
 		//Check if IRQ occurred
 		//Check halt status
 		if (m_halt) [[unlikely]] {
@@ -182,7 +182,7 @@ namespace GBA::cpu {
 			}
 			else {
 				m_bus->InternalCycles(1);
-				return 0;
+				return;
 			}
 		}
 
@@ -198,22 +198,18 @@ namespace GBA::cpu {
 
 		if (m_ctx.m_cpsr.instr_state == InstructionMode::ARM) {
 			u32 opcode = m_ctx.m_pipeline.Pop<InstructionMode::ARM>();
-
 			arm::ExecuteArm(opcode, m_ctx, m_bus, branch);
-
 			m_ctx.m_pipeline.Fetch<InstructionMode::ARM>();
 		}
 		else {
 			u16 opcode = m_ctx.m_pipeline.Pop<InstructionMode::THUMB>();
-
 			thumb::ExecuteThumb(opcode, m_bus, m_ctx, branch);
-
 			m_ctx.m_pipeline.Fetch<InstructionMode::THUMB>();
 		}
 
 		if (branch) {
 			u32 pc = m_ctx.m_regs.GetReg(15);
-
+		
 			if (m_ctx.m_cpsr.instr_state == InstructionMode::ARM) {
 				pc &= ~3;
 				m_ctx.m_pipeline.Bubble<InstructionMode::ARM>(pc);
@@ -222,22 +218,14 @@ namespace GBA::cpu {
 				pc &= ~1;
 				m_ctx.m_pipeline.Bubble<InstructionMode::THUMB>(pc);
 			}
-
+		
 			m_ctx.m_regs.SetReg(15, pc);
-
-			m_bus->StopPrefetch();
 		}
 		else {
-			if (m_ctx.m_cpsr.instr_state == InstructionMode::ARM) {
-				m_ctx.m_regs.AddOffset(15, 0x4);
-			}
-			else {
-				m_ctx.m_regs.AddOffset(15, 0x2);
-			}
+			m_ctx.m_regs.AddOffset(15, m_ctx.m_cpsr.instr_state == InstructionMode::ARM ?
+				0x4 : 0x2);
 		}
 
 		m_ctx.m_old_pc = m_ctx.m_regs.GetReg(15);
-
-		return 0;
 	}
 }

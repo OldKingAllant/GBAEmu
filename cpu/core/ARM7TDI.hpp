@@ -14,8 +14,7 @@ namespace GBA::cpu {
 		void AttachBus(memory::Bus* bus);
 
 		void SkipBios();
-
-		u8 Step();
+		void Step();
 		
 		static u32 GetExceptVector(ExceptionCode const& exc);
 		static Mode GetModeFromExcept(ExceptionCode const& exc);

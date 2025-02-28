@@ -15,7 +15,7 @@ namespace GBA::memory {
 			)
 			? 0x01000000 : 0x0;
 
-		if (!code || !m_enable_prefetch) {
+		/*if (!code || !m_enable_prefetch) {
 			StopPrefetch();
 
 			Access acc = m_time.access;
@@ -32,6 +32,20 @@ namespace GBA::memory {
 
 			return m_pack->Read(addr_low, (u8)region - 8);
 		}
+
+		return m_pack->Read(addr_low, (u8)region - 8);*/
+
+		Access acc = m_time.access;
+
+		if ((addr_low & 0x1ffff) == 0)
+			acc = Access::NonSeq;
+
+		if (region == MEMORY_RANGE::ROM_REG_1 || region == MEMORY_RANGE::ROM_REG_1_SECOND)
+			cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_1, 2>(acc);
+		else if (region == MEMORY_RANGE::ROM_REG_2 || region == MEMORY_RANGE::ROM_REG_2_SECOND)
+			cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_2, 2>(acc);
+		else
+			cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_3, 2>(acc);
 
 		return m_pack->Read(addr_low, (u8)region - 8);
 	}
@@ -51,24 +65,38 @@ namespace GBA::memory {
 		u32 value = m_pack->Read(addr_low, (u8)region - 8);
 		value |= (m_pack->Read(addr_low + 2, (u8)region - 8) << 16);
 
-		if (!code || !m_enable_prefetch) {
-			StopPrefetch();
+		//if (!code || !m_enable_prefetch) {
+		//	StopPrefetch();
+		//
+		//	Access acc = m_time.access;
+		//
+		//	if ((addr_low & 0x1ffff) == 0)
+		//		acc = Access::NonSeq;
+		//
+		//	if (region == MEMORY_RANGE::ROM_REG_1 || region == MEMORY_RANGE::ROM_REG_1_SECOND)
+		//		cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_1, 4>(acc);
+		//	else if (region == MEMORY_RANGE::ROM_REG_2 || region == MEMORY_RANGE::ROM_REG_2_SECOND)
+		//		cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_2, 4>(acc);
+		//	else
+		//		cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_3, 4>(acc);
+		//
+		//	return value;
+		//}
+		//
+		//return value;
 
-			Access acc = m_time.access;
-
-			if ((addr_low & 0x1ffff) == 0)
-				acc = Access::NonSeq;
-
-			if (region == MEMORY_RANGE::ROM_REG_1 || region == MEMORY_RANGE::ROM_REG_1_SECOND)
-				cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_1, 4>(acc);
-			else if (region == MEMORY_RANGE::ROM_REG_2 || region == MEMORY_RANGE::ROM_REG_2_SECOND)
-				cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_2, 4>(acc);
-			else
-				cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_3, 4>(acc);
-
-			return value;
-		}
-
+		Access acc = m_time.access;
+		
+		if ((addr_low & 0x1ffff) == 0)
+			acc = Access::NonSeq;
+		
+		if (region == MEMORY_RANGE::ROM_REG_1 || region == MEMORY_RANGE::ROM_REG_1_SECOND)
+			cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_1, 4>(acc);
+		else if (region == MEMORY_RANGE::ROM_REG_2 || region == MEMORY_RANGE::ROM_REG_2_SECOND)
+			cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_2, 4>(acc);
+		else
+			cycles = m_time.PushCycles<MEMORY_RANGE::ROM_REG_3, 4>(acc);
+		
 		return value;
 	}
 

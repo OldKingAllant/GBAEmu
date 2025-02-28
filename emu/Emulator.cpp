@@ -120,8 +120,6 @@ namespace GBA::emulation {
 
 				m_ctx.all_dma[dma]->Step();
 			}
-
-			u32 cycles = m_ctx.bus.m_time.PopCycles();
 		}
 	}
 
@@ -162,7 +160,6 @@ namespace GBA::emulation {
 				m_ctx.all_dma[dma]->Step();
 			}
 
-			u32 cycles = m_ctx.bus.m_time.PopCycles();
 		}
 	}
 

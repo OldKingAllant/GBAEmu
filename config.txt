@@ -11,7 +11,7 @@ rewind_buf_size =
 rewind_interval_seconds = 
 rewind_enable = true
 startup_load_save = true
-enable_fastmem = false
+enable_fastmem = true
 precise_bios_access = false
 precise_ppu_access = false
 
