@@ -17,7 +17,7 @@ precise_ppu_access = false
 
 [ROM]
 #default_rom = ./testRoms/tonc/mos_demo.gba
-default_rom = ./testRoms/Zelda.gba
+default_rom = ./testRoms/PokemonEmerald.gba
 
 [cheats]
 enable_hooks = 

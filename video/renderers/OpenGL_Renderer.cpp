@@ -333,6 +333,9 @@ namespace GBA::video::renderer {
 	void OpenGL::SetFrame(float* buffer) {
 		std::copy_n(buffer, GBA_WIDTH * GBA_HEIGHT * 3,
 			m_gl_data.placeholder_data);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,
+			240, 160, 0, GL_RGB, GL_FLOAT, 
+			(void*)m_gl_data.placeholder_data);
 	}
 
 	std::string OpenGL::FileDialog(std::string title, std::string filters) {
@@ -636,30 +639,20 @@ namespace GBA::video::renderer {
 			m_last_frame_timestamp = now;
 			last_fps_count = m_curr_fps;
 			m_curr_fps = 0;
+
+			auto title = fmt::format("GBA | {} | {} fps",
+				internal_name, last_fps_count);
+
+			SDL_SetWindowTitle(m_window, title.c_str());
 		}
 
-		auto title = fmt::format("GBA | {} | {} fps",
-			internal_name, last_fps_count);
-
-		SDL_SetWindowTitle(m_window, title.c_str());
 	}
 
 	void OpenGL::PresentFrame() {
 		UpdateWindowTitle();
 
-		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
-
 		glUseProgram(m_gl_data.program_id);
-
-		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, m_gl_data.texture_id);
-
-		glUniform1i(m_gl_data.texture_loc, 0);
-
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,
-			240, 160, 0, GL_RGB, GL_FLOAT, (void*)m_gl_data.placeholder_data);
-
 		glBindVertexArray(m_gl_data.vertex_array);
 
 		glDrawArrays(GL_TRIANGLES, 0, 6);

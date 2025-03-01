@@ -11,7 +11,7 @@ namespace GBA::ppu {
 		//Index 1: shape
 		//Index 2: size id
 		//Index 3: x/y
-		u16 obj_sizes[][4][2] = {
+		static constexpr u16 obj_sizes[][4][2] = {
 			{
 				{ 8, 8 },
 				{ 16, 16 },
