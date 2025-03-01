@@ -272,21 +272,9 @@ int main(int argc, char* argv[]) {
 
 	auto& ctx = emu->GetContext();
 
-	ctx.bus.SetFastmemEnable(enable_fastmem, precise_bios, precise_ppu);
+	emu->SetFastmemEnable(enable_fastmem, precise_bios, precise_ppu);
 
 	/////////////////////////////////////////////////////////////////////
-
-	using GBA::cheats::CheatType;
-
-	emu->AddCheat(
-		{ 
-		"4B650206 ED9CC5F7"
-		"44ED2313 60335CD5"
-		},
-		CheatType::ACTION_REPLAY,
-		"Levitate"
-	);
-	emu->EnableCheat("Levitate");
 
 	auto last_save_timestamp = std::chrono::system_clock::now();
 

@@ -137,6 +137,16 @@ namespace GBA::emulation {
 
 		////////////////////////
 
+		inline void SetFastmemEnable(bool enable_fastmem, bool precise_bios, bool precise_ppu) {
+			m_ctx.bus.SetFastmemEnable(enable_fastmem, precise_bios, precise_ppu);
+		}
+
+		inline bool IsFastmemEnabled() const {
+			return m_ctx.bus.IsFastmemEnabled();
+		}
+
+		////////////////////////
+
 		~Emulator();
 
 		template <typename Ar>
