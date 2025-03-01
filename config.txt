@@ -16,8 +16,8 @@ precise_bios_access = false
 precise_ppu_access = false
 
 [ROM]
-#default_rom = ./testRoms/tonc/mos_demo.gba
-default_rom = ./testRoms/PokemonEmerald.gba
+#default_rom = ./testRoms/varooom-3d.gba
+#default_rom = ./testRoms/varooom-3d.gba
 
 [cheats]
 enable_hooks = 

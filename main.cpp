@@ -65,7 +65,24 @@ int main(int argc, char* argv[]) {
 
 	GBA::audio::AudioDevice* audio = new GBA::audio::SdlAudioDevice();
 
-	auto emu_init = [emu, &has_rom, &conf, audio](std::string rom) {
+	unsigned int rewind_buf_size{}, rewind_interval{};
+	bool rewind_enable{ false };
+
+	{
+		rewind_buf_size = unsigned(parse_int(conf.data["EMU"]["rewind_buf_size"]).value_or(30));
+		rewind_interval = unsigned(parse_int(conf.data["EMU"]["rewind_interval_seconds"])
+			.value_or(1));
+		rewind_enable = conf.data["EMU"]["rewind_enable"] == "true";
+	}
+
+	bool enable_hooks = conf.data["CHEATS"]["enable_hooks"] == "true";
+	bool enable_hle = conf.data["BIOS"]["enable_hle"] == "true";
+	bool log_hle = conf.data["BIOS"]["log_hle"] == "true";
+	bool enable_fastmem = conf.data["EMU"]["enable_fastmem"] == "true";
+	bool precise_bios = conf.data["EMU"]["precise_bios_access"] == "true";
+	bool precise_ppu = conf.data["EMU"]["precise_ppu_access"] == "true";
+
+	auto emu_init = [&](std::string rom) {
 		if (has_rom) {
 			std::cout << "Rom swapping not implemented" << std::endl;
 			return;
@@ -104,6 +121,13 @@ int main(int argc, char* argv[]) {
 		ctx.apu.SetFreq(44100);
 
 		emu->SaveResetState();
+		emu->SetFastmemEnable(enable_fastmem, precise_bios, precise_ppu);
+
+		emu->SetRewindEnable(rewind_enable);
+		emu->SetRewindBufferSize(GBA::common::u32(rewind_buf_size));
+
+		emu->SetHleEnable(enable_hle);
+		emu->SetLogHleEnable(log_hle);
 
 		has_rom = true;
 	};
@@ -121,29 +145,6 @@ int main(int argc, char* argv[]) {
 
 	if (scale_val == 0 || scale_val > 10)
 		scale_val = 4;
-
-	unsigned int rewind_buf_size{}, rewind_interval{};
-	bool rewind_enable{ false };
-
-	{
-		rewind_buf_size = unsigned(parse_int(conf.data["EMU"]["rewind_buf_size"]).value_or(30));
-		rewind_interval = unsigned(parse_int(conf.data["EMU"]["rewind_interval_seconds"])
-			.value_or(1));
-		rewind_enable = conf.data["EMU"]["rewind_enable"] == "true";
-	}
-
-	bool enable_hooks   = conf.data["CHEATS"]["enable_hooks"] == "true";
-	bool enable_hle     = conf.data["BIOS"]["enable_hle"] == "true";
-	bool log_hle        = conf.data["BIOS"]["log_hle"] == "true";
-	bool enable_fastmem = conf.data["EMU"]["enable_fastmem"] == "true";
-	bool precise_bios   = conf.data["EMU"]["precise_bios_access"] == "true";
-	bool precise_ppu    = conf.data["EMU"]["precise_ppu_access"] == "true";
-
-	emu->SetRewindEnable(rewind_enable);
-	emu->SetRewindBufferSize(GBA::common::u32(rewind_buf_size));
-
-	emu->SetHleEnable(enable_hle);
-	emu->SetLogHleEnable(log_hle);
 
 	/////////////////////////////////////////////////////////////////
 
@@ -271,8 +272,6 @@ int main(int argc, char* argv[]) {
 	audio->Start();
 
 	auto& ctx = emu->GetContext();
-
-	emu->SetFastmemEnable(enable_fastmem, precise_bios, precise_ppu);
 
 	/////////////////////////////////////////////////////////////////////
 
