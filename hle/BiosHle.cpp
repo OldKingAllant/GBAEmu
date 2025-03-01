@@ -87,6 +87,7 @@ namespace GBA::hle {
 		std::unordered_map<u8, FunctionDescriptor> ftable{};
 
 		std::unordered_map<std::string, u8> signatures = {
+			{ "Halt()"                     , 0x02 },
 			{ "IntrWait()"                 , 0x04 },
 			{ "VBlankIntrWait()"           , 0x05 },
 			{ "Div(num=INT32,denom=INT32,)", 0x06 },

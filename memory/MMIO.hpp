@@ -128,7 +128,7 @@ namespace GBA::memory {
 		for (unsigned i = 0x15A; i < 0x200; i++)
 			unused_map[i] = true;
 
-		for (unsigned i = 0x20A; i <= 0x301; i++)
+		for (unsigned i = 0x20A; i < 0x300; i++)
 			unused_map[i] = true;
 
 		//unused_map[0x800] = true;

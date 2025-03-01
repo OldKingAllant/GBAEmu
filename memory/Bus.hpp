@@ -454,8 +454,11 @@ namespace GBA::memory {
 			active_dmas_count++;
 		}
 
+		static constexpr u8 INVALID_DMA = 4;
+
 		inline u8 GetActiveDma() const {
-			return active_dmas_count ? active_dmas[((unsigned)active_dmas_count) - 1] : 4;
+			return active_dmas_count ? active_dmas[((unsigned)active_dmas_count) - 1] : 
+				INVALID_DMA;
 		}
 
 		inline void RemoveActiveDma() {

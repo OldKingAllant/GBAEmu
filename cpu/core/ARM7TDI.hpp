@@ -33,6 +33,16 @@ namespace GBA::cpu {
 			m_halt = true;
 		}
 
+		inline void ResetHalted() {
+			m_halt = false;
+		}
+
+		inline bool IsHalted() const {
+			return m_halt;
+		}
+
+		void EvaluateHaltState();
+
 		template <typename Ar>
 		void save(Ar& ar) const {
 			ar(m_halt);

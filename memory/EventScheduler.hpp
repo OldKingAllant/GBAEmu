@@ -4,6 +4,7 @@
 
 #include <functional>
 #include <array>
+#include <optional>
 
 namespace GBA::memory {
 	//We could use an std::function
@@ -60,6 +61,14 @@ namespace GBA::memory {
 		}
 
 		void Advance(common::u32 cycles);
+
+		/// <summary>
+		/// Automatically pop the next
+		/// event and execute its callback.
+		/// Useful for skipping waitloops
+		/// </summary>
+		/// <returns>Pair (popped event type, skipped cycles)</returns>
+		std::optional<std::pair<EventType, uint64_t>> NextEvent();
 
 		static constexpr std::size_t MAX_EVENTS = 30;
 

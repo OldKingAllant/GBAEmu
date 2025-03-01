@@ -129,4 +129,27 @@ namespace GBA::memory {
 			}
 		} while (_cont);
 	}
+
+	std::optional<std::pair<EventType, uint64_t>> EventScheduler::NextEvent() {
+		if (!m_num_events) {
+			return std::nullopt;
+		}
+
+		Event ev = m_events[0];
+		auto old_timestamp = m_timestamp;
+		m_timestamp = ev.trigger_timestamp;
+
+		if (ev.callback)
+			ev.callback(ev.userdata);
+
+		std::pop_heap(m_events, m_events + m_num_events,
+			[](Event const& ev1, Event const& ev2) {
+				return ev1.trigger_timestamp > ev2.trigger_timestamp;
+			}
+		);
+
+		m_num_events--;
+
+		return std::pair{ ev.type, m_timestamp - old_timestamp };
+	}
 }

@@ -169,6 +169,16 @@ namespace GBA::cpu {
 		return false;
 	}
 
+	void ARM7TDI::EvaluateHaltState() {
+		u16 ie  = m_int_controller->GetIE();
+		u16 _if = m_int_controller->GetIF();
+
+		if (ie & _if) {
+			m_halt = false;
+			m_bus->ResetHalt();
+		}
+	}
+
 	void ARM7TDI::Step() {
 		//Check if IRQ occurred
 		//Check halt status

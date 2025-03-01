@@ -140,27 +140,50 @@ namespace GBA::emulation {
 
 		while (!m_ctx.ppu.HasFrame()) {
 			if (m_ctx.bus.GetActiveDma() == 4) {
-				m_ctx.processor.Step();
 
-				if (m_enable_hooks && !m_hooks.empty()) {
-					auto curr_pc = m_ctx.processor.GetContext()
-						.m_regs.GetReg(15);
-					auto hooks = m_hooks.equal_range(curr_pc);
+				if (m_ctx.processor.IsHalted()) {
+					NextEvent();
+				}
+				else {
+					m_ctx.processor.Step();
 
-					for (; hooks.first != hooks.second; hooks.first++) {
-						auto const& hook = hooks.first->second;
-						auto& cheat_set = m_cheats[hook];
-						cheats::RunCheatInterpreter(cheat_set, this);
+					if (m_enable_hooks && !m_hooks.empty()) {
+						ProcessHooks();
 					}
 				}
+				
 			}
 			else {
 				u8 dma = m_ctx.bus.GetActiveDma();
-
 				m_ctx.all_dma[dma]->Step();
 			}
 
 		}
+	}
+
+	void Emulator::ProcessHooks() {
+		auto curr_pc = m_ctx.processor.GetContext()
+			.m_regs.GetReg(15);
+		auto hooks = m_hooks.equal_range(curr_pc);
+
+		for (; hooks.first != hooks.second; hooks.first++) {
+			auto const& hook = hooks.first->second;
+			auto& cheat_set = m_cheats[hook];
+			cheats::RunCheatInterpreter(cheat_set, this);
+		}
+	}
+
+	void Emulator::NextEvent() {
+		auto& sched = m_ctx.scheduler;
+
+		auto curr_event = sched.NextEvent(); 
+
+		if (!curr_event.has_value()) { 
+			fmt::println("[EMU] Found empty scheduler queue when halted!");
+			return;
+		}
+
+		m_ctx.processor.EvaluateHaltState();
 	}
 
 	void Emulator::StoreState(std::string const& path) {

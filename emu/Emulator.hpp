@@ -187,8 +187,9 @@ namespace GBA::emulation {
 		Emulator();
 
 		bool LoadFromCurrentHistoryPosition();
-
 		void ProcessCheats();
+		void NextEvent();
+		void ProcessHooks();
 
 	private :
 		EmulatorContext m_ctx;
