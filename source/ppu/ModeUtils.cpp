@@ -91,7 +91,6 @@ namespace GBA::ppu {
 		u16 bg_control = ReadRegister16(detail::bg_control_reg[bg_id] / 2);
 
 		u8 bg_prio = bg_control & 3;
-
 		u32 char_base_block = (bg_control >> 2) & 0x3;
 		char_base_block *= 16 * 1024;
 
@@ -113,7 +112,9 @@ namespace GBA::ppu {
 
 		u8 screen_sz_type = (bg_control >> 14) & 0x3;
 
+		//multiple of 2
 		u32 bg_size_x = detail::bg_size[screen_sz_type][0];
+		//multiple of 2
 		u32 bg_size_y = detail::bg_size[screen_sz_type][1];
 
 		u32 scroll_x = ReadRegister16(detail::bg_scroll_reg[bg_id][0] / 2) & 511;
@@ -147,95 +148,115 @@ namespace GBA::ppu {
 
 		u16* u16_vram_ptr = std::bit_cast<u16*>(m_vram);
 		u16* u16_palette_ptr = std::bit_cast<u16*>(m_palette_ram);
-			
 
-		for (int x = 0; x < 240; /*x++*/) {
-			/*Find tilemap entry*/
-			bg_x = scroll_x + x;
-			bg_x %= bg_size_x;
-			bg_x -= (bg_x % mos_h_size);
+		auto render_loop = [&]<bool Mos, bool PalMode>() {
+			auto& curr_bg = backgrounds[bg_id];
 
-			x_offset_inside_tile = bg_x % detail::TILE_X_SIZE;
-			tile_x = bg_x / detail::TILE_X_SIZE;
+			for (u32 x = 0; x < 240; /*x++*/) {
+				/*Find tilemap entry*/
+				bg_x = scroll_x + x;
+				bg_x &= (bg_size_x - 1);
 
-			tile_region_x = tile_x / detail::TILE_REGION_X_SIZE;
-
-			u32 tile_region_id = total_tile_regions_x * tile_region_y
-				+ tile_region_x;
-
-			tile_x %= detail::TILE_REGION_X_SIZE;
-			tile_y %= detail::TILE_REGION_Y_SIZE;
-
-			u32 vram_offset = map_base_block + (tile_region_id * 2048) + 
-				(tile_y * 64) + tile_x * 2;
-
-			u16 tile_entry = u16_vram_ptr[vram_offset / 2] /**reinterpret_cast<u16*>(m_vram + vram_offset)*/;
-
-			u32 tile_id = tile_entry & 1023;
-			bool hflip = (tile_entry >> 10) & 1;
-			bool vflip = (tile_entry >> 11) & 1;
-			u32 pal_id = (tile_entry >> 12) & 0xF;
-
-			u32 real_y_offset_in_tile = y_offset_inside_tile;
-
-			if (vflip)
-				real_y_offset_in_tile = 7 - y_offset_inside_tile;
-
-			vram_offset = char_base_block + tile_id * tile_data_size
-				+ (tile_row_sz * real_y_offset_in_tile);
-
-			int offset_inc = 1;
-
-			if (hflip) {
-				x_offset_inside_tile = 7 - x_offset_inside_tile;
-				offset_inc = -1;
-			}
-
-			int x_offset_inside_tile_int = x_offset_inside_tile;
-
-			pal_id *= 16;
-
-			while (x_offset_inside_tile_int >= 0 && x_offset_inside_tile_int < 8
-				&& x < 240) {
-				u32 end_vram_offset = vram_offset;
-
-				u16 color = 0;
-
-				if (pal_mode) {
-					end_vram_offset += x_offset_inside_tile_int;
-					u16 color_id = m_vram[end_vram_offset];
-					color = u16_palette_ptr[color_id];
-					backgrounds[bg_id][x].color = color;
-					backgrounds[bg_id][x].palette_id = color_id;
+				if constexpr (Mos) {
+					bg_x -= (bg_x % mos_h_size);
 				}
-				else {
-					end_vram_offset += x_offset_inside_tile_int / 2;
 
-					u16 color_id = m_vram[end_vram_offset];
+				x_offset_inside_tile = bg_x & (detail::TILE_X_SIZE - 1);
+				tile_x = bg_x / detail::TILE_X_SIZE;
 
+				tile_region_x = tile_x / detail::TILE_REGION_X_SIZE;
+
+				u32 tile_region_id = total_tile_regions_x * tile_region_y
+					+ tile_region_x;
+
+				tile_x &= (detail::TILE_REGION_X_SIZE - 1);
+				tile_y &= (detail::TILE_REGION_Y_SIZE - 1);
+
+				u32 vram_offset = map_base_block + (tile_region_id << 11) +
+					(tile_y << 6) + (tile_x << 1);
+
+				u16 tile_entry = u16_vram_ptr[vram_offset >> 1];
+
+				u32 tile_id = tile_entry & 1023;
+				bool hflip = (tile_entry >> 10) & 1;
+				bool vflip = (tile_entry >> 11) & 1;
+				u32 pal_id = (tile_entry >> 12) & 0xF;
+
+				u32 real_y_offset_in_tile = y_offset_inside_tile;
+
+				if (vflip)
+					real_y_offset_in_tile = 7 - y_offset_inside_tile;
+
+				vram_offset = char_base_block + tile_id * tile_data_size
+					+ (tile_row_sz * real_y_offset_in_tile);
+
+				int offset_inc = 1;
+
+				if (hflip) {
+					x_offset_inside_tile = 7 - x_offset_inside_tile;
+					offset_inc = -1;
+				}
+
+				int x_offset_inside_tile_int = x_offset_inside_tile;
+
+				pal_id <<= 4;
+
+				while (x_offset_inside_tile_int >= 0 && x_offset_inside_tile_int < 8
+					&& x < 240) {
+					u32 end_vram_offset = vram_offset;
 					u16 color = 0;
 
-					if (x_offset_inside_tile_int % 2)
-						color = ((color_id >> 4) & 0xF);
-					else
-						color = (color_id & 0xF);
+					if constexpr (PalMode) {
+						end_vram_offset += x_offset_inside_tile_int;
+						u16 color_id = m_vram[end_vram_offset];
+						color = u16_palette_ptr[color_id];
+						curr_bg[x].color = color;
+						curr_bg[x].palette_id = color_id;
+					}
+					else {
+						end_vram_offset += x_offset_inside_tile_int >> 1;
 
-					backgrounds[bg_id][x].color = u16_palette_ptr[pal_id + color];
-					backgrounds[bg_id][x].palette_id = color;
-				}
+						u16 color_id = m_vram[end_vram_offset];
+						u16 color = 0;
 
-				u32 mos_end = x + mos_h_size - 1;
+						if (x_offset_inside_tile_int & 1)
+							color = ((color_id >> 4) & 0xF);
+						else
+							color = (color_id & 0xF);
 
-				for (u32 pos = x; pos < mos_end && pos < 239; pos++, x++) {
-					backgrounds[bg_id][pos + 1] = backgrounds[bg_id][pos];
+						curr_bg[x].color = u16_palette_ptr[pal_id + color];
+						curr_bg[x].palette_id = color;
+					}
+
+					if constexpr (Mos) {
+						u32 mos_end = x + mos_h_size - 1;
+
+						for (u32 pos = x; pos < mos_end && pos < 239; pos++, x++) {
+							curr_bg[pos + 1] = curr_bg[pos];
+							x_offset_inside_tile_int += offset_inc;
+						}
+					}
+
+					x++;
 					x_offset_inside_tile_int += offset_inc;
 				}
-
-				x++;
-				
-				x_offset_inside_tile_int += offset_inc;
 			}
+		};
+
+		if (mosaic && pal_mode) {
+			render_loop.template operator() < true, true > ();
+		} 
+		else if (!mosaic && !pal_mode) {
+			render_loop.template operator() < false, false > (); 
 		}
+		else if (!mosaic && pal_mode) {
+			render_loop.template operator() < false, true > (); 
+		}
+		else {
+			render_loop.template operator() < true, false > ();
+		}
+
+		
 	}
 
 	void PPU::ProcessAffineBackground(int bg_id, int lcd_y) {
