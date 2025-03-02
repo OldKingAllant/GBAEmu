@@ -365,10 +365,7 @@ namespace GBA::ppu {
 		mmio->AddRegister<u32>(0x4C, false, true, &m_ctx.array[0x4C], 0xFFFF'FFFF);
 
 		//Color special effects
-		mmio->AddRegister<u16>(0x50, true, true, &m_ctx.array[0x50], 0xFFFF, 
-			[this](u8 value, u16 pos) {
-				m_ctx.array[pos] = value;
-			});
+		mmio->AddRegister<u16>(0x50, true, true, &m_ctx.array[0x50], 0xFFFF);
 		mmio->AddRegister<u16>(0x52, true, true, &m_ctx.array[0x52], 0xFFFF);
 		mmio->AddRegister<u16>(0x54, false, true, &m_ctx.array[0x54], 0xFFFF);
 	}

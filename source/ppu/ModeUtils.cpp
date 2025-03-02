@@ -626,48 +626,96 @@ namespace GBA::ppu {
 
 		u16 eva = std::min(bldalpha & 0x1F, 16);
 		u16 evb = std::min((bldalpha >> 8) & 0x1F, 16);
+		u16 evy = std::min(ReadRegister16(0x54 / 2) & 0x1F, 16);
 
 		for (u16 x = 0; x < 240; x++) {
 			u8 candidate_layer_index = 0;
 			u8 window_id = get_current_window_id(x);
 
-			bool candidate_found = false;
+			bool found_top    = false;
+			bool found_bottom = false;
 
-			u8 curr_index = 0;
+			u8 curr_index	{0};
+			u8 top_layer	{5};
+			u8 bottom_layer	{5};
+			u8 top_prio		{0};
+			u8 bottom_prio	{0};
 
-			while (!candidate_found && curr_index < total_bgs) {
+			//Scan all BGs to find top and bottom
+			//layer, break as soon they hav been
+			//found
+			//We start from highest prio and
+			//move towards the bottom
+			while (curr_index < total_bgs) {
+				//Pick layer associated with next prio
 				u8 curr_layer = priorities[curr_index].layer;
 
-				candidate_found = !!backgrounds[curr_layer][x].palette_id
+				//Visible if the palette is not set to zero
+				//and is enabled in the window
+				bool is_valid_pixel = !!backgrounds[curr_layer][x].palette_id
 					&& (window_id == 3 || windows[window_id].layer_enable[curr_layer]);
 
-				if (!candidate_found)
-					curr_index++;
+				if (is_valid_pixel) {
+					if (!found_top) {
+						//Top wasn't found, set
+						//to found and save current layer
+						found_top = true;
+						top_layer = curr_layer;
+						//Also save priority of top layer
+						top_prio  = u8(priorities[curr_index].priority);
+					}
+					else {
+						//We found the bottom, break
+						found_bottom = true;
+						bottom_layer = curr_layer;
+						bottom_prio  = u8(priorities[curr_index].priority);
+						break;
+					}
+				}
+
+				++curr_index;
 			}
 
-			u8 layer = candidate_found ? priorities[curr_index].layer : 0;
-
+			//Check if there is an object in this position and it
+			//is enabled
 			if (backgrounds[4][x].is_present && backgrounds[4][x].palette_id
 				&& (window_id == 3 || windows[window_id].layer_enable[4])
 				&& layer_enabled_global[4]) {
-				if (!candidate_found || priorities[curr_index].priority >= backgrounds[4][x].priority) {
-					candidate_found = true;
-					layer = 4;
+				u8 obj_prio = backgrounds[4][x].priority;
+				//If the top layer does not exist or
+				//the sprite has higher priority,
+				//use this pixel
+				if (!found_top || top_prio >= obj_prio) {
+					found_top = true;
+					//Bottom layer is old top
+					bottom_layer = top_layer;
+					top_layer = 4;
+				}
+				else if (!found_bottom || bottom_prio >= obj_prio) {
+					bottom_layer = 4;
 				}
 			}
 
-			if (candidate_found) {
-				merged[x] = backgrounds[layer][x];
+			if (found_top) {
+				//Use top layer pixel
+				merged[x] = backgrounds[top_layer][x];
 			}
 			else {
+				//Use backdrop
 				merged[x].color = backdrop;
 				merged[x].palette_id = 1;
-				layer = 5;
+				top_layer = 5;
 			}
 
+			//Check if the current window has special effects enabled,
+			//and if the current pixel/layer is selected as first target
 			if (((window_id == 3 || windows[window_id].enable_special_effects)
-				&& CHECK_BIT(first_target, layer)) || merged[x].is_bld_enabled) {
+				&& CHECK_BIT(first_target, top_layer)) || merged[x].is_bld_enabled) {
 				u16 special_effect_select = curr_effect;
+				//If the sprite pixel is set to blend,
+				//the GBA always performs blending,
+				//irrespective of the global effect,
+				//so we save the old config
 				u16 real_effect_select = curr_effect;
 
 				if (merged[x].is_bld_enabled)
@@ -676,98 +724,27 @@ namespace GBA::ppu {
 				switch (special_effect_select)
 				{
 				case 0x1: {
-					//Try to select second target
-					second_target = CLEAR_BIT(second_target, layer);
+					//Top layer is backdrop, there is
+					//no way that we have a bottom layer
+					if (top_layer == 5)
+						break; //Just break out of the switch
 
-					//Selected layer is
-					//backdrop, we 
-					//do not have other
-					//layers to select
-					if (layer == 5)
-						break;
-
-					u8 index = 0;
-
-					bool blend_fail = false;
-
-						index = layer == 4 ? 0 : curr_index + 1;
-						u16 top_priority = layer == 4 ? merged[x].priority : priorities[curr_index].priority;
-
-						while (index < total_bgs) {
-							u8 curr_layer = priorities[index].layer;
-
-							if (priorities[index].priority >= top_priority) {
-								if ((window_id == 3 || windows[window_id].layer_enable[curr_layer])
-									&& layer_enabled_global[curr_layer]
-									&& CHECK_BIT(second_target, curr_layer)
-									&& backgrounds[curr_layer][x].palette_id) {
-									break;
-								}
-
-								index++;
-							}
-							else {
-								if ((window_id == 3 || windows[window_id].layer_enable[curr_layer])
-									&& layer_enabled_global[curr_layer]
-									&& backgrounds[curr_layer][x].palette_id) {
-									blend_fail = true;
-									break;
-								}
-								else {
-									index++;
-								}
-							}
-						}
-
-						bool obj_selected = false;
-						
-						if (layer < 4 
-							&& backgrounds[4][x].is_present
-							&& backgrounds[4][x].palette_id
-							&& (window_id == 3 || windows[window_id].layer_enable[4])
-							&& layer_enabled_global[4]
-							&& CHECK_BIT(second_target, 4)) {
-							//If no matching target was found or object pixel
-							//has higher or same priority as the currently selected 
-							//target slect this layer
-							if (index == total_bgs || backgrounds[4][x].priority <= priorities[index].priority) {
-								index = 4;
-								obj_selected = true;
-							}
-								
-						}
-
-						if (index == total_bgs && !obj_selected)
-							index = 6; //Layer in BGs not found,
-									   //set invalid index
-
-					if (blend_fail)
-						break;
-
-					if (index == 6) {
-						if (CHECK_BIT(second_target, 5)) {
-							index = 5;
-						}
-						else if (merged[x].is_bld_enabled)
-							goto brightness;
-						else
-							break;
-					}
-					
-					u8 second_target_layer = index < 4 ? priorities[index].layer : index;
-
-					if (!CHECK_BIT(second_target, second_target_layer))
+					//Top and bottom layers must be
+					//one after the other, else no
+					//blending occurs
+					if (!CHECK_BIT(second_target, bottom_layer))
 						break;
 
 					Pixel top_pixel = merged[x];
 					Pixel lower_pixel = Pixel{};
 
-					if (second_target_layer == 5) {
+					//Check if layer is backdrop
+					if (bottom_layer == 5) {
 						lower_pixel.palette_id = 1;
 						lower_pixel.color = backdrop;
 					}
 					else {
-						lower_pixel = backgrounds[second_target_layer][x];
+						lower_pixel = backgrounds[bottom_layer][x];
 					}
 
 					if (lower_pixel.palette_id) {
@@ -791,15 +768,17 @@ namespace GBA::ppu {
 						merged[x].color = r | (g << 5) | (b << 10);
 					}
 					else if (merged[x].is_bld_enabled) {
+						//If the pixel forced blending, but
+						//blending failed, try to perform
+						//brightness
 						goto brightness;
 					}
 				}
-					break;
+						break;
 				case 0x2:
 				case 0x3: {
 				brightness:
 					//Brightness decrease/increase
-					u16 evy = std::min( ReadRegister16(0x54 / 2) & 0x1F, 16);
 
 					u16 color = merged[x].color;
 
@@ -812,7 +791,7 @@ namespace GBA::ppu {
 						g += ((31 - g) * evy + 8) >> 4;
 						b += ((31 - b) * evy + 8) >> 4;
 					}
-					else if(real_effect_select == 0x3) {
+					else if (real_effect_select == 0x3) {
 						r -= (r * evy + 7) >> 4;
 						g -= (g * evy + 7) >> 4;
 						b -= (b * evy + 7) >> 4;
@@ -820,7 +799,7 @@ namespace GBA::ppu {
 
 					merged[x].color = r | (g << 5) | (b << 10);
 				}
-					break;
+						break;
 				default:
 					break;
 				}
