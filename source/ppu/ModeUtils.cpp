@@ -152,7 +152,7 @@ namespace GBA::ppu {
 		auto render_loop = [&]<bool Mos, bool PalMode>() {
 			auto& curr_bg = backgrounds[bg_id];
 
-			for (u32 x = 0; x < 240; /*x++*/) {
+			for (u8 x = 0; x < 240;) {
 				/*Find tilemap entry*/
 				bg_x = scroll_x + x;
 				bg_x &= (bg_size_x - 1);
@@ -309,7 +309,7 @@ namespace GBA::ppu {
 		u32 tile_row_sz = 8;
 		u32 tile_data_size = 0x40;
 
-		for (int x = 0; x < 240; x++) {
+		for (u8 x = 0; x < 240; x++) {
 			tex_x = curr_x >> 8;
 			tex_y = curr_y >> 8;
 
@@ -628,18 +628,23 @@ namespace GBA::ppu {
 		u16 evb = std::min((bldalpha >> 8) & 0x1F, 16);
 		u16 evy = std::min(ReadRegister16(0x54 / 2) & 0x1F, 16);
 
-		for (u16 x = 0; x < 240; x++) {
-			u8 candidate_layer_index = 0;
+		static constexpr u8 LAYER_SPRITES  = 4;
+		static constexpr u8 LAYER_BACKDROP = 5;
+		static constexpr u8 NO_WINDOW      = 3;
+		static constexpr u8 PRIO_LOWEST    = std::numeric_limits<u8>::max();
+
+		auto& sprite_layer = backgrounds[LAYER_SPRITES];
+
+		const auto SPRITES_ENABLED = layer_enabled_global[LAYER_SPRITES];
+
+		for (u8 x = 0; x < 240; x++) {
 			u8 window_id = get_current_window_id(x);
 
-			bool found_top    = false;
-			bool found_bottom = false;
-
 			u8 curr_index	{0};
-			u8 top_layer	{5};
-			u8 bottom_layer	{5};
-			u8 top_prio		{0};
-			u8 bottom_prio	{0};
+			u8 top_layer	{LAYER_BACKDROP};
+			u8 bottom_layer	{LAYER_BACKDROP};
+			u8 top_prio		{PRIO_LOWEST};
+			u8 bottom_prio	{PRIO_LOWEST};
 
 			//Scan all BGs to find top and bottom
 			//layer, break as soon they hav been
@@ -653,50 +658,50 @@ namespace GBA::ppu {
 				//Visible if the palette is not set to zero
 				//and is enabled in the window
 				bool is_valid_pixel = !!backgrounds[curr_layer][x].palette_id
-					&& (window_id == 3 || windows[window_id].layer_enable[curr_layer]);
+					&& (window_id == NO_WINDOW || windows[window_id].layer_enable[curr_layer]);
 
 				if (is_valid_pixel) {
-					if (!found_top) {
+					if (top_layer == LAYER_BACKDROP) {
 						//Top wasn't found, set
 						//to found and save current layer
-						found_top = true;
 						top_layer = curr_layer;
 						//Also save priority of top layer
 						top_prio  = u8(priorities[curr_index].priority);
 					}
 					else {
 						//We found the bottom, break
-						found_bottom = true;
 						bottom_layer = curr_layer;
 						bottom_prio  = u8(priorities[curr_index].priority);
 						break;
 					}
 				}
 
-				++curr_index;
+				curr_index += 1;
 			}
 
 			//Check if there is an object in this position and it
 			//is enabled
-			if (backgrounds[4][x].is_present && backgrounds[4][x].palette_id
-				&& (window_id == 3 || windows[window_id].layer_enable[4])
-				&& layer_enabled_global[4]) {
-				u8 obj_prio = backgrounds[4][x].priority;
+			if (
+				SPRITES_ENABLED &&
+				(window_id == NO_WINDOW || windows[window_id].layer_enable[LAYER_SPRITES]) &&
+				sprite_layer[x].is_present &&
+				sprite_layer[x].palette_id
+				) {
+				u8 obj_prio = sprite_layer[x].priority;
 				//If the top layer does not exist or
 				//the sprite has higher priority,
 				//use this pixel
-				if (!found_top || top_prio >= obj_prio) {
-					found_top = true;
+				if (top_prio >= obj_prio) {
 					//Bottom layer is old top
 					bottom_layer = top_layer;
-					top_layer = 4;
+					top_layer = LAYER_SPRITES;
 				}
-				else if (!found_bottom || bottom_prio >= obj_prio) {
-					bottom_layer = 4;
+				else if (bottom_prio >= obj_prio) {
+					bottom_layer = LAYER_SPRITES;
 				}
 			}
 
-			if (found_top) {
+			if (top_layer != LAYER_BACKDROP) {
 				//Use top layer pixel
 				merged[x] = backgrounds[top_layer][x];
 			}
@@ -704,12 +709,11 @@ namespace GBA::ppu {
 				//Use backdrop
 				merged[x].color = backdrop;
 				merged[x].palette_id = 1;
-				top_layer = 5;
 			}
 
 			//Check if the current window has special effects enabled,
 			//and if the current pixel/layer is selected as first target
-			if (((window_id == 3 || windows[window_id].enable_special_effects)
+			if (((window_id == NO_WINDOW || windows[window_id].enable_special_effects)
 				&& CHECK_BIT(first_target, top_layer)) || merged[x].is_bld_enabled) {
 				u16 special_effect_select = curr_effect;
 				//If the sprite pixel is set to blend,
@@ -726,7 +730,7 @@ namespace GBA::ppu {
 				case 0x1: {
 					//Top layer is backdrop, there is
 					//no way that we have a bottom layer
-					if (top_layer == 5)
+					if (top_layer == LAYER_BACKDROP)
 						break; //Just break out of the switch
 
 					//Top and bottom layers must be
@@ -739,7 +743,7 @@ namespace GBA::ppu {
 					Pixel lower_pixel = Pixel{};
 
 					//Check if layer is backdrop
-					if (bottom_layer == 5) {
+					if (bottom_layer == LAYER_BACKDROP) {
 						lower_pixel.palette_id = 1;
 						lower_pixel.color = backdrop;
 					}
