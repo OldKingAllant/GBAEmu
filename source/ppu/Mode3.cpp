@@ -14,14 +14,14 @@ namespace GBA::ppu {
 		static constexpr u32 FRAME_H = 160;
 	}
 
-	void PPU::Mode3() {
-		bool bg2_enable = (m_ctx.m_control >> 10) & 1;
-		bool forced_blank = (m_ctx.m_control >> 7) & 1;
+	void PPU::Mode3(u16 lcd_y) {
+		bool bg2_enable   = (m_ctx_saved.m_control >> 10) & 1;
+		bool forced_blank = (m_ctx_saved.m_control >> 7) & 1;
 
 		if (!bg2_enable)
 			return;
 
-		unsigned curr_line = m_ctx.m_vcount;
+		unsigned curr_line = lcd_y;
 
 		if (curr_line >= 160) {
 			error::DebugBreak();
@@ -55,7 +55,7 @@ namespace GBA::ppu {
 			}
 		}
 
-		bool obj_enable = (m_ctx.m_control >> 12) & 1;
+		bool obj_enable = (m_ctx_saved.m_control >> 12) & 1;
 
 		m_line_data[4] = {};
 

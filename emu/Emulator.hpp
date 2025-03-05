@@ -147,6 +147,12 @@ namespace GBA::emulation {
 
 		////////////////////////
 
+		inline void RunThreadedRender() {
+			m_ctx.ppu.EnableThreadedRender();
+		}
+
+		///////////////////////
+
 		~Emulator();
 
 		template <typename Ar>

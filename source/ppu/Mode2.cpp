@@ -3,14 +3,14 @@
 namespace GBA::ppu {
 	using namespace common;
 
-	void PPU::Mode2() {
-		u16 curr_line = m_ctx.m_vcount;
+	void PPU::Mode2(u16 lcd_y) {
+		u16 curr_line = lcd_y;
 
 		unsigned framebuffer_y = curr_line * 240 * 3;
 
-		bool bg_3 = (m_ctx.m_control >> 10) & 1;
-		bool bg_4 = (m_ctx.m_control >> 11) & 1;
-		bool obj_enable = (m_ctx.m_control >> 12) & 1;
+		bool bg_3 = (m_ctx_saved.m_control >> 10) & 1;
+		bool bg_4 = (m_ctx_saved.m_control >> 11) & 1;
+		bool obj_enable = (m_ctx_saved.m_control >> 12) & 1;
 
 		m_line_data[4] = {};
 

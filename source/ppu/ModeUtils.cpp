@@ -72,23 +72,10 @@ namespace GBA::ppu {
 		constexpr u16 TILE_Y_SIZE = 8;
 	}
 
-	void PPU::CalculateMosaicBG(i32& x, i32& y) {
-		u32 mosaic_reg = ReadRegister32(0x4C / 4);
-
-		u8 h_size = (mosaic_reg & 0xF) + 1;
-		u8 v_size = ((mosaic_reg >> 4) & 0xF) + 1;
-
-		if (!h_size || !v_size)
-			return;
-
-		x -= (x % h_size);
-		y -= (y % v_size);
-	}
-
 	std::array<std::array<Pixel, 240>, 5> backgrounds{};
 
 	void PPU::ProcessNormalBackground(int bg_id, int lcd_y) {
-		u16 bg_control = ReadRegister16(detail::bg_control_reg[bg_id] / 2);
+		u16 bg_control = ReadSavedRegister16(detail::bg_control_reg[bg_id] / 2);
 
 		u8 bg_prio = bg_control & 3;
 		u32 char_base_block = (bg_control >> 2) & 0x3;
@@ -101,7 +88,7 @@ namespace GBA::ppu {
 		u32 mos_v_size = 1;
 
 		if (mosaic) {
-			u32 mos_cnt = ReadRegister32(0x4C / 4);
+			u32 mos_cnt = ReadSavedRegister32(0x4C / 4);
 
 			mos_h_size = (mos_cnt & 0xF) + 1;
 			mos_v_size = ((mos_cnt >> 4) & 0xF) + 1;
@@ -117,8 +104,8 @@ namespace GBA::ppu {
 		//multiple of 2
 		u32 bg_size_y = detail::bg_size[screen_sz_type][1];
 
-		u32 scroll_x = ReadRegister16(detail::bg_scroll_reg[bg_id][0] / 2) & 511;
-		u32 scroll_y = ReadRegister16(detail::bg_scroll_reg[bg_id][1] / 2) & 511;
+		u32 scroll_x = ReadSavedRegister16(detail::bg_scroll_reg[bg_id][0] / 2) & 511;
+		u32 scroll_y = ReadSavedRegister16(detail::bg_scroll_reg[bg_id][1] / 2) & 511;
 
 		u32 bg_x = 0;
 		u32 bg_y = scroll_y + (u32)lcd_y;
@@ -260,7 +247,7 @@ namespace GBA::ppu {
 	}
 
 	void PPU::ProcessAffineBackground(int bg_id, int lcd_y) {
-		u16 bg_control = ReadRegister16(detail::bg_control_reg[bg_id] / 2);
+		u16 bg_control = ReadSavedRegister16(detail::bg_control_reg[bg_id] / 2);
 
 		u8 bg_prio = bg_control & 3;
 
@@ -280,8 +267,8 @@ namespace GBA::ppu {
 
 		bool area_overflow = (bg_control >> 13) & 1;
 
-		i32 ref_x = (i32)m_internal_reference_x[bg_id - 2];
-		i32 ref_y = (i32)m_internal_reference_y[bg_id - 2];
+		i32 ref_x = (i32)m_saved_internal_reference_x[bg_id - 2];
+		i32 ref_y = (i32)m_saved_internal_reference_y[bg_id - 2];
 
 		ref_x <<= 4;
 		ref_x >>= 4;
@@ -289,10 +276,10 @@ namespace GBA::ppu {
 		ref_y <<= 4;
 		ref_y >>= 4;
 
-		i16 dx = (i16)ReadRegister16(detail::bg_aff_param_reg[bg_id][0] / 2);
-		i16 dmx = (i16)ReadRegister16(detail::bg_aff_param_reg[bg_id][1] / 2);
-		i16 dy = (i16)ReadRegister16(detail::bg_aff_param_reg[bg_id][2] / 2);
-		i16 dmy = (i16)ReadRegister16(detail::bg_aff_param_reg[bg_id][3] / 2);
+		i16 dx = (i16)ReadSavedRegister16(detail::bg_aff_param_reg[bg_id][0] / 2);
+		i16 dmx = (i16)ReadSavedRegister16(detail::bg_aff_param_reg[bg_id][1] / 2);
+		i16 dy = (i16)ReadSavedRegister16(detail::bg_aff_param_reg[bg_id][2] / 2);
+		i16 dmy = (i16)ReadSavedRegister16(detail::bg_aff_param_reg[bg_id][3] / 2);
 
 
 		//Y position changes with x incresing,
@@ -371,8 +358,8 @@ namespace GBA::ppu {
 			curr_y += dy;
 		}
 		
-		m_internal_reference_x[bg_id - 2] = (i32)m_internal_reference_x[bg_id - 2] + dmx;
-		m_internal_reference_y[bg_id - 2] = (i32)m_internal_reference_y[bg_id - 2] + dmy;
+		m_saved_internal_reference_x[bg_id - 2] = (i32)m_saved_internal_reference_x[bg_id - 2] + dmx;
+		m_saved_internal_reference_y[bg_id - 2] = (i32)m_saved_internal_reference_y[bg_id - 2] + dmy;
 	}
 
 	std::array<Pixel, 240> PPU::MergeBackrounds() {
@@ -380,12 +367,12 @@ namespace GBA::ppu {
 
 		backgrounds[4] = m_line_data[4];
 
-		u16 bg1_cnt = ReadRegister16(0x8 / 2);
-		u16 bg2_cnt = ReadRegister16(0xA / 2);
-		u16 bg3_cnt = ReadRegister16(0xC / 2);
-		u16 bg4_cnt = ReadRegister16(0xE / 2);
+		u16 bg1_cnt = ReadSavedRegister16(0x8 / 2);
+		u16 bg2_cnt = ReadSavedRegister16(0xA / 2); 
+		u16 bg3_cnt = ReadSavedRegister16(0xC / 2); 
+		u16 bg4_cnt = ReadSavedRegister16(0xE / 2); 
 
-		u8 mode = m_ctx.m_control & 0x7;
+		u8 mode = m_ctx_saved.m_control & 0x7;
 
 		//Priority goes from 0 to 3 with 0 highest
 		//Between same priority, lower bg id wins
@@ -395,32 +382,32 @@ namespace GBA::ppu {
 		//////////////////
 
 		bool layer_enabled_global[5] = {
-			((m_ctx.m_control >> 8) & 1) && mode < 2,
-			((m_ctx.m_control >> 9) & 1) && mode < 2,
-			(bool)((m_ctx.m_control >> 10) & 1),
-			((m_ctx.m_control >> 11) & 1) && (mode == 0 || mode == 2),
-			(bool)((m_ctx.m_control >> 12) & 1)
+			((m_ctx_saved.m_control >> 8) & 1) && mode < 2,
+			((m_ctx_saved.m_control >> 9) & 1) && mode < 2,
+			(bool)((m_ctx_saved.m_control >> 10) & 1),
+			((m_ctx_saved.m_control >> 11) & 1) && (mode == 0 || mode == 2),
+			(bool)((m_ctx_saved.m_control >> 12) & 1)
 		};
 
-		bool win0_en = (bool)((m_ctx.m_control >> 13) & 1);
-		bool win1_en = (bool)((m_ctx.m_control >> 14) & 1);
-		bool winobj_en = (bool)((m_ctx.m_control >> 15) & 1);
+		bool win0_en = (bool)((m_ctx_saved.m_control >> 13) & 1);
+		bool win1_en = (bool)((m_ctx_saved.m_control >> 14) & 1);
+		bool winobj_en = (bool)((m_ctx_saved.m_control >> 15) & 1);
 
 		bool win_enabled = win0_en || win1_en || winobj_en;
 
-		u16 winin_cnt = ReadRegister16(0x48 / 2);
-		u16 winout_cnt = ReadRegister16(0x4A / 2);
+		u16 winin_cnt = ReadSavedRegister16(0x48 / 2);
+		u16 winout_cnt = ReadSavedRegister16(0x4A / 2);
 
 		bool win0_obj_enable = (winin_cnt >> 4) & 1;
 		bool win1_obj_enable = (winin_cnt >> 12) & 1;
 		bool winout_obj_enable = (winout_cnt >> 4) & 1;
 		bool winobj_obj_enable = (winout_cnt >> 12) & 1;
 
-		u16 win0_h = ReadRegister16(0x40 / 2);
-		u16 win1_h = ReadRegister16(0x42 / 2);
+		u16 win0_h = ReadSavedRegister16(0x40 / 2); 
+		u16 win1_h = ReadSavedRegister16(0x42 / 2); 
 
-		u16 win0_v = ReadRegister16(0x44 / 2);
-		u16 win1_v = ReadRegister16(0x46 / 2);
+		u16 win0_v = ReadSavedRegister16(0x44 / 2); 
+		u16 win1_v = ReadSavedRegister16(0x46 / 2); 
 
 		u16 win0_left = (win0_h >> 8) & 0xFF;
 		u16 win0_right = (win0_h & 0xFF) - 1;
@@ -545,7 +532,7 @@ namespace GBA::ppu {
 			}
 		};
 
-		u16 curr_line = m_ctx.m_vcount;
+		u16 curr_line = m_ctx_saved.m_vcount;
 
 		bool window0_line = curr_line >= windows[0].top && curr_line <= windows[0].bottom;
 		bool window1_line = curr_line >= windows[1].top && curr_line <= windows[1].bottom;
@@ -615,18 +602,18 @@ namespace GBA::ppu {
 				return p1.priority < p2.priority; 
 			});
 
-		u16 color_special_effects_reg = ReadRegister16(0x50 / 2);
+		u16 color_special_effects_reg = ReadSavedRegister16(0x50 / 2);
 		u16 curr_effect = (color_special_effects_reg >> 6) & 3;
 		u16 first_target = color_special_effects_reg & 0x3F;
 		u16 second_target = (color_special_effects_reg >> 8) & 0x3F;
 
 		u16 backdrop = *reinterpret_cast<u16*>(m_palette_ram);
 
-		u16 bldalpha = ReadRegister16(0x52 / 2);
+		u16 bldalpha = ReadSavedRegister16(0x52 / 2); 
 
 		u16 eva = std::min(bldalpha & 0x1F, 16);
 		u16 evb = std::min((bldalpha >> 8) & 0x1F, 16);
-		u16 evy = std::min(ReadRegister16(0x54 / 2) & 0x1F, 16);
+		u16 evy = std::min(ReadSavedRegister16(0x54 / 2) & 0x1F, 16);
 
 		static constexpr u8 LAYER_SPRITES  = 4;
 		static constexpr u8 LAYER_BACKDROP = 5;
@@ -826,7 +813,7 @@ namespace GBA::ppu {
 
 		u16 bg2_cnt = ReadRegister16(0xC / 2);
 
-		u8 mode = m_ctx.m_control & 0x7;
+		u8 mode = m_ctx_saved.m_control & 0x7;
 
 		//Priority goes from 0 to 3 with 0 highest
 		//Between same priority, lower bg id wins
@@ -836,12 +823,12 @@ namespace GBA::ppu {
 		//////////////////
 
 		bool layer_enabled_global[2] = {
-			(bool)((m_ctx.m_control >> 10) & 1),
-			(bool)((m_ctx.m_control >> 12) & 1)
+			(bool)((m_ctx_saved.m_control >> 10) & 1),
+			(bool)((m_ctx_saved.m_control >> 12) & 1)
 		};
 
-		bool win0_en = (m_ctx.m_control >> 13) & 1;
-		bool win1_en = (m_ctx.m_control >> 14) & 1;
+		bool win0_en = (m_ctx_saved.m_control >> 13) & 1;
+		bool win1_en = (m_ctx_saved.m_control >> 14) & 1;
 
 		bool win_enabled = win0_en || win1_en;
 
@@ -909,7 +896,7 @@ namespace GBA::ppu {
 			}, true }
 		};
 
-		u16 curr_line = m_ctx.m_vcount;
+		u16 curr_line = m_ctx_saved.m_vcount;
 
 		bool window0_line = curr_line >= windows[0].top && curr_line < windows[0].bottom && windows[0].enabled;
 		bool window1_line = curr_line >= windows[1].top && curr_line < windows[1].bottom && windows[1].enabled;

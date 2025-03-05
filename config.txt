@@ -13,7 +13,8 @@ rewind_enable = true
 startup_load_save = true
 enable_fastmem = true
 precise_bios_access = false
-precise_ppu_access = false
+precise_ppu_access = true
+threaded_render = true
 
 [ROM]
 #default_rom = ./testRoms/varooom-3d.gba

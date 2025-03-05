@@ -6,6 +6,9 @@
 
 #include <array>
 #include <vector>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
 
 namespace GBA::memory {
 	class MMIO;
@@ -47,61 +50,79 @@ namespace GBA::ppu {
 		HBLANK
 	};
 
+	using namespace common;
+
 	class PPU {
 	public :
 		PPU();
 
-		common::u32 ReadRegister32(common::u8 offset) const;
-		void WriteRegister32(common::u8 offset, common::u32 value);
+		u32 ReadRegister32(u8 offset) const;
+		u16 ReadRegister16(u8 offset) const;
+		u8 ReadRegister8(u8 offset) const;
+		
+		u32 ReadSavedRegister32(u8 offset) const;
+		u16 ReadSavedRegister16(u8 offset) const;
+		u8 ReadSavedRegister8(u8 offset) const;
 
-		common::u16 ReadRegister16(common::u8 offset) const;
-		void WriteRegister16(common::u8 offset, common::u16 value);
+		void Mode0(u16 lcd_y);
+		void Mode1(u16 lcd_y);
+		void Mode2(u16 lcd_y);
+		void Mode3(u16 lcd_y);
+		void Mode4(u16 lcd_y);
+		void Mode5(u16 lcd_y);
 
-		common::u8 ReadRegister8(common::u8 offset) const;
-		void WriteRegister8(common::u8 offset, common::u8 value);
-
-		void ClockCycles(common::u32 num_cycles);
-
-		void Mode0();
-		void Mode1();
-		void Mode2();
-		void Mode3();
-		void Mode4();
-		void Mode5();
-
-		void VBlank();
-		void HBlank();
-		void Normal();
+		void RenderScanline(u16 lcd_y);
 
 		void SetMMIO(memory::MMIO* mmio, memory::Bus* bus) {
 			InitHandlers(mmio);
-			m_bus = bus;
+			m_bus  = bus;
+			m_mmio = mmio;
 		}
 
 		template <typename Type>
-		Type ReadPalette(common::u32 address) const {
+		Type ReadPalette(u32 address) const {
 			address /= sizeof(Type);
+
+			if (m_render_thread.m_running) {
+				return reinterpret_cast<Type const*>(m_pal_buf)[address];
+			}
 
 			return reinterpret_cast<Type const*>(m_palette_ram)[address];
 		}
 
 		//8 bit writes are not allowed
 		template <typename Type>
-		void WritePalette(common::u32 address, Type value) {
+		void WritePalette(u32 address, Type value) {
 			address /= sizeof(Type);
 
 			if constexpr (sizeof(Type) == 1) {
 				address &= ~1;
-				common::u16 new_val = value * 0x101;
-				*reinterpret_cast<common::u16*>(m_palette_ram + address) = new_val;
+				u16 new_val = value * 0x101;
+
+				if (m_render_thread.m_running) {
+					*reinterpret_cast<u16*>(m_pal_buf + address) = new_val;
+				}
+				else {
+					*reinterpret_cast<u16*>(m_palette_ram + address) = new_val;
+				}
+				
 			}
 			else {
-				reinterpret_cast<Type*>(m_palette_ram)[address] = value;
+
+				if (m_render_thread.m_running) {
+					reinterpret_cast<Type*>(m_pal_buf)[address] = value;
+				}
+				else {
+					reinterpret_cast<Type*>(m_palette_ram)[address] = value;
+				}
+				
 			}
+
+			m_dirty_pal = true;
 		}
 
 		template <typename Type>
-		Type ReadVRAM(common::u32 address) const {
+		Type ReadVRAM(u32 address) const {
 			address /= sizeof(Type);
 
 			return reinterpret_cast<Type const*>(m_vram)[address];
@@ -109,43 +130,56 @@ namespace GBA::ppu {
 
 		//8 bit writes are not allowed
 		template <typename Type>
-		void WriteVRAM(common::u32 address, Type value) {
+		void WriteVRAM(u32 address, Type value) {
 			address /= sizeof(Type);
 
 			if constexpr (sizeof(Type) == 1) {
-				common::u8 mode = m_ctx.m_control & 0x7;
+				u8 mode = m_ctx.m_control & 0x7;
 
 				if (address < 0x10000 || (mode >= 3 && address < 0x14000)) {
 					//Not OBJ, writes are not ignored
 					address &= ~1;
-					common::u16 new_val = value * 0x101;
-					*reinterpret_cast<common::u16*>(m_vram + address) = new_val;
+					u16 new_val = value * 0x101;
+					*reinterpret_cast<u16*>(m_vram + address) = new_val;
 				}
 			}
 			else {
 				reinterpret_cast<Type*>(m_vram)[address] = value;
 			}
+
+			m_dirty_vram = true;
 		}
 
 		template <typename Type>
-		Type ReadOAM(common::u32 address) {
+		Type ReadOAM(u32 address) {
 			address /= sizeof(Type);
+
+			if (m_render_thread.m_running) {
+				return reinterpret_cast<Type*>(m_oam_buf)[address];
+			}
 
 			return reinterpret_cast<Type*>(m_oam)[address];
 		}
 
 		template <typename Type>
-		void WriteOAM(common::u32 address, Type value) {
+		void WriteOAM(u32 address, Type value) {
 			address /= sizeof(Type);
 
 			if constexpr (sizeof(Type) != 1) {
-				reinterpret_cast<Type*>(m_oam)[address] = value;
+				m_dirty_oam = true;
+
+				if (m_render_thread.m_running) {
+					reinterpret_cast<Type*>(m_oam_buf)[address] = value;
+				}
+				else {
+					reinterpret_cast<Type*>(m_oam)[address] = value;
+				}
 			}
 			
 			//Else ignore writes
 		}
 
-		bool HasFrame() {
+		bool HasFrame() const {
 			return m_frame_ok;
 		}
 
@@ -166,8 +200,10 @@ namespace GBA::ppu {
 
 		~PPU();
 
-		common::u8* DebuggerGetPalette();
-		common::u8* DebuggerGetVRAM();
+		u8* DebuggerGetPalette();
+		u8* DebuggerGetVRAM();
+
+		void EnableThreadedRender();
 
 		template <typename Ar>
 		void save(Ar& ar) const {
@@ -251,16 +287,6 @@ namespace GBA::ppu {
 			std::copy_n(framebuf_temp.begin(), framebuf_temp.size(), m_framebuffer);
 		}
 
-	private:
-		void InitHandlers(memory::MMIO* mmio);
-
-		void ResetFrameData();
-
-		void DrawSprites(int lcd_y);
-
-#include "ModeUtils.inl"
-
-	private :
 #pragma pack(push, 1)
 		union PPUContext {
 			struct {
@@ -273,25 +299,62 @@ namespace GBA::ppu {
 				common::u16 m_bg2_cnt;
 				common::u16 m_bg3_cnt;
 			};
-			
+
 			common::u8 array[0x58];
 		};
 #pragma pack(pop)
-		
-		PPUContext m_ctx;
 
-		common::u32 m_mode_cycles;
+		struct RenderThread {
+			bool m_running;
+			std::thread				m_render_thread;
+			std::mutex				m_rendering_mux;
+			std::condition_variable m_rendering_cv;
+			std::mutex				m_render_end_mux;
+			std::condition_variable m_render_end_cv;
+			std::atomic_bool        m_stop;
+			std::atomic_bool        m_line_ready;
+			std::atomic_bool        m_start_render;
+			PPU*					m_ppu;
+			bool                    m_rendering_line;
+
+			void RenderLoop();
+			void StopRenderThread();
+			void StartRenderThread();
+
+			void StartScanline();
+			void FinalizeScanline();
+			void Wait();
+		};
+
+	private:
+		void InitHandlers(memory::MMIO* mmio);
+		void ResetFrameData();
+		void DrawSprites(int lcd_y);
+
+		void CopyBufferedData(bool multithread);
+
+#include "ModeUtils.inl"
+
+	private :
+		PPUContext m_ctx, m_ctx_saved;
+
+		u32 m_mode_cycles;
 		
 		Mode m_curr_mode;
 
-		common::u8* m_palette_ram;
-		common::u8* m_vram;
-		common::u8* m_oam;
+		u8* m_palette_ram;
+		u8* m_vram;
+		u8* m_oam;
 
 		float* m_framebuffer;
 
-		common::u32 m_internal_reference_x[2];
-		common::u32 m_internal_reference_y[2];
+		u32 m_internal_reference_x[2];
+		u32 m_internal_reference_y[2];
+
+		u32 m_saved_internal_reference_x[2];
+		u32 m_saved_internal_reference_y[2];
+
+		bool m_dirty_ref_x[2], m_dirty_ref_y[2];
 
 		bool m_frame_ok;
 
@@ -301,12 +364,22 @@ namespace GBA::ppu {
 		uint64_t m_last_event_timestamp;
 
 		memory::Bus* m_bus;
+		memory::MMIO* m_mmio;
 
-		common::u16 line_sprites_ids[128];
-		common::u8 line_sprites_count;
+		u16 line_sprites_ids[128];
+		u8 line_sprites_count;
 
 		std::array<Pixel, 240> m_line_data[5];
 		std::array<bool, 240> m_obj_window_pixels;
+
+		RenderThread m_render_thread;
+
+		bool m_dirty_oam;
+		bool m_dirty_pal;
+		bool m_dirty_vram;
+
+		u8* m_pal_buf;
+		u8* m_oam_buf;
 
 		static constexpr common::u32 CYCLES_PER_PIXEL = 4;
 		static constexpr common::u32 CYCLES_PER_SCANLINE = 960;

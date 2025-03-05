@@ -61,12 +61,12 @@ namespace GBA::audio {
 		wanted_audio.freq = 32768;
 		wanted_audio.samples = 2048;
 
-	    m_dev_id = SDL_OpenAudioDevice(
-			nullptr, 0, &wanted_audio, &m_spec, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE
-		);
+	    //m_dev_id = SDL_OpenAudioDevice(
+		//	nullptr, 0, &wanted_audio, &m_spec, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE
+		//);
 
-		if (!m_dev_id)
-			throw std::runtime_error("Could not open audio device");
+		//if (!m_dev_id)
+		//	throw std::runtime_error("Could not open audio device");
 	}
 
 	SdlAudioDevice::~SdlAudioDevice() {}

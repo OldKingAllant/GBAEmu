@@ -86,9 +86,9 @@ namespace GBA::ppu {
 
 		u32 OBJ_VRAM_BASE = 0x10000;
 
-		bool addressing_mode = CHECK_BIT(m_ctx.m_control, 6);
+		bool addressing_mode = CHECK_BIT(m_ctx_saved.m_control, 6);
 
-		u32 mos_cnt = ReadRegister32(0x4C / 4);
+		u32 mos_cnt = ReadSavedRegister32(0x4C / 4);
 
 		u32 mos_h = ((mos_cnt >> 8) & 0xF) + 1;
 		u32 mos_v = ((mos_cnt >> 12) & 0xF) + 1;
@@ -121,7 +121,7 @@ namespace GBA::ppu {
 
 			u32 tile_id = attr_2 & 1023;
 
-			u8 ppu_mode = (m_ctx.m_control & 0x7);
+			u8 ppu_mode = (m_ctx_saved.m_control & 0x7);
 
 			if (ppu_mode >= 3 && tile_id < 512)
 				continue;

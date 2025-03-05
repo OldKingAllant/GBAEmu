@@ -1,7 +1,5 @@
 #pragma once
 
-void CalculateMosaicBG(GBA::common::i32& x, GBA::common::i32& y);
-
 void ProcessNormalBackground(int bg_id, int lcd_y);
 void ProcessAffineBackground(int bg_id, int lcd_y);
 

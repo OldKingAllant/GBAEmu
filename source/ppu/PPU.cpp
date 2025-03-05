@@ -21,11 +21,17 @@ namespace GBA::ppu {
 		m_framebuffer(nullptr),
 		m_internal_reference_x{}, 
 		m_internal_reference_y{},
+		m_saved_internal_reference_x{},
+		m_saved_internal_reference_y{},
+		m_dirty_ref_x{}, m_dirty_ref_y{},
 		m_frame_ok{false}, m_int_control(nullptr),
 		m_sched(nullptr), m_last_event_timestamp{0},
-		m_bus(nullptr), line_sprites_ids{},
-		line_sprites_count(0), m_line_data{},
-		m_obj_window_pixels{}
+		m_bus{nullptr}, m_mmio{nullptr},
+		line_sprites_ids{}, line_sprites_count(0), 
+		m_line_data{}, m_obj_window_pixels{},
+		m_render_thread{},
+		m_dirty_oam{}, m_dirty_pal{}, m_dirty_vram{},
+		m_pal_buf{nullptr}, m_oam_buf{nullptr}
 	{
 		m_palette_ram = new u8[0x400];
 		m_vram = new u8[0x18000];
@@ -35,10 +41,10 @@ namespace GBA::ppu {
 		std::fill_n(m_palette_ram, 0x400, 0x0);
 		std::fill_n(m_vram, 0x18000, 0x0);
 
-		//u16 oam_fill = 1 << 9;
-
 		std::fill_n(reinterpret_cast<u16*>(m_oam),
 			0x200, 0x0000);
+
+		m_render_thread.m_ppu = this;
 	}
 
 	void PPU::SetInterruptController(memory::InterruptController* int_controller) {
@@ -55,9 +61,15 @@ namespace GBA::ppu {
 	void HblankEventCallback(void* ppu_ptr) {
 		PPU& ppu = *reinterpret_cast<PPU*>( ppu_ptr );
 
-		ppu.m_obj_window_pixels = {};
-
-		ppu.Normal();
+		if (ppu.m_render_thread.m_running) {
+			//The rendering happened in background during
+			//the scanline itself
+			//ppu.m_render_thread.FinalizeScanline();
+		}
+		else {
+			ppu.CopyBufferedData(false);
+			ppu.RenderScanline(ppu.m_ctx_saved.m_vcount);
+		}
 
 		if (CHECK_BIT(ppu.m_ctx.m_status, 4)) {
 			ppu.m_int_control->RequestInterrupt(memory::InterruptType::HBLANK);
@@ -98,6 +110,10 @@ namespace GBA::ppu {
 		ppu.m_sched->ScheduleAbsolute(ppu.m_last_event_timestamp + PPU::CYCLES_PER_SCANLINE,
 			EventType::HBLANK, HblankEventCallback, ppu_ptr);
 
+		if (ppu.m_render_thread.m_running) {
+			//ppu.m_render_thread.StartScanline();
+		}
+
 		ppu.m_last_event_timestamp += PPU::CYCLES_PER_SCANLINE;
 	}
 
@@ -110,18 +126,6 @@ namespace GBA::ppu {
 
 		ppu.m_sched->ScheduleAbsolute(ppu.m_last_event_timestamp + PPU::CYCLES_PER_SCANLINE,
 			EventType::HBLANK_IN_VBLANK, VblankHblankCallback, ppu_ptr);
-
-		/*if (ppu.m_ctx.m_vcount >= PPU::TOTAL_LINES) {
-			ppu.m_ctx.m_vcount = 0;
-			ppu.m_ctx.m_status &= ~1;
-
-			ppu.m_sched->ScheduleAbsolute(ppu.m_last_event_timestamp + PPU::CYCLES_PER_SCANLINE,
-				EventType::HBLANK, HblankEventCallback, ppu_ptr);
-		}
-		else {
-			ppu.m_sched->ScheduleAbsolute(ppu.m_last_event_timestamp + PPU::CYCLES_PER_SCANLINE,
-				EventType::SCANLINE_INC, ScanlineEventCallback, ppu_ptr, true);;
-		}*/
 
 		u8 lyc = (ppu.m_ctx.m_status >> 8) & 0xFF;
 
@@ -165,6 +169,10 @@ namespace GBA::ppu {
 		ppu.m_sched->ScheduleAbsolute(ppu.m_last_event_timestamp + PPU::CYCLES_PER_SCANLINE,
 			EventType::HBLANK_IN_VBLANK, VblankHblankCallback, ppu_ptr);
 
+		if (ppu.m_render_thread.m_running) {
+			ppu.m_render_thread.Wait();
+		}
+		
 		ppu.m_frame_ok = true;
 
 		ppu.m_last_event_timestamp += PPU::CYCLES_PER_SCANLINE;
@@ -234,6 +242,10 @@ namespace GBA::ppu {
 			EventType::HBLANK, HblankEventCallback, ppu_ptr);
 
 		ppu->m_last_event_timestamp += PPU::CYCLES_PER_SCANLINE;
+
+		if (ppu->m_render_thread.m_running) {
+			ppu->m_render_thread.StartScanline();
+		}
 	}
 
 	void PPU::SetScheduler(memory::EventScheduler* sched) {
@@ -296,6 +308,7 @@ namespace GBA::ppu {
 				*reinterpret_cast<u32*>(m_ctx.array + 0x28) = original_val;
 
 				m_internal_reference_x[0] = original_val;
+				m_dirty_ref_x[0] = true;
 		});
 
 		mmio->AddRegister<u32>(0x2C, false, true, &m_ctx.array[0x2C], 0x0F'FF'FF'FF ,
@@ -310,6 +323,7 @@ namespace GBA::ppu {
 				*reinterpret_cast<u32*>(m_ctx.array + 0x2C) = original_val;
 
 				m_internal_reference_y[0] = original_val;
+				m_dirty_ref_y[0] = true;
 		});
 
 		mmio->AddRegister<u32>(0x38, false, true, &m_ctx.array[0x38], 0x0F'FF'FF'FF,
@@ -324,6 +338,7 @@ namespace GBA::ppu {
 				*reinterpret_cast<u32*>(m_ctx.array + 0x38) = original_val;
 
 				m_internal_reference_x[1] = original_val;
+				m_dirty_ref_x[1] = true;
 		});
 
 		mmio->AddRegister<u32>(0x3C, false, true, &m_ctx.array[0x3C], 0x0F'FF'FF'FF,
@@ -338,6 +353,7 @@ namespace GBA::ppu {
 				*reinterpret_cast<u32*>(m_ctx.array + 0x3C) = original_val;
 
 				m_internal_reference_y[1] = original_val;
+				m_dirty_ref_y[1] = true;
 		});
 
 		//Affine BG parameters
@@ -380,39 +396,43 @@ namespace GBA::ppu {
 		m_internal_reference_y[0] &= 0x0F'FF'FF'FF;
 		m_internal_reference_x[1] &= 0x0F'FF'FF'FF;
 		m_internal_reference_y[1] &= 0x0F'FF'FF'FF;
+
+		//////////////////////////////////
+
+		m_saved_internal_reference_x[0] = m_internal_reference_x[0];
+		m_saved_internal_reference_y[0] = m_internal_reference_y[0];
+		m_saved_internal_reference_x[1] = m_internal_reference_x[1];
+		m_saved_internal_reference_y[1] = m_internal_reference_y[1];
 	}
 
-	void PPU::VBlank() {}
-
-	void PPU::HBlank() {}
-
-	void PPU::Normal() {
-		u8 mode = m_ctx.m_control & 0x7;
+	void PPU::RenderScanline(u16 lcd_y) {
+		u8 mode = m_ctx_saved.m_control & 0x7;
+		m_obj_window_pixels = {};
 
 		switch (mode)
 		{
 		case 0:
-			Mode0();
+			Mode0(lcd_y);
 			break;
 
 		case 1:
-			Mode1();
+			Mode1(lcd_y);
 			break;
 
 		case 2:
-			Mode2();
+			Mode2(lcd_y);
 			break;
 
 		case 3:
-			Mode3();
+			Mode3(lcd_y);
 			break;
 
 		case 4:
-			Mode4();
+			Mode4(lcd_y);
 			break;
 
 		case 5:
-			Mode5();
+			Mode5(lcd_y);
 			break;
 
 		default:
@@ -422,44 +442,215 @@ namespace GBA::ppu {
 		}
 	}
 
-	void PPU::ClockCycles(u32 num_cycles) {}
+	void PPU::EnableThreadedRender() {
+		m_pal_buf = new u8[0x400];
+		m_oam_buf = new u8[0x400];
+
+		std::fill_n(m_pal_buf, 0x400, 0x0);
+		std::fill_n(m_oam_buf, 0x400, 0x0);
+
+		m_render_thread.StartRenderThread();
+	}
 
 	PPU::~PPU() {
+		bool was_running = m_render_thread.m_running;
+		m_render_thread.StopRenderThread();
+
+		if (was_running) {
+			delete[] m_pal_buf;
+			delete[] m_oam_buf;
+		}
+
 		delete[] m_palette_ram;
 		delete[] m_vram;
 		delete[] m_framebuffer;
 		delete[] m_oam;
 	}
 
-	common::u32 PPU::ReadRegister32(common::u8 offset) const {
+	//////////////////////////////////////////
+
+	u32 PPU::ReadRegister32(u8 offset) const {
 		return reinterpret_cast<u32 const*>(m_ctx.array)[offset];
 	}
 
-	void PPU::WriteRegister32(common::u8 offset, common::u32 value) {
-		reinterpret_cast<u32*>(m_ctx.array)[offset] = value;
-	}
-
-	common::u16 PPU::ReadRegister16(common::u8 offset) const {
+	u16 PPU::ReadRegister16(u8 offset) const {
 		return reinterpret_cast<u16 const*>(m_ctx.array)[offset];
 	}
 
-	void PPU::WriteRegister16(common::u8 offset, common::u16 value) {
-		reinterpret_cast<u16*>(m_ctx.array)[offset] = value;
-	}
-
-	common::u8 PPU::ReadRegister8(common::u8 offset) const {
+	u8 PPU::ReadRegister8(u8 offset) const {
 		return m_ctx.array[offset];
 	}
 
-	void PPU::WriteRegister8(common::u8 offset, common::u8 value) {
-		m_ctx.array[offset] = value;
+	u32 PPU::ReadSavedRegister32(u8 offset) const {
+		return reinterpret_cast<u32 const*>(m_ctx_saved.array)[offset];
 	}
 
-	common::u8* PPU::DebuggerGetPalette() {
+	u16 PPU::ReadSavedRegister16(u8 offset) const {
+		return reinterpret_cast<u16 const*>(m_ctx_saved.array)[offset];
+	}
+
+	u8 PPU::ReadSavedRegister8(u8 offset) const {
+		return m_ctx_saved.array[offset];
+	}
+
+	u8* PPU::DebuggerGetPalette() {
 		return m_palette_ram;
 	}
 
-	common::u8* PPU::DebuggerGetVRAM() {
+	u8* PPU::DebuggerGetVRAM() {
 		return m_vram;
+	}
+
+	//////////////////////////////////////
+
+	void PPU::RenderThread::StartScanline() {
+		if (m_rendering_line) {
+			fmt::println("[PPU] Already rendering scanline!");
+			return;
+		}
+
+		m_rendering_line = true;
+
+		std::unique_lock<std::mutex> _lk{m_rendering_mux};
+		//Perform copies of registers/video memory
+		m_ppu->CopyBufferedData(true);
+
+		m_start_render.store(true);
+		m_rendering_cv.notify_one();
+	}
+
+	void PPU::RenderThread::FinalizeScanline() {
+		if (!m_rendering_line) {
+			fmt::println("[PPU] Not rendering scanline!");
+			return;
+		}
+		m_rendering_line = false;
+	}
+
+	void PPU::RenderThread::Wait() {
+		std::unique_lock<std::mutex> _lk{m_render_end_mux};
+		
+		if (!m_line_ready.load()) {
+			m_render_end_cv.wait(_lk, [this]() { return m_line_ready.load(); });
+		}
+		
+		m_line_ready.store(false);
+		m_rendering_line = false;
+	}
+
+	void PPU::RenderThread::RenderLoop() {
+		{
+			std::unique_lock<std::mutex> _lk{m_render_end_mux};
+			m_render_end_cv.notify_one();
+		}
+
+		m_line_ready.store(true);
+
+		u16 curr_line{ 0 };
+
+		while (true) {
+			{
+				
+
+				m_ppu->RenderScanline(curr_line);
+
+				++curr_line;
+			}
+
+			if (curr_line == VISIBLE_LINES) { 
+				curr_line = 0; 
+
+				{
+					std::unique_lock<std::mutex> _lk{ m_render_end_mux };
+					m_line_ready.store(true);
+					m_render_end_cv.notify_one();
+				}
+				
+				std::unique_lock<std::mutex> _lk{ m_rendering_mux }; 
+
+				if (!m_start_render.load()) { 
+					m_rendering_cv.wait(_lk, [this]() { return m_start_render.load(); }); 
+				}
+				m_start_render.store(false);
+
+				if (m_stop.load()) {
+					break;
+				}
+			}
+		}
+	}
+
+	void PPU::RenderThread::StartRenderThread() {
+		if (m_running)
+			return;
+
+		m_running = true;
+		m_render_thread = std::thread([this]() {
+			this->RenderLoop();
+		});
+		
+		//Wait for thread to have started
+		std::unique_lock<std::mutex> _lk{m_render_end_mux};
+		m_render_end_cv.wait(_lk);
+	}
+
+	void PPU::RenderThread::StopRenderThread() {
+		if (!m_running)
+			return;
+
+		m_running = false;
+		
+		{
+			std::unique_lock<std::mutex> _lk{ m_rendering_mux };
+			m_stop.store(true);
+			m_start_render.store(true);
+			m_rendering_cv.notify_one();
+		}
+
+		m_render_thread.join();
+	}
+
+	///////////////////////////////////////////////
+
+	void PPU::CopyBufferedData(bool multithread) {
+		m_ctx_saved = m_ctx;
+
+		if (m_dirty_ref_x[0]) {
+			m_saved_internal_reference_x[0] = m_internal_reference_x[0];
+		}
+
+		if (m_dirty_ref_x[1]) {
+			m_saved_internal_reference_x[1] = m_internal_reference_x[1];
+		}
+
+		////////////////
+
+		if (m_dirty_ref_y[0]) { 
+			m_saved_internal_reference_y[0] = m_internal_reference_y[0];
+		}
+
+		if (m_dirty_ref_y[1]) {
+			m_saved_internal_reference_y[1] = m_internal_reference_y[1];
+		}
+
+		std::fill_n(m_dirty_ref_x, 2, false);
+		std::fill_n(m_dirty_ref_y, 2, false);
+
+		if (m_dirty_oam && m_render_thread.m_running) {
+			std::copy_n(m_oam_buf, 0x400, m_oam);
+		}
+
+		if (m_dirty_pal && m_render_thread.m_running) {
+			std::copy_n(m_pal_buf, 0x400, m_palette_ram);
+		}
+
+		if (m_dirty_vram && m_render_thread.m_running) {
+			//if(m_ctx_saved.m_vcount != 0)
+				//fmt::println("[PPU] Dirty VRAM");
+		}
+
+		m_dirty_oam = false;
+		m_dirty_pal = false;
+		m_dirty_vram = false;
 	}
 }

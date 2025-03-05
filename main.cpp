@@ -75,12 +75,13 @@ int main(int argc, char* argv[]) {
 		rewind_enable = conf.data["EMU"]["rewind_enable"] == "true";
 	}
 
-	bool enable_hooks = conf.data["CHEATS"]["enable_hooks"] == "true";
-	bool enable_hle = conf.data["BIOS"]["enable_hle"] == "true";
-	bool log_hle = conf.data["BIOS"]["log_hle"] == "true";
-	bool enable_fastmem = conf.data["EMU"]["enable_fastmem"] == "true";
-	bool precise_bios = conf.data["EMU"]["precise_bios_access"] == "true";
-	bool precise_ppu = conf.data["EMU"]["precise_ppu_access"] == "true";
+	bool enable_hooks	 = conf.data["CHEATS"]["enable_hooks"] == "true";
+	bool enable_hle		 = conf.data["BIOS"]["enable_hle"] == "true";
+	bool log_hle		 = conf.data["BIOS"]["log_hle"] == "true";
+	bool enable_fastmem  = conf.data["EMU"]["enable_fastmem"] == "true";
+	bool precise_bios	 = conf.data["EMU"]["precise_bios_access"] == "true";
+	bool precise_ppu	 = conf.data["EMU"]["precise_ppu_access"] == "true";
+	bool threaded_render = conf.data["EMU"]["threaded_render"] == "true";
 
 	auto emu_init = [&](std::string rom) {
 		if (has_rom) {
@@ -114,7 +115,7 @@ int main(int argc, char* argv[]) {
 
 		ctx.apu.SetCallback(
 			[audio](GBA::common::i16 sample_l, GBA::common::i16 sample_r) {
-				audio->PushSample(sample_l, sample_r);
+				//audio->PushSample(sample_l, sample_r);
 			}, 1024
 		);
 
@@ -128,6 +129,10 @@ int main(int argc, char* argv[]) {
 
 		emu->SetHleEnable(enable_hle);
 		emu->SetLogHleEnable(log_hle);
+
+		if (threaded_render) {
+			emu->RunThreadedRender();
+		}
 
 		has_rom = true;
 	};
@@ -269,7 +274,7 @@ int main(int argc, char* argv[]) {
 
 	opengl_rend.SetEmu(emu);
 
-	audio->Start();
+	//audio->Start();
 
 	auto& ctx = emu->GetContext();
 

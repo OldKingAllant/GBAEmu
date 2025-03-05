@@ -16,17 +16,17 @@ namespace GBA::ppu {
 		static constexpr u32 FRAME_H = 160;
 	}
 
-	void PPU::Mode4() {
-		bool bg2_enable = (m_ctx.m_control >> 10) & 1;
-		bool forced_blank = (m_ctx.m_control >> 7) & 1;
-		bool frame_select = (m_ctx.m_control >> 4) & 1;
+	void PPU::Mode4(u16 lcd_y) {
+		bool bg2_enable   = (m_ctx_saved.m_control >> 10) & 1;
+		bool forced_blank = (m_ctx_saved.m_control >> 7) & 1;
+		bool frame_select = (m_ctx_saved.m_control >> 4) & 1;
 
-		bool mosaic = (ReadRegister16(mode4::BG2_CNT / 2) >> 6) & 1;
+		bool mosaic = (ReadSavedRegister16(mode4::BG2_CNT / 2) >> 6) & 1;
 
 		if (!bg2_enable)
 			return;
 
-		unsigned curr_line = m_ctx.m_vcount;
+		unsigned curr_line = lcd_y;
 
 		if (curr_line >= 160) {
 			error::DebugBreak();
@@ -54,8 +54,6 @@ namespace GBA::ppu {
 
 		std::array<Pixel, 240> bg2{};
 
-
-
 		for (unsigned x = 0; x < 240; x++) {
 			int tex_x = x;
 			int tex_y = curr_line;
@@ -80,7 +78,7 @@ namespace GBA::ppu {
 			bg2[x].color = color_packed;
 		}
 
-		bool obj_enable = (m_ctx.m_control >> 12) & 1;
+		bool obj_enable = (m_ctx_saved.m_control >> 12) & 1;
 
 		m_line_data[4] = {};
 

@@ -16,17 +16,17 @@ namespace GBA::ppu {
 		static constexpr u32 FRAME_H = 128;
 	}
 
-	void PPU::Mode5() {
-		bool bg2_enable = (m_ctx.m_control >> 10) & 1;
-		bool forced_blank = (m_ctx.m_control >> 7) & 1;
-		bool frame_select = (m_ctx.m_control >> 4) & 1;
+	void PPU::Mode5(u16 lcd_y) {
+		bool bg2_enable   = (m_ctx_saved.m_control >> 10) & 1;
+		bool forced_blank = (m_ctx_saved.m_control >> 7) & 1;
+		bool frame_select = (m_ctx_saved.m_control >> 4) & 1;
 
-		bool mosaic = (ReadRegister16(mode5::BG2_CNT / 2) >> 6) & 1;
+		bool mosaic = (ReadSavedRegister16(mode5::BG2_CNT / 2) >> 6) & 1;
 
 		if (!bg2_enable)
 			return;
 
-		unsigned curr_line = m_ctx.m_vcount;
+		unsigned curr_line = lcd_y;
 
 		if (curr_line >= 160) {
 			error::DebugBreak();
