@@ -28,8 +28,7 @@ namespace GBA::video::renderer {
 		m_gl_data{}, m_quick_save{},
 		m_on_pause{}, m_on_select{},
 		m_save_load{}, m_save_store{}, m_save_state{},
-		m_audio_sync{}, m_rewind{},
-		m_reset{}, m_hooks{},
+		m_rewind{}, m_reset{}, m_hooks{},
 		m_pause{pause}, m_show_menu_bar{false},
 		m_ctrl_status{false}, m_sync_to_audio{true},
 		m_alt_status{false}, m_enable_hooks{hooks_enable},
@@ -598,13 +597,10 @@ namespace GBA::video::renderer {
 			if (m_on_pause)
 				m_on_pause(m_pause);
 
-			ImGui::Checkbox("Audio sync (60fps)", &m_sync_to_audio);
-
-			if (m_audio_sync) {
-				m_audio_sync(m_sync_to_audio);
+			if (ImGui::Checkbox("Audio sync (60fps)", &m_sync_to_audio)) {
+				SDL_GL_SetSwapInterval(m_sync_to_audio);
+				m_audio->AudioSync(m_sync_to_audio);
 			}
-
-			SDL_GL_SetSwapInterval(m_sync_to_audio);
 
 			bool hle_on  = m_emu->IsHleEnabled();
 			bool hle_log = m_emu->IsHleLogEnabled();

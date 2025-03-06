@@ -69,10 +69,6 @@ namespace GBA::video::renderer {
 			m_save_state = callback;
 		}
 
-		void SetSyncToAudioCallback(SyncToAudioCallback callback) {
-			m_audio_sync = callback;
-		}
-
 		void SetRewindAction(RewindCallback callback) {
 			m_rewind = callback;
 		}
@@ -143,7 +139,6 @@ namespace GBA::video::renderer {
 		SaveLoad m_save_load;
 		SaveStore m_save_store;
 		SaveStateRequest m_save_state;
-		SyncToAudioCallback m_audio_sync;
 		RewindCallback m_rewind;
 		ResetCallback m_reset;
 		HooksEnableCallback m_hooks;
