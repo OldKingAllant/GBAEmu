@@ -362,7 +362,7 @@ namespace GBA::ppu {
 		m_saved_internal_reference_y[bg_id - 2] = (i32)m_saved_internal_reference_y[bg_id - 2] + dmy;
 	}
 
-	std::array<Pixel, 240> PPU::MergeBackrounds() {
+	std::array<Pixel, 240> PPU::MergeBackrounds(int lcd_y) {
 		std::array<Pixel, 240> merged{};
 
 		backgrounds[4] = m_line_data[4];
@@ -532,7 +532,7 @@ namespace GBA::ppu {
 			}
 		};
 
-		u16 curr_line = m_ctx_saved.m_vcount;
+		u16 curr_line = u16(lcd_y);
 
 		bool window0_line = curr_line >= windows[0].top && curr_line <= windows[0].bottom;
 		bool window1_line = curr_line >= windows[1].top && curr_line <= windows[1].bottom;
@@ -801,6 +801,7 @@ namespace GBA::ppu {
 	}
 
 	std::array<Pixel, 240> PPU::MergeBitmap(
+		int lcd_y,
 		std::array<Pixel, 240> const& bg,
 		std::array<Pixel, 240> const& sprites
 	) {
@@ -896,7 +897,7 @@ namespace GBA::ppu {
 			}, true }
 		};
 
-		u16 curr_line = m_ctx_saved.m_vcount;
+		u16 curr_line = u16(lcd_y);
 
 		bool window0_line = curr_line >= windows[0].top && curr_line < windows[0].bottom && windows[0].enabled;
 		bool window1_line = curr_line >= windows[1].top && curr_line < windows[1].bottom && windows[1].enabled;

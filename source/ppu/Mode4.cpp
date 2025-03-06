@@ -84,7 +84,7 @@ namespace GBA::ppu {
 
 		if (obj_enable) {
 			DrawSprites(curr_line);
-			bg2 = MergeBitmap(bg2, m_line_data[4]);
+			bg2 = MergeBitmap(lcd_y, bg2, m_line_data[4]);
 		}
 
 		for (unsigned x = 0; x < 240; x++) {

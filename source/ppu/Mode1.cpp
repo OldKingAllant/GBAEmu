@@ -28,7 +28,7 @@ namespace GBA::ppu {
 			DrawSprites(curr_line);
 
 
-		std::array<Pixel, 240> bg_data = MergeBackrounds();
+		std::array<Pixel, 240> bg_data = MergeBackrounds(curr_line);
 
 		u16 backdrop = *reinterpret_cast<u16*>(m_palette_ram);
 

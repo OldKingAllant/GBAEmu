@@ -18,7 +18,7 @@ threaded_render = true
 
 [ROM]
 #default_rom = ./testRoms/varooom-3d.gba
-default_rom = ./testRoms/Zelda.gba
+default_rom = ./testRoms/FinalFantasy6.gba
 
 [cheats]
 enable_hooks = 

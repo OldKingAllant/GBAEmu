@@ -31,7 +31,7 @@ namespace GBA::ppu {
 		if (obj_enable)
 			DrawSprites(curr_line);
 
-		std::array<Pixel, 240> pixels = MergeBackrounds();
+		std::array<Pixel, 240> pixels = MergeBackrounds(curr_line);
 
 		for (int x = 0; x < 240; x++) {
 			u16 color_packed = pixels[x].color;

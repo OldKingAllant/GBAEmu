@@ -9,6 +9,7 @@
 #include <thread>
 #include <mutex>
 #include <condition_variable>
+#include <semaphore>
 
 namespace GBA::memory {
 	class MMIO;
@@ -54,6 +55,21 @@ namespace GBA::ppu {
 
 	class PPU {
 	public :
+		static constexpr u32 CYCLES_PER_PIXEL = 4;
+		static constexpr u32 CYCLES_PER_SCANLINE = 960;
+		static constexpr u32 CYCLES_BEFORE_HBLANK_FLAG = 46;
+		static constexpr u32 CYCLES_PER_HBLANK = 272;
+		static constexpr u32 TOTAL_CYCLES_PER_LINE =
+			CYCLES_PER_SCANLINE + CYCLES_PER_HBLANK;
+
+		static constexpr u32 VISIBLE_LINES = 160;
+		static constexpr u32 TOTAL_LINES = 228;
+
+		static constexpr u32 PALETTE_SIZE = 512;
+
+		static constexpr u32 BG_PALETTE_START = 0x0;
+		static constexpr u32 OBJ_PALETTE_START = 0x200;
+
 		PPU();
 
 		u32 ReadRegister32(u8 offset) const;
@@ -119,6 +135,11 @@ namespace GBA::ppu {
 			}
 
 			m_dirty_pal = true;
+
+			if (m_ctx.m_vcount < VISIBLE_LINES) {
+				m_line_has_changes_buf[m_ctx.m_vcount] = true;
+			}
+			
 		}
 
 		template <typename Type>
@@ -173,6 +194,10 @@ namespace GBA::ppu {
 				}
 				else {
 					reinterpret_cast<Type*>(m_oam)[address] = value;
+				}
+
+				if (m_ctx.m_vcount < VISIBLE_LINES) {
+					m_line_has_changes_buf[m_ctx.m_vcount] = true;
 				}
 			}
 			
@@ -312,10 +337,13 @@ namespace GBA::ppu {
 			std::mutex				m_render_end_mux;
 			std::condition_variable m_render_end_cv;
 			std::atomic_bool        m_stop;
-			std::atomic_bool        m_line_ready;
+			std::atomic_bool        m_frame_ready;
 			std::atomic_bool        m_start_render;
 			PPU*					m_ppu;
 			bool                    m_rendering_line;
+
+			std::binary_semaphore m_waiting_update = std::binary_semaphore{0};
+			std::binary_semaphore m_finished_update = std::binary_semaphore{ 0 };
 
 			void RenderLoop();
 			void StopRenderThread();
@@ -324,6 +352,9 @@ namespace GBA::ppu {
 			void StartScanline();
 			void FinalizeScanline();
 			void Wait();
+			void CheckScanlineChanges();
+			void SyncScanlineChanges();
+			void UpdateScanlineBatches();
 		};
 
 	private:
@@ -381,19 +412,7 @@ namespace GBA::ppu {
 		u8* m_pal_buf;
 		u8* m_oam_buf;
 
-		static constexpr common::u32 CYCLES_PER_PIXEL = 4;
-		static constexpr common::u32 CYCLES_PER_SCANLINE = 960;
-		static constexpr common::u32 CYCLES_BEFORE_HBLANK_FLAG = 46;
-		static constexpr common::u32 CYCLES_PER_HBLANK = 272;
-		static constexpr common::u32 TOTAL_CYCLES_PER_LINE =
-			CYCLES_PER_SCANLINE + CYCLES_PER_HBLANK;
-
-		static constexpr common::u32 VISIBLE_LINES = 160;
-		static constexpr common::u32 TOTAL_LINES = 228;
-
-		static constexpr common::u32 PALETTE_SIZE = 512;
-
-		static constexpr common::u32 BG_PALETTE_START = 0x0;
-		static constexpr common::u32 OBJ_PALETTE_START = 0x200;
+		bool m_line_has_changes_buf[TOTAL_LINES];
+		bool m_line_has_changes[TOTAL_LINES];
 	};
 }

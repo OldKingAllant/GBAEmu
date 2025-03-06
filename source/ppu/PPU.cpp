@@ -31,7 +31,9 @@ namespace GBA::ppu {
 		m_line_data{}, m_obj_window_pixels{},
 		m_render_thread{},
 		m_dirty_oam{}, m_dirty_pal{}, m_dirty_vram{},
-		m_pal_buf{nullptr}, m_oam_buf{nullptr}
+		m_pal_buf{nullptr}, m_oam_buf{nullptr},
+		m_line_has_changes_buf{}, 
+		m_line_has_changes{}
 	{
 		m_palette_ram = new u8[0x400];
 		m_vram = new u8[0x18000];
@@ -62,9 +64,7 @@ namespace GBA::ppu {
 		PPU& ppu = *reinterpret_cast<PPU*>( ppu_ptr );
 
 		if (ppu.m_render_thread.m_running) {
-			//The rendering happened in background during
-			//the scanline itself
-			//ppu.m_render_thread.FinalizeScanline();
+			//ppu.m_line_has_changes_buf[ppu.m_ctx.m_vcount] = false;
 		}
 		else {
 			ppu.CopyBufferedData(false);
@@ -92,6 +92,10 @@ namespace GBA::ppu {
 	void NormalEventCallback(void* ppu_ptr) {
 		PPU& ppu = *reinterpret_cast<PPU*>(ppu_ptr);
 
+		if (ppu.m_render_thread.m_running) {
+			ppu.m_render_thread.CheckScanlineChanges();
+		}
+
 		ppu.m_ctx.m_vcount++;
 		ppu.m_ctx.m_status &= ~2;
 
@@ -111,7 +115,7 @@ namespace GBA::ppu {
 			EventType::HBLANK, HblankEventCallback, ppu_ptr);
 
 		if (ppu.m_render_thread.m_running) {
-			//ppu.m_render_thread.StartScanline();
+			ppu.m_render_thread.SyncScanlineChanges();
 		}
 
 		ppu.m_last_event_timestamp += PPU::CYCLES_PER_SCANLINE;
@@ -244,6 +248,7 @@ namespace GBA::ppu {
 		ppu->m_last_event_timestamp += PPU::CYCLES_PER_SCANLINE;
 
 		if (ppu->m_render_thread.m_running) {
+			ppu->m_render_thread.UpdateScanlineBatches();
 			ppu->m_render_thread.StartScanline();
 		}
 	}
@@ -530,11 +535,11 @@ namespace GBA::ppu {
 	void PPU::RenderThread::Wait() {
 		std::unique_lock<std::mutex> _lk{m_render_end_mux};
 		
-		if (!m_line_ready.load()) {
-			m_render_end_cv.wait(_lk, [this]() { return m_line_ready.load(); });
+		if (!m_frame_ready.load()) {
+			m_render_end_cv.wait(_lk, [this]() { return m_frame_ready.load(); });
 		}
 		
-		m_line_ready.store(false);
+		m_frame_ready.store(false);
 		m_rendering_line = false;
 	}
 
@@ -544,13 +549,32 @@ namespace GBA::ppu {
 			m_render_end_cv.notify_one();
 		}
 
-		m_line_ready.store(true);
+		m_frame_ready.store(true);
 
 		u16 curr_line{ 0 };
 
 		while (true) {
 			{
 				
+
+				if (curr_line > 0 && m_ppu->m_line_has_changes[curr_line - 1]) {
+					//fmt::println("[PPU] Line {} had changes in previous frame", curr_line);
+					
+					m_waiting_update.release();
+
+					//if (curr_line > 0) {
+					//	if (!m_start_render.load()) {
+					//		m_rendering_cv.wait(_lk, [this]() { return m_start_render.load(); });
+					//	}
+					//}
+					//
+					//m_start_render.store(false);
+
+					//m_ppu->CopyBufferedData(true);
+
+					m_finished_update.acquire();
+					
+				}
 
 				m_ppu->RenderScanline(curr_line);
 
@@ -562,7 +586,7 @@ namespace GBA::ppu {
 
 				{
 					std::unique_lock<std::mutex> _lk{ m_render_end_mux };
-					m_line_ready.store(true);
+					m_frame_ready.store(true);
 					m_render_end_cv.notify_one();
 				}
 				
@@ -608,6 +632,56 @@ namespace GBA::ppu {
 		}
 
 		m_render_thread.join();
+	}
+
+	void PPU::RenderThread::UpdateScanlineBatches() {
+		std::unique_lock<std::mutex> _lk{ m_rendering_mux };
+
+		std::copy_n(m_ppu->m_line_has_changes_buf, TOTAL_LINES, 
+			m_ppu->m_line_has_changes); 
+	}
+
+	void PPU::RenderThread::CheckScanlineChanges() {
+		static PPUContext prev_scanline{};
+
+		auto ctx_temp1 = m_ppu->m_ctx;
+		auto ctx_temp2 = m_ppu->m_ctx_saved;
+
+		ctx_temp1.m_vcount = 0; ctx_temp2.m_vcount = 0;
+		ctx_temp1.m_status = 0; ctx_temp2.m_status = 0;
+
+		if (std::memcmp((void*)&ctx_temp1, (void*)&ctx_temp2, sizeof(PPUContext))) {
+			if (std::memcmp((void*)&ctx_temp1, (void*)&prev_scanline, sizeof(PPUContext))) {
+				m_ppu->m_line_has_changes_buf[m_ppu->m_ctx.m_vcount] = true;
+				prev_scanline = ctx_temp1;
+			}
+		}
+		else if (!m_ppu->m_dirty_oam && !m_ppu->m_dirty_pal) {
+			m_ppu->m_line_has_changes_buf[m_ppu->m_ctx.m_vcount] = false;
+		}
+	}
+
+	void PPU::RenderThread::SyncScanlineChanges() {
+		if (m_ppu->m_ctx.m_vcount > 0 && m_ppu->m_line_has_changes[m_ppu->m_ctx.m_vcount - 1]) {
+			//fmt::println("[PPU] Line {} has changes!", m_ppu->m_ctx.m_vcount);
+			/*std::unique_lock<std::mutex> _lk{m_rendering_mux};
+			//Perform copies of registers/video memory
+			m_ppu->CopyBufferedData(true);
+
+			_lk.unlock();
+
+			m_start_render.store(true);
+			m_rendering_cv.notify_one();
+
+			//if (m_ppu->m_ctx.m_vcount > 0) {
+				while (m_start_render.load()) {}*/
+			//}
+
+			
+			m_waiting_update.acquire();
+			m_ppu->CopyBufferedData(true);
+			m_finished_update.release();
+		}
 	}
 
 	///////////////////////////////////////////////
