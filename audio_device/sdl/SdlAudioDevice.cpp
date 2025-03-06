@@ -75,6 +75,10 @@ namespace GBA::audio {
 		SDL_PauseAudioDevice(m_dev_id, 0);
 	}
 
+	void SdlAudioDevice::Pause() {
+		SDL_PauseAudioDevice(m_dev_id, 1);
+	}
+
 	void SdlAudioDevice::Stop() {
 		SDL_PauseAudioDevice(m_dev_id, 1);
 		SDL_CloseAudioDevice(m_dev_id);

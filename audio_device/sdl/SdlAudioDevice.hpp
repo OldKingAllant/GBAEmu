@@ -21,7 +21,8 @@ namespace GBA::audio {
 		~SdlAudioDevice() override;
 
 		void Start() override;
-		void Stop() override;
+		void Pause() override;
+		void Stop()  override;
 
 		void PushSamples(common::i16* samples) override;
 		void PushSample(common::i16 sample_l, common::i16 sample_r) override;

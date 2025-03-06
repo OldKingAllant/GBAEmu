@@ -7,6 +7,7 @@
 #include "../../memory/Keypad.hpp"
 #include "../../emu/Emulator.hpp"
 #include "detail/OpengGLFunctions.hpp"
+#include "../../audio_device/AudioDevice.hpp"
 
 #include "../../ImGui/imgui.h"
 #include "../../ImGui/backends/imgui_impl_sdl2.h"
@@ -33,7 +34,8 @@ namespace GBA::video::renderer {
 		m_ctrl_status{false}, m_sync_to_audio{true},
 		m_alt_status{false}, m_enable_hooks{hooks_enable},
 		m_emu{nullptr}, m_show_cheat_insert_win{false},
-		m_last_frame_timestamp{}, m_curr_fps{}
+		m_last_frame_timestamp{}, m_curr_fps{},
+		m_audio{nullptr}, m_mute{false}
 	{
 		m_gl_data.placeholder_data = new float[240 * 160 * 3];
 
@@ -623,6 +625,32 @@ namespace GBA::video::renderer {
 		}
 	}
 
+	void OpenGL::AudioMenu() {
+		using namespace common;
+
+		if (ImGui::BeginMenu("Audio")) {
+			if (ImGui::Checkbox("Mute", &m_mute)) {
+				auto& ctx = m_emu->GetContext();
+
+				if (m_mute) {
+					m_audio->Pause();
+					ctx.apu.SetCallback([](i16, i16) {}, 1024);
+				}
+				else {
+					ctx.apu.SetCallback(
+						[this](i16 sample_l, i16 sample_r) {
+							m_audio->PushSample(sample_l, sample_r);
+						}, 1024
+					);
+					m_audio->Start();
+				}
+			}
+
+			ImGui::EndMenu();
+		}
+		
+	}
+
 	void OpenGL::UpdateWindowTitle() {
 		static uint64_t last_fps_count{0};
 
@@ -670,6 +698,7 @@ namespace GBA::video::renderer {
 			EmulationMenu();
 			CheatMenu();
 			RewindMenu();
+			AudioMenu();
 
 			ImGui::EndMainMenuBar();
 

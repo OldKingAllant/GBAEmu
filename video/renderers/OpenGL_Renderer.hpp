@@ -14,6 +14,10 @@ namespace GBA::emulation {
 	class Emulator;
 }
 
+namespace GBA::audio {
+	class AudioDevice;
+}
+
 namespace GBA::video::renderer {
 	struct OpenglFunctions;
 
@@ -85,6 +89,10 @@ namespace GBA::video::renderer {
 			m_emu = emu;
 		}
 
+		inline void SetAudio(audio::AudioDevice* audio) {
+			m_audio = audio;
+		}
+
 		~OpenGL() override;
 
 	private :
@@ -99,6 +107,7 @@ namespace GBA::video::renderer {
 		void CheatInsertWindow();
 		void RewindMenu();
 		void EmulationMenu();
+		void AudioMenu();
 
 		std::string FileDialog(std::string title, std::string filters);
 
@@ -152,5 +161,8 @@ namespace GBA::video::renderer {
 
 		std::chrono::system_clock::time_point m_last_frame_timestamp;
 		uint64_t m_curr_fps;
+
+		audio::AudioDevice* m_audio;
+		bool m_mute;
 	};
 }

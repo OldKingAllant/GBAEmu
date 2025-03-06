@@ -18,7 +18,7 @@ threaded_render = false
 
 [ROM]
 #default_rom = ./testRoms/varooom-3d.gba
-default_rom = ./testRoms/FireEmblem.gba
+default_rom = ./testRoms/PokemonEmerald.gba
 
 [cheats]
 enable_hooks = 

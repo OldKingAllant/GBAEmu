@@ -272,6 +272,7 @@ int main(int argc, char* argv[]) {
 
 	opengl_rend.SetSyncToAudioCallback([audio](bool sync) { audio->AudioSync(sync); });
 
+	opengl_rend.SetAudio(audio);
 	opengl_rend.SetEmu(emu);
 
 	audio->Start();
