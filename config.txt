@@ -14,11 +14,11 @@ startup_load_save = true
 enable_fastmem = true
 precise_bios_access = true
 precise_ppu_access = false
-threaded_render = true
+threaded_render = false
 
 [ROM]
 #default_rom = ./testRoms/varooom-3d.gba
-default_rom = ./testRoms/PokemonEmerald.gba
+default_rom = ./testRoms/FireEmblem.gba
 
 [cheats]
 enable_hooks = 

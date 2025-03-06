@@ -115,7 +115,7 @@ int main(int argc, char* argv[]) {
 
 		ctx.apu.SetCallback(
 			[audio](GBA::common::i16 sample_l, GBA::common::i16 sample_r) {
-				//audio->PushSample(sample_l, sample_r);
+				audio->PushSample(sample_l, sample_r);
 			}, 1024
 		);
 
@@ -274,7 +274,7 @@ int main(int argc, char* argv[]) {
 
 	opengl_rend.SetEmu(emu);
 
-	//audio->Start();
+	audio->Start();
 
 	auto& ctx = emu->GetContext();
 
