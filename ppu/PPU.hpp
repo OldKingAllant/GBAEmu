@@ -310,22 +310,54 @@ namespace GBA::ppu {
 			std::copy_n(vram_temp.begin(), 0x18000, m_vram);
 			std::copy_n(oam_temp.begin(), 0x400, m_oam);
 			std::copy_n(framebuf_temp.begin(), framebuf_temp.size(), m_framebuffer);
+
+			m_ctx_saved = m_ctx;
+
+			m_saved_internal_reference_x[0] = m_internal_reference_x[0];
+			m_saved_internal_reference_y[0] = m_internal_reference_y[0];
+			m_saved_internal_reference_x[1] = m_internal_reference_x[1];
+			m_saved_internal_reference_y[1] = m_internal_reference_y[1];
+
+			if (m_render_thread.m_running) {
+				//Threaded renderer is enabled,
+				//we need to make sure that 
+				//buffered oam/pal are in sync
+				//with the effective memory
+				//Same for all other things
+
+				//First we need to stop the thread,
+				//just to make sure that the order
+				//of execution is always the same
+				//and we avoid deadlocks
+				m_render_thread.StopRenderThread();
+
+				//Then we copy the data
+				std::copy_n(m_oam, 0x400, m_oam_buf);
+				std::copy_n(m_palette_ram, 0x400, m_pal_buf);
+
+				//Reset scanline changes
+				std::fill_n(m_line_has_changes_buf, TOTAL_LINES, false);
+				std::fill_n(m_line_has_changes, TOTAL_LINES, false);
+
+				//Finally we restart the thread
+				m_render_thread.StartRenderThread();
+			}
 		}
 
 #pragma pack(push, 1)
 		union PPUContext {
 			struct {
-				common::u16 m_control;
-				common::u16 m_green_swap;
-				common::u16 m_status;
-				common::u16 m_vcount;
-				common::u16 m_bg0_cnt;
-				common::u16 m_bg1_cnt;
-				common::u16 m_bg2_cnt;
-				common::u16 m_bg3_cnt;
+				u16 m_control;
+				u16 m_green_swap;
+				u16 m_status;
+				u16 m_vcount;
+				u16 m_bg0_cnt;
+				u16 m_bg1_cnt;
+				u16 m_bg2_cnt;
+				u16 m_bg3_cnt;
 			};
 
-			common::u8 array[0x58];
+			u8 array[0x58];
 		};
 #pragma pack(pop)
 
