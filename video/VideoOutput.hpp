@@ -29,6 +29,8 @@ namespace GBA::video {
 		virtual void PresentFrame() = 0;
 		virtual void SetFrame(float* buffer) = 0;
 
+		virtual bool IsPaused() const = 0;
+
 		void SetKeypad(input::Keypad* keypad) {
 			m_keypad = keypad;
 		}

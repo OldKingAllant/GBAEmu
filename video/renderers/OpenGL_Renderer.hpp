@@ -45,40 +45,18 @@ namespace GBA::video::renderer {
 
 		void SetFrame(float* buffer) override;
 
+		bool IsPaused() const override {
+			return m_pause;
+		}
+
+		void OnPauseChange(bool is_paused);
+
 		void SetQuickSaveAction(QuickSaveCallback callback) {
 			m_quick_save = callback;
 		}
 
-		void SetOnPause(OnPause callback) {
-			m_on_pause = callback;
-		}
-
 		void SetRomSelectedAction(RomSelected callback) {
 			m_on_select = callback;
-		}
-
-		void SetSaveSelectedAction(SaveLoad callback) {
-			m_save_load = callback;
-		}
-
-		void SetSaveStoreAction(SaveStore callback) {
-			m_save_store = callback;
-		}
-
-		void SetSaveStateAction(SaveStateRequest callback) {
-			m_save_state = callback;
-		}
-
-		void SetRewindAction(RewindCallback callback) {
-			m_rewind = callback;
-		}
-
-		void SetResetAction(ResetCallback callback) {
-			m_reset = callback;
-		}
-
-		void SetHooksEnableAction(HooksEnableCallback callback) {
-			m_hooks = callback;
 		}
 
 		inline void SetEmu(emulation::Emulator* emu) {
@@ -109,6 +87,9 @@ namespace GBA::video::renderer {
 
 		void UpdateWindowTitle();
 
+		void Rewind(bool forward);
+		void DoSavestate(std::string const& path, bool store);
+
 	private :
 		SDL_Window* m_window;
 		void* m_gl_context;
@@ -134,14 +115,7 @@ namespace GBA::video::renderer {
 		} m_gl_data;
 
 		QuickSaveCallback m_quick_save;
-		OnPause m_on_pause;
 		RomSelected m_on_select;
-		SaveLoad m_save_load;
-		SaveStore m_save_store;
-		SaveStateRequest m_save_state;
-		RewindCallback m_rewind;
-		ResetCallback m_reset;
-		HooksEnableCallback m_hooks;
 
 		bool m_pause;
 		bool m_show_menu_bar;

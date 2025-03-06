@@ -191,87 +191,14 @@ int main(int argc, char* argv[]) {
 		
 	});
 
-	opengl_rend.SetOnPause([&paused, emu](bool val) { 
-		if (paused != val && !val) {
-			emu->RewindPop();
-		}
-
-		paused = val; 
-	});
-
 	opengl_rend.SetRomSelectedAction([&emu_init](std::string rom) {
 		emu_init(rom);
 	});
 
-	opengl_rend.SetSaveSelectedAction([emu](std::string file_path) {
-		if (!emu->GetContext().pack.LoadBackup(file_path))
-			std::cout << "Load failed" << std::endl;
-		else
-			std::cout << "Load successfull" << std::endl;
-	});
-
-	opengl_rend.SetSaveStoreAction([emu](std::string dest) {
-		if (!emu->GetContext().pack.StoreBackup(dest))
-			std::cout << "Save failed" << std::endl;
-		else
-			std::cout << "Save ok" << std::endl;
-	});
-
-	opengl_rend.SetSaveStateAction([emu, &opengl_rend](std::string path, bool store) {
-		if (store)
-			emu->StoreState(path);
-		else {
-			emu->LoadState(path);
-			auto framebuf = emu->GetContext()
-				.ppu
-				.GetFrame();
-			opengl_rend.SetFrame(framebuf);
-		}
-	});
-
-	opengl_rend.SetRewindAction([emu, &opengl_rend](bool forward) {
-		if (forward) {
-			if (emu->RewindForward()) {
-				auto framebuf = emu->GetContext()
-					.ppu
-					.GetFrame();
-				opengl_rend.SetFrame(framebuf);
-			}
-			else {
-				std::cout << "Cannot forward" << std::endl;
-			}
-		}
-		else {
-			if (emu->RewindBackward()) {
-				auto framebuf = emu->GetContext()
-					.ppu
-					.GetFrame();
-				opengl_rend.SetFrame(framebuf);
-			}
-			else {
-				std::cout << "Cannot backward" << std::endl;
-			}
-		}
-	});
-
-	opengl_rend.SetResetAction([emu, &opengl_rend]() {
-		if (emu->Reset()) {
-			auto framebuf = emu->GetContext()
-				.ppu
-				.GetFrame();
-			opengl_rend.SetFrame(framebuf);
-		}
-		else {
-			std::cout << "Reset failed" << std::endl;
-		}
-	});
-
-	opengl_rend.SetHooksEnableAction([emu](bool set_enable) {
-		emu->EnableHooksGlobal(set_enable);
-	});
-
 	opengl_rend.SetAudio(audio);
 	opengl_rend.SetEmu(emu);
+
+	opengl_rend.OnPauseChange(paused);
 
 	audio->Start();
 
@@ -289,7 +216,7 @@ int main(int argc, char* argv[]) {
 			opengl_rend.ProcessEvent(&ev);
 		}
 
-		if (!paused && has_rom) {
+		if (!opengl_rend.IsPaused() && has_rom) {
 			emu->RunTillVblank();
 			
 			if (ctx.ppu.HasFrame()) {

@@ -25,10 +25,7 @@ namespace GBA::video::renderer {
 
 	OpenGL::OpenGL(bool pause, bool hooks_enable) :
 		m_window(nullptr), m_gl_context(nullptr),
-		m_gl_data{}, m_quick_save{},
-		m_on_pause{}, m_on_select{},
-		m_save_load{}, m_save_store{}, m_save_state{},
-		m_rewind{}, m_reset{}, m_hooks{},
+		m_gl_data{}, m_quick_save{}, m_on_select{},
 		m_pause{pause}, m_show_menu_bar{false},
 		m_ctrl_status{false}, m_sync_to_audio{true},
 		m_alt_status{false}, m_enable_hooks{hooks_enable},
@@ -183,8 +180,7 @@ namespace GBA::video::renderer {
 		{
 		case SDL_SCANCODE_RIGHT:
 			if (m_alt_status) {
-				if (m_rewind)
-					m_rewind(true);
+				Rewind(true);
 			}
 			else {
 				m_keypad->KeyPressed(Buttons::BUTTON_RIGHT);
@@ -193,8 +189,7 @@ namespace GBA::video::renderer {
 
 		case SDL_SCANCODE_LEFT:
 			if (m_alt_status) {
-				if (m_rewind)
-					m_rewind(false);
+				Rewind(false);
 			}
 			else {
 				m_keypad->KeyPressed(Buttons::BUTTON_LEFT);
@@ -250,14 +245,12 @@ namespace GBA::video::renderer {
 		case SDL_SCANCODE_LALT:
 		case SDL_SCANCODE_RALT:
 			m_alt_status = true;
-			m_pause = true;
-			m_on_pause(true);
+			OnPauseChange(true);
 			break;
 
 		case SDL_SCANCODE_C: {
 			if (m_ctrl_status) {
-				m_pause = true;
-				m_on_pause(true);
+				OnPauseChange(true);
 			}
 		}
 		break;
@@ -322,8 +315,7 @@ namespace GBA::video::renderer {
 		case SDL_SCANCODE_LALT:
 		case SDL_SCANCODE_RALT:
 			m_alt_status = false;
-			m_pause = false;
-			m_on_pause(false);
+			OnPauseChange(false);
 			break;
 
 		default:
@@ -378,8 +370,13 @@ namespace GBA::video::renderer {
 				if (ImGui::BeginMenu("Load")) {
 					std::string save = FileDialog("Load Save", ".save,.sav,.SAVE");
 
-					if (save != "NULL" && m_save_load) {
-						m_save_load(save);
+					if (save != "NULL") {
+						if (!m_emu->GetContext().pack.LoadBackup(save)) {
+							fmt::println("[PPU] Load failed");
+						}
+						else {
+							fmt::println("[PPU] Load successfull");
+						}
 					}
 
 					ImGui::EndMenu();
@@ -390,8 +387,13 @@ namespace GBA::video::renderer {
 				if (ImGui::BeginMenu("Store")) {
 					std::string dest = FileDialog("Save", ".*");
 
-					if (dest != "NULL" && m_save_store) {
-						m_save_store(dest);
+					if (dest != "NULL") {
+						if (!m_emu->GetContext().pack.StoreBackup(dest)) {
+							fmt::println("[EMU] Save failed");
+						}
+						else {
+							fmt::println("[EMU] Save OK");
+						}
 					}
 
 					ImGui::EndMenu();
@@ -406,8 +408,8 @@ namespace GBA::video::renderer {
 				if (ImGui::BeginMenu("Save")) {
 					std::string save = FileDialog("Store state", ".*");
 
-					if (save != "NULL" && m_save_state) {
-						m_save_state(save, true);
+					if (save != "NULL") {
+						DoSavestate(save, true);
 					}
 
 					ImGui::EndMenu();
@@ -418,8 +420,8 @@ namespace GBA::video::renderer {
 				if (ImGui::BeginMenu("Load")) {
 					std::string dest = FileDialog("Load State", ".state");
 
-					if (dest != "NULL" && m_save_state) {
-						m_save_state(dest, false);
+					if (dest != "NULL") {
+						DoSavestate(dest, false);
 					}
 
 					ImGui::EndMenu();
@@ -437,10 +439,9 @@ namespace GBA::video::renderer {
 	void OpenGL::CheatMenu() {
 		if (ImGui::BeginMenu("Cheats")) {
 			ImGui::Checkbox("Show insert window", &m_show_cheat_insert_win);
-			ImGui::Checkbox("Enable hooks", &m_enable_hooks);
-
-			if (m_hooks) {
-				m_hooks(m_enable_hooks);
+			
+			if (ImGui::Checkbox("Enable hooks", &m_enable_hooks)) {
+				m_emu->EnableHooksGlobal(m_enable_hooks);
 			}
 
 			ImGui::Separator();
@@ -592,10 +593,10 @@ namespace GBA::video::renderer {
 
 	void OpenGL::EmulationMenu() {
 		if (ImGui::BeginMenu("Emulation")) {
-			ImGui::Checkbox("Pause", &m_pause);
-
-			if (m_on_pause)
-				m_on_pause(m_pause);
+			bool pause_temp = m_pause;
+			if (ImGui::Checkbox("Pause", &pause_temp)) {
+				OnPauseChange(pause_temp);
+			}
 
 			if (ImGui::Checkbox("Audio sync (60fps)", &m_sync_to_audio)) {
 				SDL_GL_SetSwapInterval(m_sync_to_audio);
@@ -613,8 +614,16 @@ namespace GBA::video::renderer {
 				m_emu->SetLogHleEnable(hle_log);
 			}
 
-			if (ImGui::Button("Reset") && m_reset) {
-				m_reset();
+			if (ImGui::Button("Reset")) {
+				if (m_emu->Reset()) {
+					auto framebuf = m_emu->GetContext() 
+						.ppu
+						.GetFrame(); 
+					SetFrame(framebuf);
+				}
+				else {
+					fmt::println("[EMU] Reset failed");
+				}
 			}
 
 			ImGui::EndMenu();
@@ -707,6 +716,51 @@ namespace GBA::video::renderer {
 		}
 
 		SDL_GL_SwapWindow(m_window);
+	}
+
+	void OpenGL::Rewind(bool forward) {
+		if (forward) {
+			if (m_emu->RewindForward()) {
+				auto framebuf = m_emu->GetContext()
+					.ppu
+					.GetFrame();
+				SetFrame(framebuf);
+			}
+			else {
+				fmt::println("[EMU] Cannot forward");
+			}
+		}
+		else {
+			if (m_emu->RewindBackward()) {
+				auto framebuf = m_emu->GetContext()
+					.ppu
+					.GetFrame();
+				SetFrame(framebuf);
+			}
+			else {
+				fmt::println("[EMU] Cannot backward");
+			}
+		}
+	}
+
+	void OpenGL::DoSavestate(std::string const& path, bool store) {
+		if (store)
+			m_emu->StoreState(path);
+		else {
+			m_emu->LoadState(path);
+			auto framebuf = m_emu->GetContext()
+				.ppu
+				.GetFrame();
+			SetFrame(framebuf);
+		}
+	}
+
+	void OpenGL::OnPauseChange(bool is_paused) {
+		if (m_pause != is_paused && !is_paused) {
+			m_emu->RewindPop();
+		}
+
+		m_pause = is_paused;
 	}
 
 	OpenGL::~OpenGL() {
