@@ -33,7 +33,10 @@ namespace GBA::ppu {
 		m_dirty_oam{}, m_dirty_pal{}, m_dirty_vram{},
 		m_pal_buf{nullptr}, m_oam_buf{nullptr},
 		m_line_has_changes_buf{}, 
-		m_line_has_changes{}
+		m_line_has_changes{},
+		m_enable_scanline_diff_threshold{false},
+		m_scanline_diff_threshold{0},
+		m_sync_all_lines{false}
 	{
 		m_palette_ram = new u8[0x400];
 		m_vram = new u8[0x18000];
@@ -555,7 +558,11 @@ namespace GBA::ppu {
 
 		while (true) {
 			{
-				if (curr_line > 0 && m_ppu->m_line_has_changes[curr_line - 1]) {
+				if (curr_line > 0 && 
+					(
+						m_ppu->m_line_has_changes[curr_line - 1] ||
+						m_ppu->m_sync_all_lines
+					)) {
 					//fmt::println("[PPU] Line {} had changes in previous frame", curr_line);
 					m_waiting_update.release();
 					m_finished_update.acquire();
@@ -623,6 +630,21 @@ namespace GBA::ppu {
 	void PPU::RenderThread::UpdateScanlineBatches() {
 		std::unique_lock<std::mutex> _lk{ m_rendering_mux };
 
+		if (m_ppu->m_enable_scanline_diff_threshold) {
+			u8 diff_lines{ 0 };
+
+			for (u8 curr_line = 0; curr_line < VISIBLE_LINES; curr_line++) {
+				if (m_ppu->m_line_has_changes_buf[curr_line] !=
+					m_ppu->m_line_has_changes[curr_line])
+					++diff_lines;
+			}
+
+			m_ppu->m_sync_all_lines = diff_lines >= m_ppu->m_scanline_diff_threshold;
+		}
+		else {
+			m_ppu->m_sync_all_lines = false;
+		}
+
 		std::copy_n(m_ppu->m_line_has_changes_buf, TOTAL_LINES, 
 			m_ppu->m_line_has_changes); 
 	}
@@ -648,7 +670,11 @@ namespace GBA::ppu {
 	}
 
 	void PPU::RenderThread::SyncScanlineChanges() {
-		if (m_ppu->m_ctx.m_vcount > 0 && m_ppu->m_line_has_changes[m_ppu->m_ctx.m_vcount - 1]) {
+		if (m_ppu->m_ctx.m_vcount > 0 && 
+			(
+				m_ppu->m_line_has_changes[m_ppu->m_ctx.m_vcount - 1] ||
+				m_ppu->m_sync_all_lines
+			)) {
 			m_waiting_update.acquire();
 			m_ppu->CopyBufferedData(true);
 			m_finished_update.release();

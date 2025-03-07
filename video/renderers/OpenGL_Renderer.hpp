@@ -22,15 +22,7 @@ namespace GBA::video::renderer {
 	struct OpenglFunctions;
 
 	using QuickSaveCallback = std::function<void(bool)>;
-	using OnPause = std::function<void(bool)>;
 	using RomSelected = std::function<void(std::string)>;
-	using SaveLoad = std::function<void(std::string)>;
-	using SaveStore = std::function<void(std::string)>;
-	using SaveStateRequest = std::function<void(std::string, bool)>;
-	using SyncToAudioCallback = std::function<void(bool)>;
-	using RewindCallback = std::function<void(bool)>;
-	using ResetCallback = std::function<void()>;
-	using HooksEnableCallback = std::function<void(bool)>;
 
 	class OpenGL : public VideoOutput {
 	public :
@@ -82,6 +74,7 @@ namespace GBA::video::renderer {
 		void RewindMenu();
 		void EmulationMenu();
 		void AudioMenu();
+		void VideoMenu();
 
 		std::string FileDialog(std::string title, std::string filters);
 

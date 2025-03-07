@@ -81,7 +81,12 @@ int main(int argc, char* argv[]) {
 	bool enable_fastmem  = conf.data["EMU"]["enable_fastmem"] == "true";
 	bool precise_bios	 = conf.data["EMU"]["precise_bios_access"] == "true";
 	bool precise_ppu	 = conf.data["EMU"]["precise_ppu_access"] == "true";
-	bool threaded_render = conf.data["EMU"]["threaded_render"] == "true";
+
+	bool threaded_render = conf.data["VIDEO"]["threaded_render"] == "true";
+	bool threaded_line_threshold_enable = conf.data["VIDEO"]["enable_threaded_line_threshold"] == "true";
+
+	unsigned threaded_line_threshold = unsigned(parse_int(conf.data["VIDEO"]["threaded_line_threshold"])
+		.value_or(1));
 
 	auto emu_init = [&](std::string rom) {
 		if (has_rom) {
@@ -132,6 +137,8 @@ int main(int argc, char* argv[]) {
 
 		if (threaded_render) {
 			emu->RunThreadedRender();
+			emu->SetEnableScanlineDiffThreshold(threaded_line_threshold_enable);
+			emu->SetScanlineDiffThreshold(GBA::common::u8(threaded_line_threshold));
 		}
 
 		has_rom = true;

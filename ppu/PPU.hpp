@@ -230,6 +230,10 @@ namespace GBA::ppu {
 
 		void EnableThreadedRender();
 
+		inline bool IsThreadedRenderingEnabled() const {
+			return m_render_thread.m_running;
+		}
+
 		template <typename Ar>
 		void save(Ar& ar) const {
 			using namespace common;
@@ -389,6 +393,22 @@ namespace GBA::ppu {
 			void UpdateScanlineBatches();
 		};
 
+		inline void SetEnableDiffThreshold(bool enable_diff) {
+			m_enable_scanline_diff_threshold = enable_diff;
+		}
+
+		inline void SetDiffThreshold(u8 threshold) {
+			m_scanline_diff_threshold = threshold;
+		}
+
+		inline bool IsDiffThresholdEnabled() const {
+			return m_enable_scanline_diff_threshold;
+		}
+
+		inline u8 GetDiffThreshold() const {
+			return m_scanline_diff_threshold;
+		}
+
 	private:
 		void InitHandlers(memory::MMIO* mmio);
 		void ResetFrameData();
@@ -446,5 +466,18 @@ namespace GBA::ppu {
 
 		bool m_line_has_changes_buf[TOTAL_LINES];
 		bool m_line_has_changes[TOTAL_LINES];
+
+		//Enable a threshold s.t. when
+		//the number of lines where PPU
+		//configuration changes (intra-scanline)
+		//is above said threshold, the next frame
+		//will have the renderer sync on all scanlines.
+		//This is for cases where circle-shaped windows
+		//that change size/position between frames,
+		//which would result in incorrect rendering
+		//without it
+		bool m_enable_scanline_diff_threshold;
+		u8 m_scanline_diff_threshold;
+		bool m_sync_all_lines;
 	};
 }

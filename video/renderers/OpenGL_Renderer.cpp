@@ -656,6 +656,38 @@ namespace GBA::video::renderer {
 		
 	}
 
+	void OpenGL::VideoMenu() {
+		if (ImGui::BeginMenu("Video")) {
+			using namespace common;
+
+			bool is_threaded_rendering_enabled = m_emu->IsThreadedRenderingEnabled();
+
+			ImGui::BeginDisabled();
+			ImGui::Checkbox("Threaded rendering", &is_threaded_rendering_enabled);
+			ImGui::EndDisabled();
+
+			if (!is_threaded_rendering_enabled)
+				ImGui::BeginDisabled();
+
+			bool is_threshold_enabled = m_emu->IsScanlineDiffThresholdEnabled();
+			if (ImGui::Checkbox("Enable diff threshold", &is_threshold_enabled)) {
+				m_emu->SetEnableScanlineDiffThreshold(is_threshold_enabled);
+			}
+
+			auto diff_threshold = int(m_emu->GetScanlineDiffThreshold());
+
+			if (ImGui::SliderInt("Diff threshold", &diff_threshold, 1,
+				ppu::PPU::VISIBLE_LINES, "%d", ImGuiSliderFlags_AlwaysClamp)) {
+				m_emu->SetScanlineDiffThreshold(u8(diff_threshold));
+			}
+
+			if (!is_threaded_rendering_enabled)
+				ImGui::EndDisabled();
+
+			ImGui::EndMenu();
+		}
+	}
+
 	void OpenGL::UpdateWindowTitle() {
 		static uint64_t last_fps_count{0};
 
@@ -704,6 +736,7 @@ namespace GBA::video::renderer {
 			CheatMenu();
 			RewindMenu();
 			AudioMenu();
+			VideoMenu();
 
 			ImGui::EndMainMenuBar();
 

@@ -35,6 +35,8 @@ namespace GBA::emulation {
 		apu::APU apu;
 	};
 
+	using namespace common;
+
 	class Emulator {
 	public :
 		Emulator(std::string_view rom_location, std::string_view bios_location);
@@ -44,7 +46,7 @@ namespace GBA::emulation {
 			return m_ctx;
 		}
 
-		void EmulateFor(common::u32 num_instructions);
+		void EmulateFor(u32 num_instructions);
 		void RunTillVblank();
 
 		void UseBIOS();
@@ -88,7 +90,7 @@ namespace GBA::emulation {
 
 		bool Reset();
 
-		void SetRewindBufferSize(common::u32 buf_size) {
+		void SetRewindBufferSize(u32 buf_size) {
 			m_rewind_buf_size = buf_size;
 			m_rewind_pos = 0;
 
@@ -149,6 +151,26 @@ namespace GBA::emulation {
 
 		inline void RunThreadedRender() {
 			m_ctx.ppu.EnableThreadedRender();
+		}
+
+		inline bool IsThreadedRenderingEnabled() const {
+			return m_ctx.ppu.IsThreadedRenderingEnabled();
+		}
+
+		inline void SetEnableScanlineDiffThreshold(bool enable_threshold) {
+			m_ctx.ppu.SetEnableDiffThreshold(enable_threshold);
+		}
+
+		inline void SetScanlineDiffThreshold(u8 diff_threshold) {
+			m_ctx.ppu.SetDiffThreshold(diff_threshold);
+		}
+
+		inline bool IsScanlineDiffThresholdEnabled() const {
+			return m_ctx.ppu.IsDiffThresholdEnabled();
+		}
+
+		inline u8 GetScanlineDiffThreshold() const {
+			return m_ctx.ppu.GetDiffThreshold();
 		}
 
 		///////////////////////
