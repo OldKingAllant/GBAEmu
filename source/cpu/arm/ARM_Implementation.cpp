@@ -1652,4 +1652,9 @@ namespace GBA::cpu::arm{
 
 		arm_jump_table[hash](instr, ctx, bus, branch);
 	}
+
+	ArmExecutor GetArmHandler(ARMInstruction instr) {
+		u16 hash = ((instr.data >> 16) & 0xFF0) | ((instr.data >> 4) & 0xF);
+		return arm_jump_table[hash];
+	}
 }

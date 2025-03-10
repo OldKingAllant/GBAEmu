@@ -11,10 +11,10 @@ namespace GBA::hle::affine {
 		bus->m_time.access = memory::Access::NonSeq;
 
 		while (count--) {
-			auto sx = bus->Read<u16>(src_ptr + 0) / 256.f;
+			auto sx = bus->ReadFast<u16>(src_ptr + 0) / 256.f;
 			bus->m_time.access = memory::Access::Seq;
-			auto sy = bus->Read<u16>(src_ptr + 2) / 256.f;
-			auto theta = (bus->Read<u16>(src_ptr + 4) >> 8) / 128.f * 3.14f;
+			auto sy = bus->ReadFast<u16>(src_ptr + 2) / 256.f;
+			auto theta = (bus->ReadFast<u16>(src_ptr + 4) >> 8) / 128.f * 3.14f;
 			src_ptr += 8;
 
 			float a{}, b{}, c{}, d{};
@@ -29,11 +29,11 @@ namespace GBA::hle::affine {
 
 			bus->m_time.access = memory::Access::NonSeq;
 
-			bus->Write<u16>(dst_ptr + stride * 0, u16(a * 256));
+			bus->WriteFast<u16>(dst_ptr + stride * 0, u16(a * 256));
 			bus->m_time.access = memory::Access::Seq;
-			bus->Write<u16>(dst_ptr + stride * 1, u16(b * 256));
-			bus->Write<u16>(dst_ptr + stride * 2, u16(c * 256));
-			bus->Write<u16>(dst_ptr + stride * 3, u16(d * 256));
+			bus->WriteFast<u16>(dst_ptr + stride * 1, u16(b * 256));
+			bus->WriteFast<u16>(dst_ptr + stride * 2, u16(c * 256));
+			bus->WriteFast<u16>(dst_ptr + stride * 3, u16(d * 256));
 			dst_ptr += stride * 4;
 		}
 

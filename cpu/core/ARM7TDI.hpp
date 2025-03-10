@@ -1,9 +1,11 @@
 #pragma once
 
 #include "CPUContext.hpp"
+#include "InterpreterCache.hpp"
 
 namespace GBA::memory {
 	class InterruptController;
+	class EventScheduler;
 }
 
 namespace GBA::cpu {
@@ -43,6 +45,27 @@ namespace GBA::cpu {
 
 		void EvaluateHaltState();
 
+		void SetInterpreterBlockSize(u32 block_size) {
+			m_cache.SetBlocksLen(block_size);
+		}
+
+		void SetInterpreterRegionSize(u32 region_sz) {
+			m_cache.SetRegionLen(region_sz);
+		}
+
+		void EnableCachedInterpreter() {
+			m_cache.Init();
+			m_enable_cache = true;
+		}
+
+		inline bool IsCacheEnabled() const {
+			return m_enable_cache;
+		}
+
+		InterpreterCache& GetCache() {
+			return m_cache;
+		}
+
 		template <typename Ar>
 		void save(Ar& ar) const {
 			ar(m_halt);
@@ -66,10 +89,18 @@ namespace GBA::cpu {
 	private :
 		bool CheckIRQ();
 
+		void StepCached();
+		std::pair<bool, u32> StepNoCache();
+
+		void RunMakeCache();
+
 	private :
-		CPUContext m_ctx;
-		memory::Bus* m_bus;
+		CPUContext				m_ctx;
+		memory::Bus*			m_bus;
 		memory::InterruptController* m_int_controller;
-		bool m_halt;
+		bool					m_halt;
+		InterpreterCache		m_cache;
+		bool					m_enable_cache;
+		memory::EventScheduler* m_sched;
 	};
 }

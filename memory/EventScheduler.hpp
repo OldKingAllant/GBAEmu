@@ -70,6 +70,27 @@ namespace GBA::memory {
 		/// <returns>Pair (popped event type, skipped cycles)</returns>
 		std::optional<std::pair<EventType, uint64_t>> NextEvent();
 
+		inline static constexpr bool InfluencesCpu(EventType ev_ty) {
+			switch (ev_ty)
+			{
+			case EventType::HBLANK:
+			case EventType::VBLANK:
+			case EventType::PPUNORMAL:
+			case EventType::SCANLINE_INC:
+			case EventType::HBLANK_IN_VBLANK:
+			case EventType::END_VBLANK:
+			case EventType::TIMER_0_INC:
+			case EventType::TIMER_1_INC:
+			case EventType::TIMER_2_INC:
+			case EventType::TIMER_3_INC:
+				return true;
+			default:
+				break;
+			}
+
+			return false;
+		}
+
 		static constexpr std::size_t MAX_EVENTS = 30;
 
 		template <typename Ar>
@@ -113,6 +134,8 @@ namespace GBA::memory {
 		}
 
 		using EvTypeData = std::pair<Callback, void*>;
+
+		bool did_influence_cpu = false;
 
 	private :
 		std::array<EvTypeData, size_t(EventType::EVENT_MAX)> m_event_type_rodata;

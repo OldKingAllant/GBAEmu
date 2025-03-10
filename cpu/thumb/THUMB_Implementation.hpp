@@ -41,7 +41,8 @@ namespace GBA::cpu::thumb{
 	THUMBInstructionType DecodeThumb(u16 opcode);
 
 	void ExecuteThumb(THUMBInstruction instr, memory::Bus * bus,
-	CPUContext & ctx, bool& branch);
+		CPUContext & ctx, bool& branch);
+	ThumbFunc GetThumbHandler(THUMBInstruction instr);
 
 	static constexpr u16 THUMB_MASKS[] = {
 		0b1110000000000000,

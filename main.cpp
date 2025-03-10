@@ -88,6 +88,12 @@ int main(int argc, char* argv[]) {
 	unsigned threaded_line_threshold = unsigned(parse_int(conf.data["VIDEO"]["threaded_line_threshold"])
 		.value_or(1));
 
+	bool enable_cached_interpreter = conf.data["INTERPRETER"]["enable_cached"] == "true";
+	unsigned max_block_len = unsigned(parse_int(conf.data["INTERPRETER"]["max_block_len"])
+		.value_or(100));
+	unsigned region_size = unsigned(parse_int(conf.data["INTERPRETER"]["region_size"])
+		.value_or(1024));
+
 	auto emu_init = [&](std::string rom) {
 		if (has_rom) {
 			std::cout << "Rom swapping not implemented" << std::endl;
@@ -139,6 +145,12 @@ int main(int argc, char* argv[]) {
 			emu->RunThreadedRender();
 			emu->SetEnableScanlineDiffThreshold(threaded_line_threshold_enable);
 			emu->SetScanlineDiffThreshold(GBA::common::u8(threaded_line_threshold));
+		}
+
+		if (enable_cached_interpreter) {
+			emu->SetCachedInterpreterRegionSize(region_size);
+			emu->SetCachedInterpreterBlockSize(max_block_len);
+			emu->EnableCachedInterpreter();
 		}
 
 		has_rom = true;

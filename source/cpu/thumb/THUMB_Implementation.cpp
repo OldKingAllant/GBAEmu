@@ -1327,7 +1327,11 @@ namespace GBA::cpu::thumb{
 
 	void ExecuteThumb(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {
 		u16 hash = (instr >> 6) & 0b1111111111;
-
 		thumb_jump_table[hash](instr, bus, ctx, branch);
+	}
+
+	ThumbFunc GetThumbHandler(THUMBInstruction instr) {
+		u16 hash = (instr >> 6) & 0b1111111111;
+		return thumb_jump_table[hash];
 	}
 }

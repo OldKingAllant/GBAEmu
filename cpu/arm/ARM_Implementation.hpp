@@ -305,4 +305,5 @@ namespace GBA::cpu::arm {
 	ARMInstructionType DecodeArm(u32 opcode);
 
 	void ExecuteArm(ARMInstruction instr, CPUContext& ctx,  memory::Bus* bus, bool& branch);
+	ArmExecutor GetArmHandler(ARMInstruction instr);
 }

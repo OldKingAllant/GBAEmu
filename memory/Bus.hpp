@@ -60,6 +60,19 @@ namespace GBA::memory {
 
 	class Bus {
 	public :
+		static constexpr uint64_t FASTMEM_PAGE_SIZE = 8192;
+		static constexpr uint64_t FASTMEM_ADDR_SHIFT = std::countr_zero(FASTMEM_PAGE_SIZE);
+		static constexpr uint64_t FASTMEM_ADDRESS_SPACE_SIZE = 4'294'967'296;
+		static constexpr uint64_t FASTMEM_NUM_PAGES = FASTMEM_ADDRESS_SPACE_SIZE / FASTMEM_PAGE_SIZE;
+
+		static constexpr uint64_t FASTMEM_BIOS_PAGES = (REGIONS_LEN[u8(MEMORY_RANGE::BIOS)] + 1) / FASTMEM_PAGE_SIZE;
+		static constexpr uint64_t FASTMEM_EWRAM_PAGES = (REGIONS_LEN[u8(MEMORY_RANGE::EWRAM)] + 1) / FASTMEM_PAGE_SIZE;
+		static constexpr uint64_t FASTMEM_IWRAM_PAGES = (REGIONS_LEN[u8(MEMORY_RANGE::IWRAM)] + 1) / FASTMEM_PAGE_SIZE;
+		static constexpr uint64_t FASTMEM_VRAM_PAGES = (REGIONS_LEN[u8(MEMORY_RANGE::VRAM)] + 1) / FASTMEM_PAGE_SIZE;
+
+		static constexpr uint64_t ROM_REGION_SIZE = uint64_t(REGIONS_LEN[u8(MEMORY_RANGE::ROM_REG_1)]) +
+			uint64_t(REGIONS_LEN[u8(MEMORY_RANGE::ROM_REG_1_SECOND)]) + 2;
+
 		Bus();
 
 		void SetEventScheduler(EventScheduler* sched) {
@@ -75,7 +88,7 @@ namespace GBA::memory {
 		* 1 halfword
 		* 1 word
 		*/
-		template <typename Type>
+		template <typename Type, bool AddCycles = true>
 		Type Read(u32 address, bool code = false) {
 			MEMORY_RANGE region = (MEMORY_RANGE)(address >> 24);
 			u32 addr_low = address & 0x00FFFFFF;
@@ -200,7 +213,9 @@ namespace GBA::memory {
 			m_open_bus_value = return_value;
 			m_open_bus_address = address;
 
-			m_sched->Advance(num_cycles);
+			if constexpr (AddCycles) {
+				m_sched->Advance(num_cycles);
+			}
 
 			return return_value;
 		}
@@ -315,10 +330,10 @@ namespace GBA::memory {
 			m_sched->Advance(num_cycles);
 		}
 
-		template <typename Ty>
+		template <typename Ty, bool AddCycles = true>
 		Ty ReadFast(u32 address, bool code = false) {
 			if (!m_enable_fastmem) {
-				return Read<Ty>(address, code);
+				return Read<Ty, AddCycles>(address, code);
 			}
 
 			constexpr u32 ADDRESS_MASK = ~(u32(sizeof(Ty)) - 1);
@@ -330,26 +345,33 @@ namespace GBA::memory {
 			auto const& page = m_page_table[page_number];
 
 			if (page.page_address == nullptr) {
-				return Read<Ty>(address, code);
+				return Read<Ty, AddCycles>(address, code);
 			}
 
 			auto read_val = *reinterpret_cast<Ty*>(page.page_address + page_offset);
-			auto num_cycles = (*page.num_cycles);
 
-			if constexpr (sizeof(Ty) == 4) {
-				num_cycles += num_cycles * page.word_access_multiplier;
+			if constexpr (AddCycles) {
+				auto num_cycles = (*page.num_cycles);
+
+				if constexpr (sizeof(Ty) == 4) {
+					num_cycles += num_cycles * page.word_access_multiplier;
+				}
+
+				m_sched->Advance(num_cycles);
 			}
-
-			m_sched->Advance(num_cycles);
-
+			
 			m_open_bus_value = read_val;
 			m_open_bus_address = address;
 			
 			return read_val;
 		}
 
+		void InvalidateCache(u32 address, u32 size);
+
 		template <typename Type>
 		void WriteFast(u32 address, Type value) {
+			InvalidateCache(address, u32(sizeof(Type)));
+
 			if (!m_enable_fastmem) {
 				Write(address, value);
 				return;
@@ -428,6 +450,10 @@ namespace GBA::memory {
 
 		MMIO* GetMMIO() {
 			return mmio;
+		}
+
+		EventScheduler* GetScheduler() {
+			return m_sched;
 		}
 
 		~Bus();
@@ -609,16 +635,6 @@ namespace GBA::memory {
 
 		bool m_enable_fastmem;
 		bool m_fastmem_was_init;
-
-		static constexpr uint64_t FASTMEM_PAGE_SIZE = 8192;
-		static constexpr uint64_t FASTMEM_ADDR_SHIFT = std::countr_zero(FASTMEM_PAGE_SIZE);
-		static constexpr uint64_t FASTMEM_ADDRESS_SPACE_SIZE = 4'294'967'296;
-		static constexpr uint64_t FASTMEM_NUM_PAGES = FASTMEM_ADDRESS_SPACE_SIZE / FASTMEM_PAGE_SIZE;
-
-		static constexpr uint64_t FASTMEM_BIOS_PAGES = (REGIONS_LEN[u8(MEMORY_RANGE::BIOS)] + 1) / FASTMEM_PAGE_SIZE;
-		static constexpr uint64_t FASTMEM_EWRAM_PAGES = (REGIONS_LEN[u8(MEMORY_RANGE::EWRAM)] + 1) / FASTMEM_PAGE_SIZE;
-		static constexpr uint64_t FASTMEM_IWRAM_PAGES = (REGIONS_LEN[u8(MEMORY_RANGE::IWRAM)] + 1) / FASTMEM_PAGE_SIZE;
-		static constexpr uint64_t FASTMEM_VRAM_PAGES = (REGIONS_LEN[u8(MEMORY_RANGE::VRAM)] + 1) / FASTMEM_PAGE_SIZE;
 
 		struct _PageTableEntry {
 			u8* page_address = nullptr;

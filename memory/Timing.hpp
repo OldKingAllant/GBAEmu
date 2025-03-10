@@ -134,6 +134,55 @@ namespace GBA::memory {
 			return m_curr_cycles - original_value;
 		}
 
+		template <typename Ty>
+		u32 GetCyleCountForCachedInterpreter(u32 address) const {
+			auto range = MEMORY_RANGE(address >> 24);
+
+			switch (range)
+			{
+			case MEMORY_RANGE::BIOS:
+				return 1;
+				break;
+			case MEMORY_RANGE::IWRAM:
+				return 1;
+				break;
+			case MEMORY_RANGE::ROM_REG_1:
+			case MEMORY_RANGE::ROM_REG_1_SECOND:
+				if constexpr (sizeof(Ty) == 2) {
+					return m_wait_config.rom0[(u8)access] + 1;
+				}
+				else {
+					return m_wait_config.rom0[(u8)access]
+						+ m_wait_config.rom0[1] + 2;
+				}
+				break;
+			case MEMORY_RANGE::ROM_REG_2:
+			case MEMORY_RANGE::ROM_REG_2_SECOND:
+				if constexpr (sizeof(Ty) == 2) {
+					return m_wait_config.rom1[(u8)access] + 1;
+				}
+				else {
+					return m_wait_config.rom1[(u8)access]
+						+ m_wait_config.rom1[1] + 2;
+				}
+				break;
+			case MEMORY_RANGE::ROM_REG_3:
+			case MEMORY_RANGE::ROM_REG_3_SECOND:
+				if constexpr (sizeof(Ty) == 2) {
+					return m_wait_config.rom2[(u8)access] + 1;
+				}
+				else {
+					return m_wait_config.rom2[(u8)access]
+						+ m_wait_config.rom2[1] + 2;
+				}
+				break;
+			default:
+				break;
+			}
+
+			return 1;
+		}
+
 		void PushInternalCycles(u32 count) {
 			m_curr_cycles += count;
 		}

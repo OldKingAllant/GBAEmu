@@ -429,36 +429,6 @@ namespace GBA::apu {
 			output_sample, userdata, true);
 	}
 
-	void APU::StoreState(std::ostream& out) const {
-		out.write((const char*)m_internal_A_buffer, 32);
-		out.write((const char*)m_internal_B_buffer, 32);
-		out.write((const char*)&m_A_pos, 1);
-		out.write((const char*)&m_B_pos, 1);
-
-		out.write((const char*)m_curr_ch_samples, sizeof(i16) * 6);
-		out.write((const char*)m_curr_ch_sample_accum, sizeof(u32) * 6);
-
-		out.write((const char*)&m_soundcnt_l, sizeof(m_soundcnt_l));
-		out.write((const char*)&m_soundcnt_h, sizeof(m_soundcnt_h));
-		out.write((const char*)&m_soundcnt_x, sizeof(m_soundcnt_x));
-		out.write((const char*)&m_soundbias, sizeof(m_soundbias));
-	}
-
-	void APU::LoadState(std::istream& in) {
-		in.read((char*)m_internal_A_buffer, 32);
-		in.read((char*)m_internal_B_buffer, 32);
-		in.read((char*)&m_A_pos, 1);
-		in.read((char*)&m_B_pos, 1);
-
-		in.read((char*)m_curr_ch_samples, sizeof(i16) * 6);
-		in.read((char*)m_curr_ch_sample_accum, sizeof(u32) * 6);
-
-		in.read((char*)&m_soundcnt_l, sizeof(m_soundcnt_l));
-		in.read((char*)&m_soundcnt_h, sizeof(m_soundcnt_h));
-		in.read((char*)&m_soundcnt_x, sizeof(m_soundcnt_x));
-		in.read((char*)&m_soundbias, sizeof(m_soundbias));
-	}
-
 	APU::~APU() {
 		delete m_sound1;
 		delete m_sound2;

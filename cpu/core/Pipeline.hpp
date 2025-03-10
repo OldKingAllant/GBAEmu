@@ -21,29 +21,29 @@ namespace GBA::cpu {
 		u32 GetFetched() const;
 		u32 GetDecoded() const;
 
-		template <InstructionMode InstrSet>
+		template <InstructionMode InstrSet, bool AddCycles = true>
 		void Bubble(u32 address) {
 			m_fetch_pc = address;
 
 			m_bus->m_time.access = Access::NonSeq;
 
-			Fetch<InstrSet>();
+			Fetch<InstrSet, AddCycles>();
 
 			m_bus->m_time.access = Access::Seq;
 
-			Fetch<InstrSet>();
+			Fetch<InstrSet, AddCycles>();
 		}
 
-		template <InstructionMode InstrSet>
+		template <InstructionMode InstrSet, bool AddCycles = true>
 		void Fetch() {
 			m_decoded = m_fetched;
 
 			if constexpr (InstrSet == InstructionMode::ARM) {
-				m_fetched = m_bus->ReadFast<u32>(m_fetch_pc, true);
+				m_fetched = m_bus->ReadFast<u32, AddCycles>(m_fetch_pc, true);
 				m_fetch_pc += 4;
 			}
 			else {
-				m_fetched = m_bus->ReadFast<u16>(m_fetch_pc, true);
+				m_fetched = m_bus->ReadFast<u16, AddCycles>(m_fetch_pc, true);
 				m_fetch_pc += 2;
 			}
 		}

@@ -11,7 +11,11 @@
 namespace GBA::cpu {
 
 	ARM7TDI::ARM7TDI() :
-		m_ctx{}, m_bus(nullptr), m_int_controller(nullptr), m_halt(false) {
+		m_ctx{}, m_bus{nullptr}, 
+		m_int_controller{nullptr}, 
+		m_halt{false}, m_cache{},
+		m_enable_cache{false},
+		m_sched{nullptr} {
 		m_ctx.m_cpsr.instr_state = InstructionMode::ARM;
 		m_ctx.ChangeMode(Mode::SYS);
 
@@ -24,6 +28,7 @@ namespace GBA::cpu {
 		m_bus = bus;
 		m_ctx.m_pipeline.AttachBus(bus);
 		m_ctx.m_pipeline.Bubble<InstructionMode::ARM>(0x00);
+		m_sched = bus->GetScheduler();
 	}
 
 	void ARM7TDI::SkipBios() {
@@ -204,22 +209,227 @@ namespace GBA::cpu {
 			);
 		}
 
-		bool branch = false;
+		if (m_enable_cache) {
+			StepCached();
+		}
+		else {
+			StepNoCache();
+		}
+
+		m_ctx.m_old_pc = m_ctx.m_regs.GetReg(15);
+	}
+
+	void ARM7TDI::StepCached() {
+		u32 curr_pc = m_ctx.m_regs.GetReg(15);
+		auto block = m_cache.GetBlock(curr_pc);
+
+		if (block == nullptr) {
+			//No cache exists, and cannot be created
+			//for the current region
+			(void)StepNoCache();
+		}
+		else {
+			if (*block == nullptr) {
+				//No cache, but can be made
+				RunMakeCache();
+			}
+			else {
+				//Has cache
+
+				//Get real block pointer
+				auto const& real_block = *block;
+				//List of instructions in the block
+				auto const& instr_list = real_block->instructions;
+				//Save the first instruction in case
+				//there is a loop
+				auto first_instr = instr_list.begin();
+				auto curr_instr  = first_instr;
+				auto end         = instr_list.end();
+				auto instr_set   = real_block->instr_set;
+
+				auto prev_mode = m_ctx.m_cpsr.instr_state;
+
+				//In theory, the same code block could be executed
+				//both in arm and thumb mode, but it is so
+				//unlikely that I simply consider it to be
+				//an error
+				if (prev_mode != instr_set) [[unlikely]] {
+					fmt::println("[INTERPRETER] INSTR SET MISMATCH, block at {:#010x}",
+						curr_pc);
+					error::DebugBreak();
+				}
+
+				//Save a reference to this flag, which tells whether
+				//an event changed the CPU state during the execution
+				//of an instruction
+				bool& event_changed_cpu = m_sched->did_influence_cpu;
+
+				//Increment of PC after an instruction
+				i32 pc_step {};
+				u32 cycles  {};
+				//Save in case the block is a loop
+				u32 base_pc {curr_pc};
+
+				bool did_branch_final = false;
+
+				//fmt::println("[INTERPRETER] Block at {:#010x}", curr_pc);
+
+				while (curr_instr != end) {
+					bool has_branched = false;
+					
+					if (instr_set == InstructionMode::ARM) {
+						auto instr = arm::ARMInstruction(curr_instr->orig_instruction);
+
+						//We need to check the condition here
+						if (m_ctx.m_cpsr.CheckCondition(instr.condition)) 
+						{
+							reinterpret_cast<arm::ArmExecutor>(curr_instr->arm_func)
+								(instr, m_ctx, m_bus, has_branched);
+						}
+						else {
+							m_bus->m_time.access = Access::Seq;
+						}
+
+						pc_step = 4;
+
+						//Compute cycles due to fetch, without actually
+						//fetching the instruction
+						cycles = m_bus->m_time.GetCyleCountForCachedInterpreter<u32>(
+							curr_pc
+						);
+					}
+					else {
+						reinterpret_cast<thumb::ThumbFunc>(curr_instr->thumb_func)
+							(u16(curr_instr->orig_instruction), m_bus, m_ctx, has_branched);
+						pc_step = 2;
+						cycles = m_bus->m_time.GetCyleCountForCachedInterpreter<u16>(
+							curr_pc
+						);
+					}
+
+					//Actually step the scheduler
+					m_sched->Advance(cycles);
+
+					if (has_branched) {
+						did_branch_final = true;
+						if (m_ctx.m_regs.GetReg(15) != base_pc) {
+							//For sure the entire block is not 
+							//a loop. Since we do not want
+							//to jump in the middle of a block,
+							//also loops that are entirely inside
+							//the block are not handled
+							break;
+						}
+						//Something changed, we need to break anyway
+						if (event_changed_cpu || m_halt || m_bus->GetActiveDma() != memory::Bus::INVALID_DMA)
+							break;
+						if (*block == nullptr) [[unlikely]]
+							break;
+						//"No jump occurred" 
+						did_branch_final = false;
+						//Reset instruction and PC
+						curr_instr = first_instr;
+						curr_pc = base_pc;
+
+						//Important for emulating accurate
+						//BIOS accesses
+						m_ctx.m_old_pc = base_pc;
+						continue;
+						//Ideally here we can infer if a loop is
+						//a waitloop (e.g. waiting for an hardware
+						//event) and try to skip it (as if
+						//the CPU was halted)
+					}
+
+					//Get the new instruction set.
+					//If it changed, we need to break
+					auto new_mode = m_ctx.m_cpsr.instr_state;
+
+					//Update the PC, else PC-relative
+					//computations will not work
+					curr_pc += pc_step;
+					m_ctx.m_regs.AddOffset(15, pc_step);
+
+					//Important for emulating accurate
+					//BIOS accesses
+					m_ctx.m_old_pc = curr_pc;
+
+					if (event_changed_cpu || m_halt || 
+						m_bus->GetActiveDma() != memory::Bus::INVALID_DMA ||
+						new_mode != prev_mode)
+						break;
+
+					if (*block == nullptr) [[unlikely]] {
+						//A write near pc happened
+						//and the current block
+						//has been invalidated
+						break;
+					}
+
+					++curr_instr;
+				}
+
+				//Pipeline emulation changes depending on whether
+				//there was a branch or not
+				if (did_branch_final) {
+					//Normal branch behaviour: bubble + scheduler
+					u32 new_pc = m_ctx.m_regs.GetReg(15);
+					if (m_ctx.m_cpsr.instr_state == InstructionMode::ARM) {
+						new_pc &= ~3;
+						m_ctx.m_pipeline.Bubble<InstructionMode::ARM>(new_pc);
+					}
+					else {
+						new_pc &= ~1;
+						m_ctx.m_pipeline.Bubble<InstructionMode::THUMB>(new_pc);
+					}
+					m_ctx.m_regs.SetReg(15, new_pc);
+				}
+				else {
+					//No bubble necessary. In theory pipeline has already been emulated
+					//during block execution, but this is not true, since we are only
+					//stepping the scheduler and not actually fetching opcodes, so
+					//we actually fetch the instructions, without stepping the
+					//scheduler
+					u32 new_pc = m_ctx.m_regs.GetReg(15);
+					if (m_ctx.m_cpsr.instr_state == InstructionMode::ARM) {
+						m_ctx.m_pipeline.Bubble<InstructionMode::ARM, false>(new_pc);
+					}
+					else {
+						m_ctx.m_pipeline.Bubble<InstructionMode::THUMB, false>(new_pc);
+					}
+				}
+				
+
+				event_changed_cpu = false;
+
+				//No need to update old PC, since the callee
+				//will do it
+			}
+		}
+	}
+
+	std::pair<bool, u32> ARM7TDI::StepNoCache() {
+		bool branch{false};
+		u32  executed_opcode{};
 
 		if (m_ctx.m_cpsr.instr_state == InstructionMode::ARM) {
 			u32 opcode = m_ctx.m_pipeline.Pop<InstructionMode::ARM>();
 			arm::ExecuteArm(opcode, m_ctx, m_bus, branch);
 			m_ctx.m_pipeline.Fetch<InstructionMode::ARM>();
+
+			executed_opcode = opcode;
 		}
 		else {
 			u16 opcode = m_ctx.m_pipeline.Pop<InstructionMode::THUMB>();
 			thumb::ExecuteThumb(opcode, m_bus, m_ctx, branch);
 			m_ctx.m_pipeline.Fetch<InstructionMode::THUMB>();
+
+			executed_opcode = u32(opcode);
 		}
 
 		if (branch) {
 			u32 pc = m_ctx.m_regs.GetReg(15);
-		
+
 			if (m_ctx.m_cpsr.instr_state == InstructionMode::ARM) {
 				pc &= ~3;
 				m_ctx.m_pipeline.Bubble<InstructionMode::ARM>(pc);
@@ -228,7 +438,7 @@ namespace GBA::cpu {
 				pc &= ~1;
 				m_ctx.m_pipeline.Bubble<InstructionMode::THUMB>(pc);
 			}
-		
+
 			m_ctx.m_regs.SetReg(15, pc);
 		}
 		else {
@@ -236,6 +446,62 @@ namespace GBA::cpu {
 				0x4 : 0x2);
 		}
 
-		m_ctx.m_old_pc = m_ctx.m_regs.GetReg(15);
+		return {branch, executed_opcode};
+	}
+
+	void ARM7TDI::RunMakeCache() {
+		u32 base_pc = m_ctx.m_regs.GetReg(15);
+		u32 curr_pc = base_pc;
+		auto region = m_cache.GetRegionFromAddress(base_pc);
+
+		Block instr_block{};
+		instr_block.instr_set = m_ctx.m_cpsr.instr_state;
+
+		u32 curr_block_len = {};
+		auto max_block_len = m_cache.GetBlockLen();
+
+		m_sched->did_influence_cpu = false;
+
+		while (true) {
+			auto prev_instr_mode = m_ctx.m_cpsr.instr_state;
+			auto state = StepNoCache();
+			auto& [has_branched, opcode] = state;
+			auto new_instr_mode = m_ctx.m_cpsr.instr_state;
+
+			BlockEntry instr_entry{};
+			instr_entry.orig_instruction = opcode;
+
+			if (prev_instr_mode == InstructionMode::ARM) {
+				auto handler = arm::GetArmHandler(arm::ARMInstruction(opcode));
+				instr_entry.arm_func = std::bit_cast<void*>(handler);
+				curr_pc += 4;
+			}
+			else {
+				auto handler = thumb::GetThumbHandler(thumb::THUMBInstruction(opcode));
+				instr_entry.thumb_func = std::bit_cast<void*>(handler);
+				curr_pc += 2;
+			}
+			
+			bool event_influenced_cpu = m_sched->did_influence_cpu;
+
+			if (event_influenced_cpu) {
+				m_sched->did_influence_cpu = false;
+				return;
+			}
+
+			instr_block.instructions.push_back(instr_entry);
+			++curr_block_len;
+
+			auto new_region = m_cache.GetRegionFromAddress(curr_pc);
+
+			if (has_branched || curr_block_len >= max_block_len ||
+				new_region != region || prev_instr_mode != new_instr_mode ||
+				m_halt || m_bus->GetActiveDma() != memory::Bus::INVALID_DMA) {
+				break;
+			}
+		}
+
+		m_sched->did_influence_cpu = false;
+		m_cache.AddBlock(base_pc, std::move(instr_block));
 	}
 }

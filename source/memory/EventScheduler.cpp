@@ -7,7 +7,8 @@ namespace GBA::memory {
 
 	EventScheduler::EventScheduler() :
 		m_event_type_rodata{}, m_events{}, 
-		m_num_events{0}, m_timestamp{0}
+		m_num_events{0}, m_timestamp{0},
+		did_influence_cpu{false}
 	{}
 
 	void EventScheduler::SetEventTypeRodata(EventType ev_ty, Callback callback, void* data) {
@@ -116,6 +117,8 @@ namespace GBA::memory {
 				_cont = false;
 			}
 			else {
+				did_influence_cpu = did_influence_cpu || InfluencesCpu(ev.type);
+
 				if(ev.callback)
 					ev.callback(ev.userdata);
 
@@ -138,6 +141,8 @@ namespace GBA::memory {
 		Event ev = m_events[0];
 		auto old_timestamp = m_timestamp;
 		m_timestamp = ev.trigger_timestamp;
+
+		did_influence_cpu = did_influence_cpu || InfluencesCpu(ev.type);
 
 		if (ev.callback)
 			ev.callback(ev.userdata);

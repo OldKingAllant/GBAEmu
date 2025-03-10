@@ -364,6 +364,15 @@ namespace GBA::memory {
 		m_fastmem_was_init = true;
 	}
 
+	void Bus::InvalidateCache(u32 address, u32 size) {
+		if (m_processor->IsCacheEnabled()) {
+			auto& cache = m_processor->GetCache();
+			if (cache.IsCacheable(address)) {
+				cache.Invalidate(address, size);
+			}
+		}
+	}
+
 	Bus::~Bus() {
 		delete[] m_iwram;
 		delete[] m_wram;

@@ -119,21 +119,21 @@ namespace GBA::cheats {
 			auto& cmd = directive_iter->cmd.ram_write8;
 			auto address = cmd.address + cmd.offset;
 			auto value = cmd.value;
-			emu->GetContext().bus.Write(address, value);
+			emu->GetContext().bus.WriteFast(address, value);
 		}
 			break;
 		case DirectiveType::WRITE_RAM_16: {
 			auto& cmd = directive_iter->cmd.ram_write16;
 			auto address = cmd.address + cmd.offset;
 			auto value = cmd.value;
-			emu->GetContext().bus.Write(address, value);
+			emu->GetContext().bus.WriteFast(address, value);
 		}
 			break;
 		case DirectiveType::WRITE_RAM_32: {
 			auto& cmd = directive_iter->cmd.ram_write32;
 			auto address = cmd.address;
 			auto value = cmd.value;
-			emu->GetContext().bus.Write(address, value);
+			emu->GetContext().bus.WriteFast(address, value);
 		}
 			break;
 		case DirectiveType::IF_BLOCK: {
@@ -149,13 +149,13 @@ namespace GBA::cheats {
 			switch (directive_iter->cmd.if_block.operand_size)
 			{
 			case ConditionOperand::SIZE_8:
-				compare = bus.Read<uint8_t>(address);
+				compare = bus.ReadFast<uint8_t>(address);
 				break;
 			case ConditionOperand::SIZE_16:
-				compare = bus.Read<uint16_t>(address);
+				compare = bus.ReadFast<uint16_t>(address);
 				break;
 			case ConditionOperand::SIZE_32:
-				compare = bus.Read<uint32_t>(address);
+				compare = bus.ReadFast<uint32_t>(address);
 				break;
 			case ConditionOperand::ALWAYS_FALSE:
 				condition_is_always_false = true;
@@ -234,10 +234,10 @@ namespace GBA::cheats {
 
 			auto& bus = emu->GetContext().bus;
 
-			auto effective_address = bus.Read<uint32_t>(address_indirect);
+			auto effective_address = bus.ReadFast<uint32_t>(address_indirect);
 			effective_address += directive.offset;
 
-			bus.Write(effective_address, directive.value);
+			bus.WriteFast(effective_address, directive.value);
 		}
 			break;
 		case DirectiveType::ID_CODE:
@@ -258,7 +258,7 @@ namespace GBA::cheats {
 			auto n_repeat = directive.repeat;
 
 			while (n_repeat--) {
-				bus.Write(curr_address, value);
+				bus.WriteFast(curr_address, value);
 				value += value_inc;
 				curr_address += address_inc;
 			}
@@ -277,7 +277,7 @@ namespace GBA::cheats {
 			auto n_repeat = directive.repeat;
 
 			while (n_repeat--) {
-				bus.Write(curr_address, value);
+				bus.WriteFast(curr_address, value);
 				value += value_inc;
 				curr_address += address_inc;
 			}
@@ -335,6 +335,15 @@ namespace GBA::cheats {
 				rom_patch.applied = true;
 				rom_patch.old_value = emu->GetContext()
 					.pack.Patch(rom_patch.offset, rom_patch.value);
+
+				auto& proc = emu->GetContext().processor;
+
+				if (proc.IsCacheEnabled()) {
+					auto address_base = memory::MEMORY_RANGE::ROM_REG_1;
+					auto address = rom_patch.offset +
+						(uint32_t(address_base) << 24);
+					proc.GetCache().Invalidate(address, 2);
+				}
 			}
 				break;
 			default:
@@ -365,6 +374,15 @@ namespace GBA::cheats {
 				rom_patch.applied = false;
 				emu->GetContext()
 					.pack.Patch(rom_patch.offset, rom_patch.old_value);
+
+				auto& proc = emu->GetContext().processor;
+
+				if (proc.IsCacheEnabled()) {
+					auto address_base = memory::MEMORY_RANGE::ROM_REG_1;
+					auto address = rom_patch.offset +
+						(uint32_t(address_base) << 24);
+					proc.GetCache().Invalidate(address, 2);
+				}
 			}
 				break;
 			default:

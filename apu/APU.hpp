@@ -52,9 +52,6 @@ namespace GBA::apu {
 
 		void SetFreq(u32 freq);
 
-		void StoreState(std::ostream& out) const;
-		void LoadState(std::istream& in);
-
 		~APU();
 
 		template <typename Ar>
