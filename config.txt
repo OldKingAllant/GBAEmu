@@ -21,12 +21,12 @@ enable_threaded_line_threshold = true
 threaded_line_threshold = 4
 
 [INTERPRETER]
-enable_cached = false
+enable_cached = true
 max_block_len = 32
 region_size = 128
 
 [ROM]
-#default_rom = ./testRoms/tonc/m7_ex.gba
+#default_rom = ./testRoms/armwrestler/main.gba
 default_rom = ./testRoms/Zelda.gba
 
 [cheats]

@@ -294,12 +294,12 @@ namespace GBA::memory {
 
 	void Bus::LoadBiosMidIRQOpcode()
 	{
-		m_bios_latch = *reinterpret_cast<u32*>(m_bios + 0x134);
+		m_bios_latch = *reinterpret_cast<u32*>(m_bios + 0x134 + 8);
 	}
 
 	void Bus::LoadBiosEndIRQOpcode()
 	{
-		m_bios_latch = *reinterpret_cast<u32*>(m_bios + 0x13C);
+		m_bios_latch = *reinterpret_cast<u32*>(m_bios + 0x13C + 8);
 	}
 	
 

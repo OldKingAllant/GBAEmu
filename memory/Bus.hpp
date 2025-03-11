@@ -73,6 +73,7 @@ namespace GBA::memory {
 		static constexpr uint64_t ROM_REGION_SIZE = uint64_t(REGIONS_LEN[u8(MEMORY_RANGE::ROM_REG_1)]) +
 			uint64_t(REGIONS_LEN[u8(MEMORY_RANGE::ROM_REG_1_SECOND)]) + 2;
 
+		static constexpr u32 BIOS_END_RES_PC = 0x0DC;
 		static constexpr u32 BIOS_MID_IRQ_PC = 0x134;
 		static constexpr u32 BIOS_END_IRQ_PC = 0x13C;
 		static constexpr u32 BIOS_END_SWI_PC = 0x188;
@@ -374,15 +375,15 @@ namespace GBA::memory {
 
 		template <typename Type>
 		void WriteFast(u32 address, Type value) {
+			constexpr u32 ADDRESS_MASK = ~(u32(sizeof(Type)) - 1);
+			address &= ADDRESS_MASK;
+
 			InvalidateCache(address, u32(sizeof(Type)));
 
 			if (!m_enable_fastmem) {
 				Write(address, value);
 				return;
 			}
-
-			constexpr u32 ADDRESS_MASK = ~(u32(sizeof(Type)) - 1);
-			address &= ADDRESS_MASK;
 
 			const auto page_number = address >> FASTMEM_ADDR_SHIFT;
 			const auto page_offset = address & (FASTMEM_PAGE_SIZE - 1);

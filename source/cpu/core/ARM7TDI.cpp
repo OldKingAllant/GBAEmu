@@ -398,6 +398,9 @@ namespace GBA::cpu {
 						//correctly)
 						switch (m_ctx.m_old_pc)
 						{
+						case memory::Bus::BIOS_END_RES_PC:
+							m_bus->LoadBiosResetOpcode();
+							break;
 						case memory::Bus::BIOS_MID_IRQ_PC:
 							m_bus->LoadBiosMidIRQOpcode();
 							break;
