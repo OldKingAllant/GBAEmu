@@ -331,9 +331,6 @@ namespace GBA::cpu {
 						curr_instr = first_instr;
 						curr_pc = base_pc;
 
-						//Important for emulating accurate
-						//BIOS accesses
-						m_ctx.m_old_pc = base_pc;
 						continue;
 						//Ideally here we can infer if a loop is
 						//a waitloop (e.g. waiting for an hardware
@@ -369,11 +366,12 @@ namespace GBA::cpu {
 					++curr_instr;
 				}
 
+				u32 new_pc = m_ctx.m_regs.GetReg(15);
+
 				//Pipeline emulation changes depending on whether
 				//there was a branch or not
 				if (did_branch_final) {
 					//Normal branch behaviour: bubble + scheduler
-					u32 new_pc = m_ctx.m_regs.GetReg(15);
 					if (m_ctx.m_cpsr.instr_state == InstructionMode::ARM) {
 						new_pc &= ~3;
 						m_ctx.m_pipeline.Bubble<InstructionMode::ARM>(new_pc);
@@ -383,6 +381,36 @@ namespace GBA::cpu {
 						m_ctx.m_pipeline.Bubble<InstructionMode::THUMB>(new_pc);
 					}
 					m_ctx.m_regs.SetReg(15, new_pc);
+
+					using memory::MEMORY_RANGE;
+
+					auto old_region = MEMORY_RANGE(m_ctx.m_old_pc >> 24);
+					auto new_region = MEMORY_RANGE(new_pc         >> 24);
+
+					if (old_region == MEMORY_RANGE::BIOS &&
+						new_region != MEMORY_RANGE::BIOS) {
+						//Update BIOS latch value, else
+						//BIOS access will not be 100%
+						//accurate, which might break
+						//games that depend on it
+						//(e.g. in Minish Cap, Link cannot
+						//roll if this is not emulated
+						//correctly)
+						switch (m_ctx.m_old_pc)
+						{
+						case memory::Bus::BIOS_MID_IRQ_PC:
+							m_bus->LoadBiosMidIRQOpcode();
+							break;
+						case memory::Bus::BIOS_END_IRQ_PC:
+							m_bus->LoadBiosEndIRQOpcode();
+							break;
+						case memory::Bus::BIOS_END_SWI_PC:
+							m_bus->LoadBiosSWIOpcode();
+							break;
+						default:
+							break;
+						}
+					}
 				}
 				else {
 					//No bubble necessary. In theory pipeline has already been emulated
@@ -390,7 +418,6 @@ namespace GBA::cpu {
 					//stepping the scheduler and not actually fetching opcodes, so
 					//we actually fetch the instructions, without stepping the
 					//scheduler
-					u32 new_pc = m_ctx.m_regs.GetReg(15);
 					if (m_ctx.m_cpsr.instr_state == InstructionMode::ARM) {
 						m_ctx.m_pipeline.Bubble<InstructionMode::ARM, false>(new_pc);
 					}

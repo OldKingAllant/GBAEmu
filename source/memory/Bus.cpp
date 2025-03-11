@@ -292,6 +292,17 @@ namespace GBA::memory {
 		m_bios_latch = 0xE3A02004;
 	}
 
+	void Bus::LoadBiosMidIRQOpcode()
+	{
+		m_bios_latch = *reinterpret_cast<u32*>(m_bios + 0x134);
+	}
+
+	void Bus::LoadBiosEndIRQOpcode()
+	{
+		m_bios_latch = *reinterpret_cast<u32*>(m_bios + 0x13C);
+	}
+	
+
 	void Bus::TryTriggerDMA(DMAFireType trigger_type) {
 		dmas[0]->TriggerDMA(trigger_type);
 		dmas[1]->TriggerDMA(trigger_type);

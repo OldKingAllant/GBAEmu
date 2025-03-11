@@ -21,7 +21,7 @@ enable_threaded_line_threshold = true
 threaded_line_threshold = 4
 
 [INTERPRETER]
-enable_cached = true
+enable_cached = false
 max_block_len = 32
 region_size = 128
 

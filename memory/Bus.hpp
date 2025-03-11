@@ -73,6 +73,10 @@ namespace GBA::memory {
 		static constexpr uint64_t ROM_REGION_SIZE = uint64_t(REGIONS_LEN[u8(MEMORY_RANGE::ROM_REG_1)]) +
 			uint64_t(REGIONS_LEN[u8(MEMORY_RANGE::ROM_REG_1_SECOND)]) + 2;
 
+		static constexpr u32 BIOS_MID_IRQ_PC = 0x134;
+		static constexpr u32 BIOS_END_IRQ_PC = 0x13C;
+		static constexpr u32 BIOS_END_SWI_PC = 0x188;
+
 		Bus();
 
 		void SetEventScheduler(EventScheduler* sched) {
@@ -447,6 +451,8 @@ namespace GBA::memory {
 		void LoadBIOS(std::string const& location);
 		void LoadBiosResetOpcode();
 		void LoadBiosSWIOpcode();
+		void LoadBiosMidIRQOpcode();
+		void LoadBiosEndIRQOpcode();
 
 		MMIO* GetMMIO() {
 			return mmio;
