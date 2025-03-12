@@ -179,8 +179,8 @@ namespace GBA::emulation {
 			m_ctx.processor.EnableCachedInterpreter();
 		}
 
-		inline void SetCachedInterpreterRegionSize(u32 region_size) {
-			m_ctx.processor.SetInterpreterRegionSize(region_size);
+		inline void SetCachedInterpreterPageSize(u32 region_size) {
+			m_ctx.processor.SetInterpreterPageSize(region_size);
 		}
 
 		inline void SetCachedInterpreterBlockSize(u32 max_block_size) {

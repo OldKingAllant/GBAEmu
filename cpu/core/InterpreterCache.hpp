@@ -62,14 +62,14 @@ namespace GBA::cpu {
 		InterpreterCache();
 
 		void SetBlocksLen(u32 block_len);
-		void SetRegionLen(u32 region_sz);
+		void SetPageLen(u32 region_sz);
 
 		inline u32 GetBlockLen() const {
 			return m_block_len;
 		}
 
-		inline u32 GetRegionLen() const {
-			return m_region_len;
+		inline u32 GetPageLen() const {
+			return m_page_len;
 		}
 
 		/// <summary>
@@ -122,11 +122,11 @@ namespace GBA::cpu {
 	private :
 		//Max block len (in bytes)
 		u32 m_block_len;
-		//TODO: It should be called "page"
+		
 		//IWRAM Page size. Blocks cannot
 		//cross page boundaries
-		u32 m_region_len;
-		u32 m_region_shift;
+		u32 m_page_len;
+		u32 m_page_shift;
 
 		//The various caches for cacheable regions
 

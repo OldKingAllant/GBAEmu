@@ -11,8 +11,8 @@ namespace GBA::cpu {
 
 	InterpreterCache::InterpreterCache() :
 		m_block_len{DEFAULT_BLOCK_LEN}, 
-		m_region_len{DEFAULT_REGION_SZ},
-		m_region_shift{}, m_bios_cache{},
+		m_page_len{DEFAULT_REGION_SZ},
+		m_page_shift{}, m_bios_cache{},
 		m_rom_cache{}, m_iwram_cache{},
 		m_iwram_page_blocks{},
 		m_curr_block{nullptr}
@@ -22,13 +22,13 @@ namespace GBA::cpu {
 		m_block_len = block_len;
 	}
 
-	void InterpreterCache::SetRegionLen(u32 region_sz) {
+	void InterpreterCache::SetPageLen(u32 region_sz) {
 		if ((region_sz & (region_sz - 1)) > 0) {
 			fmt::println("[INTERPRETER] Invalid region size, must be power of two!");
-			fmt::println("              Using previous size {}", m_region_len);
+			fmt::println("              Using previous size {}", m_page_len);
 		}
 
-		m_region_len = region_sz;
+		m_page_len = region_sz;
 	}
 
 	void InterpreterCache::Init() {
@@ -37,22 +37,22 @@ namespace GBA::cpu {
 		const auto ARM_BLOCK_SIZE   = m_block_len << 2;
 		const auto THUMB_BLOCK_SIZE = m_block_len << 1;
 
-		if (ARM_BLOCK_SIZE > m_region_len || THUMB_BLOCK_SIZE > m_region_len) {
+		if (ARM_BLOCK_SIZE > m_page_len || THUMB_BLOCK_SIZE > m_page_len) {
 			fmt::println("[INTERPRETER] Block size x2 or x4 > region size");
 			m_block_len  = DEFAULT_BLOCK_LEN;
-			m_region_len = DEFAULT_REGION_SZ;
+			m_page_len = DEFAULT_REGION_SZ;
 		}
 
 		//Get number of right shifts we need to perform
 		// on and address to get its page number
-		m_region_shift = std::countr_zero(m_region_len);
+		m_page_shift = std::countr_zero(m_page_len);
 
 		constexpr uint64_t BIOS_SIZE = REGIONS_LEN[u8(MEMORY_RANGE::BIOS)] + 1ULL;
 		constexpr uint64_t ROM_SIZE  = Bus::ROM_REGION_SIZE;
 		constexpr uint64_t IRAM_SIZE = REGIONS_LEN[u8(MEMORY_RANGE::IWRAM)] + 1ULL;
 		
 		//Total number of pages in which the IWRAM is divided
-		const u32 num_iwram_pages = (REGIONS_LEN[u8(MEMORY_RANGE::IWRAM)] + 1) >> m_region_shift;
+		const u32 num_iwram_pages = (REGIONS_LEN[u8(MEMORY_RANGE::IWRAM)] + 1) >> m_page_shift;
 
 		//A THUMB instructions is 2 bytes,
 		//so we divide the region sizes by 2
@@ -244,7 +244,7 @@ namespace GBA::cpu {
 
 		auto region = MEMORY_RANGE(address >> 24);
 		auto region_offset = (address & REGIONS_LEN[u8(region)]);
-		auto page_in_region = region_offset >> m_region_shift;
+		auto page_in_region = region_offset >> m_page_shift;
 
 		return page_in_region;
 	}

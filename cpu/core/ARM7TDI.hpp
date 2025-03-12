@@ -49,8 +49,8 @@ namespace GBA::cpu {
 			m_cache.SetBlocksLen(block_size);
 		}
 
-		void SetInterpreterRegionSize(u32 region_sz) {
-			m_cache.SetRegionLen(region_sz);
+		void SetInterpreterPageSize(u32 region_sz) {
+			m_cache.SetPageLen(region_sz);
 		}
 
 		void EnableCachedInterpreter() {

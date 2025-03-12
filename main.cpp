@@ -148,7 +148,7 @@ int main(int argc, char* argv[]) {
 		}
 
 		if (enable_cached_interpreter) {
-			emu->SetCachedInterpreterRegionSize(region_size);
+			emu->SetCachedInterpreterPageSize(region_size);
 			emu->SetCachedInterpreterBlockSize(max_block_len);
 			emu->EnableCachedInterpreter();
 		}
