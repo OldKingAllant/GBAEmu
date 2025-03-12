@@ -14,6 +14,7 @@ namespace GBA::cpu {
 		m_region_len{DEFAULT_REGION_SZ},
 		m_region_shift{}, m_bios_cache{},
 		m_rom_cache{}, m_iwram_cache{},
+		m_iwram_page_blocks{},
 		m_curr_block{nullptr}
 	{}
 
@@ -42,15 +43,24 @@ namespace GBA::cpu {
 			m_region_len = DEFAULT_REGION_SZ;
 		}
 
+		//Get number of right shifts we need to perform
+		// on and address to get its page number
 		m_region_shift = std::countr_zero(m_region_len);
-		
-		u32 num_bios_regions  = (REGIONS_LEN[u8(MEMORY_RANGE::BIOS)] + 1) >> m_region_shift;
-		u32 num_rom_regions   = uint32_t(Bus::ROM_REGION_SIZE >> m_region_shift);
-		u32 num_iwram_regions = (REGIONS_LEN[u8(MEMORY_RANGE::IWRAM)] + 1) >> m_region_shift;
 
-		m_bios_cache  = std::make_unique<BlockList[]>(num_bios_regions);
-		m_rom_cache   = std::make_unique<BlockList[]>(num_rom_regions);
-		m_iwram_cache = std::make_unique<BlockList[]>(num_iwram_regions);
+		constexpr uint64_t BIOS_SIZE = REGIONS_LEN[u8(MEMORY_RANGE::BIOS)] + 1ULL;
+		constexpr uint64_t ROM_SIZE  = Bus::ROM_REGION_SIZE;
+		constexpr uint64_t IRAM_SIZE = REGIONS_LEN[u8(MEMORY_RANGE::IWRAM)] + 1ULL;
+		
+		//Total number of pages in which the IWRAM is divided
+		const u32 num_iwram_pages = (REGIONS_LEN[u8(MEMORY_RANGE::IWRAM)] + 1) >> m_region_shift;
+
+		//A THUMB instructions is 2 bytes,
+		//so we divide the region sizes by 2
+		m_bios_cache.resize(BIOS_SIZE >> 1);
+		m_rom_cache.resize(ROM_SIZE >> 1);
+		m_iwram_cache.resize(IRAM_SIZE >> 1);
+
+		m_iwram_page_blocks.resize(num_iwram_pages);
 	}
 
 	bool InterpreterCache::IsCacheable(u32 address) const {
@@ -76,67 +86,60 @@ namespace GBA::cpu {
 		return false;
 	}
 
-	BlockList* InterpreterCache::GetBlockList(u32 region_u32, u32 page_in_region) const {
+	std::vector<std::unique_ptr<Block>>* InterpreterCache::GetBlockRegion(u32 address)
+	{
 		using namespace memory;
 
-		auto region = MEMORY_RANGE(region_u32);
-
-		BlockList* list{ nullptr };
+		auto region = MEMORY_RANGE(address >> 24);
 
 		switch (region)
 		{
 		case MEMORY_RANGE::BIOS:
-			list = &m_bios_cache[page_in_region];
-			break;
+			return &m_bios_cache;
 		case MEMORY_RANGE::IWRAM:
-			list = &m_iwram_cache[page_in_region];
-			break;
+			return &m_iwram_cache;
 		case MEMORY_RANGE::ROM_REG_1:
 		case MEMORY_RANGE::ROM_REG_1_SECOND:
 		case MEMORY_RANGE::ROM_REG_2:
 		case MEMORY_RANGE::ROM_REG_2_SECOND:
 		case MEMORY_RANGE::ROM_REG_3:
 		case MEMORY_RANGE::ROM_REG_3_SECOND:
-			list = &m_rom_cache[page_in_region];
+			return &m_rom_cache;
 			break;
 		default:
 			error::Unreachable();
 			break;
 		}
-
-		return list;
+		
+		return nullptr;
 	}
 
 	Block** InterpreterCache::GetBlock(u32 address) {
 		using namespace memory;
 
+		//If we are not in cacheable region, 
+		//return
 		if (!IsCacheable(address))
 			return nullptr;
 
+		//Get the current region and the offset inside
+		//said region
 		auto region         = MEMORY_RANGE(address >> 24);
-		auto region_offset  = (address & REGIONS_LEN[u8(region)]);
-		auto page_in_region = region_offset >> m_region_shift;
-		auto page_offset    = region_offset & (m_region_len - 1);
+		auto region_offset  = (address & REGIONS_LEN[u8(region)]) >> 1;
 
-		BlockList* list = GetBlockList(u32(region), page_in_region);
+		//Get region cache
+		auto region_ptr = GetBlockRegion(address);
 
 		m_curr_block = nullptr;
 
-		if (list->blocks.empty()) {
+		//Fast block retrieval, O(1)
+		auto& block_ptr = (*region_ptr)[region_offset];
+		if (!block_ptr) {
 			return &m_curr_block;
 		}
 
-		auto iter = list->blocks.begin();
-		auto end  = list->blocks.end();
-		
-		while (iter != end) {
-			if (iter->base_address == page_offset) {
-				m_curr_block = &*iter;
-				break;
-			}
-
-			++iter;
-		}
+		//Get the pointer directly
+		m_curr_block = block_ptr.get();
 
 		return &m_curr_block;
 	}
@@ -146,18 +149,42 @@ namespace GBA::cpu {
 
 		//fmt::println("[INTERPRETER] ADDING BLOCK AT {:#010x}", address);
 
+		if (!IsCacheable(address)) [[unlikely]]
+			return;
+
 		auto region			= MEMORY_RANGE(address >> 24);
-		auto region_offset  = (address & REGIONS_LEN[u8(region)]);
-		auto page_in_region = region_offset >> m_region_shift;
-		auto page_offset	= region_offset & (m_region_len - 1);
+		auto region_offset  = (address & REGIONS_LEN[u8(region)]) >> 1;
 
-		BlockList* list = GetBlockList(u32(region), page_in_region);
+		auto region_ptr = GetBlockRegion(address);
 
-		new_block.base_address = page_offset;
-		new_block.region       = page_in_region;
-		new_block.mem_range	   = u32(region);
+		auto& block_ptr = (*region_ptr)[region_offset];
+		if (block_ptr) [[unlikely]] {
+			//This might be a problem, not sure what to do here
+			fmt::println("[INTERPRETER] Replacing block at {:#010x}", address);
+			block_ptr.reset();
+		}
 
-		list->blocks.push_back(std::move(new_block));
+		new_block.absolute_address = address;
+
+		//Allocate space for the block and simply 
+		//move the contents of the previous block
+		//to avoid further allocations
+		block_ptr = std::make_unique<Block>(std::move(new_block));
+
+		if (region == MEMORY_RANGE::IWRAM) {
+			//Block is inside IWRAM, we need 
+			//to keep a secondary reference
+			//to the block in case we want
+			//to perform invalidation
+
+			//First get the page number
+			auto page = GetPageFromAddress(address);
+			//Then get the page itself
+			auto& block_list = m_iwram_page_blocks[page];
+
+			//Add a reference to the new block
+			block_list.blocks.push_back(&block_ptr);
+		}
 	}
 
 	void InterpreterCache::Invalidate(u32 address, u32 write_size) {
@@ -168,37 +195,51 @@ namespace GBA::cpu {
 		if (region != MEMORY_RANGE::IWRAM)
 			return;
 
-		auto region_offset  = (address & REGIONS_LEN[u8(region)]);
-		auto page_in_region = region_offset >> m_region_shift;
-		auto page_offset    = region_offset & (m_region_len - 1);
-		
-		auto first_region  = GetRegionFromAddress(address);
-		auto second_region = GetRegionFromAddress(address + write_size - 1);
-		
-		if (first_region != second_region) [[unlikely]] {
-			fmt::println("[INTERPRETER] Write crosses region boundary");
+		//Check if we are above a fixed stack value, if we are,
+		//this is probably a push/pop, which means we ignore it
+
+		static constexpr u32 STACK_START = IWRAM_END_ADDRESS - IWRAM_STACK_SIZE;
+
+		if (address >= STACK_START)
+			return;
+
+		auto end_address = address + write_size - 1;
+
+		auto first_page  = GetPageFromAddress(address);
+		auto second_page = GetPageFromAddress(end_address);
+
+		if (first_page != second_page) [[unlikely]] {
+			fmt::println("[INTERPRETER] Write crosses page boundary!");
 			error::DebugBreak();
 		}
-		
-		BlockList* list = GetBlockList(u32(region), page_in_region);
-		
+
 		if (m_curr_block) [[likely]] {
-			if (m_curr_block->region == first_region &&
-				m_curr_block->mem_range == u32(region)) [[unlikely]] {
-				fmt::println("[INTERPRETER] Invalidated current block!");
+			auto curr_block_page   = GetPageFromAddress(m_curr_block->absolute_address);
+			auto curr_block_region = MEMORY_RANGE(m_curr_block->absolute_address >> 24);
+
+			if (region == curr_block_region &&
+				first_page == curr_block_page) {
+				fmt::println("[INTERPRETER] Invalidating current block!");
 				m_curr_block = nullptr;
-			}	
+			}
 		}
 
-		if (!list->blocks.empty()) {
-			//fmt::println("[INTERPRETER] Invalidating {} blocks",
-			//	list->blocks.size());
-			//Invalidate all blocks
-			list->blocks.clear();
+		//Get page
+		auto& block_list = m_iwram_page_blocks[first_page];
+
+		if (!block_list.blocks.empty()) {
+			//For each block in the region,
+			//invalidate
+			for (auto block_ptr : block_list.blocks) {
+				block_ptr->reset();
+			}
+			//All blocks are invalid, 
+			//clear the list of blocks
+			block_list.blocks.clear();
 		}
 	}
 
-	u32 InterpreterCache::GetRegionFromAddress(u32 address) const {
+	u32 InterpreterCache::GetPageFromAddress(u32 address) const {
 		using namespace memory;
 
 		auto region = MEMORY_RANGE(address >> 24);

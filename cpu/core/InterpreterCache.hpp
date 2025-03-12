@@ -17,31 +17,44 @@ namespace GBA::memory {
 namespace GBA::cpu {
 	using namespace common;
 
+	/// <summary>
+	/// A single instruction
+	/// inside a block
+	/// </summary>
 	struct BlockEntry {
 		u32 orig_instruction{};
 		void* thumb_func{nullptr};
 		void*   arm_func{nullptr};
 	};
 
+	/// <summary>
+	/// A block of instructions
+	/// </summary>
 	struct Block {
+		//The instruction set (ARM/THUMB) used when
+		//the block has been first created
 		InstructionMode instr_set = InstructionMode::ARM;
-		u32 base_address = {};
-		u32 region       = {};
-		u32 mem_range    = {};
+		//Self-explanatory
+		u32 absolute_address = {};
 		std::vector<BlockEntry> instructions = {};
 
 		Block(Block&& other) noexcept :
 			instr_set{ other.instr_set },
-			base_address{ other.base_address },
-			region{ other.region },
-			mem_range{ other.mem_range },
+			absolute_address{ other.absolute_address },
 			instructions{std::move(other.instructions)} { }
 
 		Block() = default;
 	};
 
+	/// <summary>
+	/// This is used for IWRAM invalidation,
+	/// for each page we have a list of
+	/// pointers to the blocks inside that page,
+	/// so that we may invalidate all of them
+	/// in one go
+	/// </summary>
 	struct BlockList {
-		std::list<Block> blocks;
+		std::list<std::unique_ptr<Block>*> blocks;
 	};
 
 	class InterpreterCache {
@@ -59,27 +72,74 @@ namespace GBA::cpu {
 			return m_region_len;
 		}
 
-		u32 GetRegionFromAddress(u32 address) const;
+		/// <summary>
+		/// Inside IWRAM, get the page from
+		/// the given address
+		/// </summary>
+		/// <param name="address"></param>
+		/// <returns>The page number</returns>
+		u32 GetPageFromAddress(u32 address) const;
 
 		void Init();
 
-		__declspec(noinline) Block** GetBlock(u32 address);
+		/// <summary>
+		/// Get the block starting at the given
+		/// address (if any).
+		/// </summary>
+		/// <param name="address"></param>
+		/// <returns>nullptr -> no block cannot cache, *block = nullptr -> no block</returns>
+		Block** GetBlock(u32 address);
+
+		/// <summary>
+		/// Add block at the provided address
+		/// </summary>
+		/// <param name="address">Where to place the block</param>
+		/// <param name="new_block">The new block (invalidated after function call)</param>
 		void AddBlock(u32 address, Block&& new_block);
+
+		/// <summary>
+		/// Invalidate range of blocks starting from
+		/// the given address
+		/// </summary>
+		/// <param name="address"></param>
+		/// <param name="write_size"></param>
 		void Invalidate(u32 address, u32 write_size);
 
 		bool IsCacheable(u32 address) const;
 
-	private :
-		BlockList* GetBlockList(u32 region, u32 page) const;
+		static constexpr u32 IWRAM_END_ADDRESS = (4 << 24);
+		static constexpr u32 IWRAM_STACK_SIZE  = 0x400;
 
 	private :
+		/// <summary>
+		/// Get pointer to the entire region in which the address
+		/// is found
+		/// </summary>
+		/// <param name="address"></param>
+		/// <returns>Pointer to region</returns>
+		std::vector<std::unique_ptr<Block>>* GetBlockRegion(u32 address);
+
+	private :
+		//Max block len (in bytes)
 		u32 m_block_len;
+		//TODO: It should be called "page"
+		//IWRAM Page size. Blocks cannot
+		//cross page boundaries
 		u32 m_region_len;
 		u32 m_region_shift;
 
-		std::unique_ptr<BlockList[]> m_bios_cache;
-		std::unique_ptr<BlockList[]> m_rom_cache;
-		std::unique_ptr<BlockList[]> m_iwram_cache;
+		//The various caches for cacheable regions
+
+		std::vector<std::unique_ptr<Block>> m_bios_cache;
+		std::vector<std::unique_ptr<Block>> m_rom_cache;
+		std::vector<std::unique_ptr<Block>> m_iwram_cache;
+
+		//Each entry represents an IWRAM page,
+		//with a list of pointers to blocks
+		//which live inside said page
+		std::vector<BlockList> m_iwram_page_blocks;
+
+		//Current block pointer, used for invalidation
 
 		Block* m_curr_block;
 	};

@@ -482,7 +482,7 @@ namespace GBA::cpu {
 	void ARM7TDI::RunMakeCache() {
 		u32 base_pc = m_ctx.m_regs.GetReg(15);
 		u32 curr_pc = base_pc;
-		auto region = m_cache.GetRegionFromAddress(base_pc);
+		auto page = m_cache.GetPageFromAddress(base_pc);
 
 		Block instr_block{};
 		instr_block.instr_set = m_ctx.m_cpsr.instr_state;
@@ -520,12 +520,12 @@ namespace GBA::cpu {
 			}
 
 			instr_block.instructions.push_back(instr_entry);
-			++curr_block_len;
+			curr_block_len += prev_instr_mode == InstructionMode::ARM ? 4 : 2;
 
-			auto new_region = m_cache.GetRegionFromAddress(curr_pc);
+			auto new_page = m_cache.GetPageFromAddress(curr_pc);
 
 			if (has_branched || curr_block_len >= max_block_len ||
-				new_region != region || prev_instr_mode != new_instr_mode ||
+				new_page != page || prev_instr_mode != new_instr_mode ||
 				m_halt || m_bus->GetActiveDma() != memory::Bus::INVALID_DMA) {
 				break;
 			}
