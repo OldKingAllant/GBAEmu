@@ -1308,21 +1308,9 @@ namespace GBA::cpu::thumb{
 
 	std::array<ThumbFunc, 1024> thumb_jump_table = DecodeSeq<1024>::CreateTable();
 
-	THUMBInstructionType DecodeThumb(u16 opcode) {
-		for (u8 i = 0; i < 19; i++) {
-			u16 masked = opcode & THUMB_MASKS[i];
-
-			if (masked == THUMB_VALUES[i]) {
-				if (i == 0 && ((opcode >> 11) & 0x3) == 0x3)
-					return THUMBInstructionType::FORMAT_02;
-				else if (i == 15 && ((opcode >> 8) & 0xF) == 0xF)
-					return THUMBInstructionType::FORMAT_17;
-
-				return (THUMBInstructionType)i;
-			}
-		}
-
-		return THUMBInstructionType::UNDEFINED;
+	THUMBInstructionType DecodeThumb(u16 instr) {
+		u16 hash = (instr >> 6) & 0b1111111111;
+		return detail::thumb_lookup_table[hash];
 	}
 
 	void ExecuteThumb(THUMBInstruction instr, memory::Bus* bus, CPUContext& ctx, bool& branch) {

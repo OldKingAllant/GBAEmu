@@ -48,115 +48,154 @@ namespace GBA::ppu {
 		before the sprites with lower
 		priority
 		*/
-		for (u16 index = 0; index < 0x3FF; index += 8) {
-			u16 attr_0 = READ_16(m_oam, index);
+		constexpr u32 OAM_SIZE       = 0x400;
+		constexpr u32 OBJ_VRAM_BASE  = 0x10000;
+		constexpr u32 OAM_OBJ_STRIDE = 0x8;
+		constexpr u32 OAM_OBJ_SHIFT  = 0x3;
+		constexpr u32 TOTAL_OBJS	 = OAM_SIZE / OAM_OBJ_STRIDE;
 
-			int y_coord = attr_0 & 0xFF;
-			u8 shape = (attr_0 >> 14) & 0x3;
+		auto oam_objs = std::bit_cast<OAMEntry*>(m_oam);
 
-			if (shape == 3)
+		for (u16 index = 0; index < TOTAL_OBJS; index++) {
+			//Just copy the object, it is only 8 bytes
+			auto curr_obj = oam_objs[index];
+
+			auto y_coord = int(curr_obj.coord_y);
+			auto shape   = curr_obj.shape;
+
+			if (shape == OAMEntryShape::INVALID) [[unlikely]]
 				continue;
 
-			bool disabled = !CHECK_BIT(attr_0, 8) && CHECK_BIT(attr_0, 9);
+			//If the object is not affine and
+			//the double size bit is one, then
+			//the object is disabled
+			bool disabled = !curr_obj.is_affine && curr_obj.double_sz;
 
 			if (disabled)
 				continue;
 
-			u16 attr_1 = READ_16(m_oam, index + 2);
+			auto size_type = curr_obj.obj_size_type;
 
-			u8 size_type = (attr_1 >> 14) & 0x3;
+			//Get Y size from table
+			auto y_size = detail::obj_sizes[u8(shape)][size_type][1];
+			//Compute last scanline
+			auto end_y = y_coord + y_size;
 
-			u16 y_size = detail::obj_sizes[shape][size_type][1];
-
-			u16 end_y = y_coord + y_size;
-
-			if (CHECK_BIT(attr_0, 8) && CHECK_BIT(attr_0, 9)) {
+			if (curr_obj.is_affine && curr_obj.double_sz) {
 				end_y = y_coord + y_size * 2;
 			}
 
+			//If the object is double size, it might
+			//go out of bounds, which results in
+			//wraparound
 			if (end_y >= 256 || y_coord >= 255) {
 				y_coord -= 256;
 				end_y -= 256;
 			}
 
+			//Is the current scanline inside the object?
 			if (lcd_y >= y_coord && lcd_y < end_y) {
-				line_sprites_ids[line_sprites_count++] = index;
+				//It is, add the object to the list
+				//of objects to render
+				line_sprites_ids[line_sprites_count++] = index << OAM_OBJ_SHIFT;
 			}
 		}
 
-		u32 OBJ_VRAM_BASE = 0x10000;
-
+		//Tiles are accessed in two different ways:
+		//1. A simple array, one after the other
+		//2. 2D matrix
 		bool addressing_mode = CHECK_BIT(m_ctx_saved.m_control, 6);
 
 		u32 mos_cnt = ReadSavedRegister32(0x4C / 4);
 
+		//Compute mosaic X/Y size
 		u32 mos_h = ((mos_cnt >> 8) & 0xF) + 1;
 		u32 mos_v = ((mos_cnt >> 12) & 0xF) + 1;
 
 		for (int pos = line_sprites_count - 1; pos >= 0; pos--) {
 			u16 index = line_sprites_ids[pos];
+			auto curr_obj = oam_objs[index >> OAM_OBJ_SHIFT];
 
-			u16 attr_0 = READ_16(m_oam, index);
-			u16 attr_1 = READ_16(m_oam, index + 2);
-			u16 attr_2 = READ_16(m_oam, index + 4);
+			auto mode       = curr_obj.type;
+			bool obj_window = mode == OAMEntryType::WINDOW;
 
-			u8 mode = (attr_0 >> 10) & 0x3;
-			bool obj_window = mode == 2;
+			auto shape     = curr_obj.shape;
+			auto size_type = curr_obj.obj_size_type;
 
-			u8 shape = (attr_0 >> 14) & 0x3;
-			u8 size_type = (attr_1 >> 14) & 0x3;
+			auto x_start = int(curr_obj.coord_x_low);
+			x_start		|= int(curr_obj.coord_x_high) << 8;
 
-			int x_start = attr_1 & 0x1FF;
-
+			//Wraparound
 			if (x_start >= 256)
 				x_start = x_start - 512;
 
-			u32 x_size = detail::obj_sizes[shape][size_type][0];
-			u32 y_size = detail::obj_sizes[shape][size_type][1];
+			u32 x_size = detail::obj_sizes[u8(shape)][size_type][0];
+			u32 y_size = detail::obj_sizes[u8(shape)][size_type][1];
 
-			bool rot_scaling = CHECK_BIT(attr_0, 8);
+			auto rot_scaling = curr_obj.is_affine;
 
+			//non-affine objects that are out of bounds
+			//have no chance of coming back inside
+			//the visible lines
 			if (x_start >= 240 && !rot_scaling)
 				continue;
 
-			u32 tile_id = attr_2 & 1023;
+			auto tile_id = u32(curr_obj.tile_number_low);
+			tile_id		|= u32(curr_obj.tile_number_high) << 8;
 
 			u8 ppu_mode = (m_ctx_saved.m_control & 0x7);
 
-			if (ppu_mode >= 3 && tile_id < 512)
+			//In bitmap modes, cannot use first 512 tiles
+			if (ppu_mode >= 3 && tile_id < 512) [[unlikely]]
 				continue;
 
-			u8 prio_to_bg = (attr_2 >> 10) & 0x3;
-			u8 pal_number = (attr_2 >> 12) & 0xF;
+			auto prio_to_bg = curr_obj.priority_to_bg;
+			auto pal_number = curr_obj.palette_num;
 
-			int y_coord = attr_0 & 0xFF;
+			auto y_coord = int(curr_obj.coord_y);
 
-			bool mosaic = CHECK_BIT(attr_0, 12);
-			bool pal_mode = CHECK_BIT(attr_0, 13);
+			auto mosaic   = curr_obj.is_mosaic;
+			auto pal_mode = curr_obj.pal;
 
-			u32 tile_size = 0x20;
-			u32 line_size = 0x4;
+			const u32 PAL_STRIDE = pal_mode == OAMEntryPalette::PAL_256 ? 16 : 32;
 
-			if (pal_mode) {
-				tile_size = 0x40;
-				line_size = 0x8;
+			//Size of a normal tile in VRAM
+			constexpr u32 TILE_SIZE_DEFAULT  = 32;
+			//Size of a 256 colors tile in VRAM
+			constexpr u32 TILE_SIZE_DOUBLE   = 64;
+			//Size of a line of pixels in VRAM
+			constexpr u32 TILE_LINE_SIZE_016 = 0x4;
+			//Size of a 256 colors line of pixels in VRAM
+			constexpr u32 TILE_LINE_SIZE_256 = 0x8;
+
+			u32 tile_size = TILE_SIZE_DEFAULT;
+			u32 line_size = TILE_LINE_SIZE_016;
+
+			if (pal_mode == OAMEntryPalette::PAL_256) {
+				tile_size = TILE_SIZE_DOUBLE;
+				line_size = TILE_LINE_SIZE_256;
 			}
 
-			u32 vram_y_offset = 0x0;
-			u32 total_x_tiles = x_size / 8;
-			u32 total_y_tiles = y_size / 8;
+			constexpr u32 TILE_X_SIZE_PIXELS = 8;
+			constexpr u32 TILE_Y_SIZE_PIXELS = 8;
+	
 
-			u32 start_offset = tile_id * 0x20;
+			//Total x/Y tiles spanned by the object
 
-			u32 start_tile_y_id = tile_id / 32;
-			u32 start_tile_x_id = tile_id % 32;
+			u32 total_x_tiles = x_size / TILE_X_SIZE_PIXELS;
+			u32 total_y_tiles = y_size / TILE_Y_SIZE_PIXELS;
 
+			//Start offset in VRAM (address of first tile)
+			u32 start_offset = tile_id * TILE_SIZE_DEFAULT;
+
+			//Last scanline of object
 			int end_y = y_coord + y_size;
 
-			if (CHECK_BIT(attr_0, 8) && CHECK_BIT(attr_0, 9)) {
+			if (rot_scaling && curr_obj.double_sz) {
 				end_y = y_coord + y_size * 2;
 			}
 
+			//If out of bounds, wraparound
 			if (end_y >= 256 || y_coord >= 255) {
 				end_y -= 256;
 				y_coord -= 256;
@@ -170,40 +209,59 @@ namespace GBA::ppu {
 				mos_v_size = mos_v;
 			}
 
+			//The screen is divided in blocks of size NxM
 			u32 transformed_y = lcd_y - (lcd_y % mos_v_size);
 
 			if (!rot_scaling) {
+				//Y coordinate in 'texture' (in the object)
 				u32 tex_y = transformed_y - y_coord;
 
+				//This should not be possible
+				//but we still consider it
 				if (tex_y > y_size)
 					tex_y = 0;
 
-				bool h_flip = CHECK_BIT(attr_1, 12);
-				bool v_flip = CHECK_BIT(attr_1, 13);
+				bool h_flip = CHECK_BIT(curr_obj.rotation, 3);
+				bool v_flip = CHECK_BIT(curr_obj.rotation, 4);
 
 				if (v_flip)
 					tex_y = end_y - transformed_y - 1;
 
-				u32 tile_y = tex_y / 8;
-				u32 y_offset = tex_y % 8;
+				//Tile Y position, inside
+				//the tiles of the object
+				u32 tile_y   = tex_y / TILE_Y_SIZE_PIXELS;
+				//Offset Y in tile
+				u32 y_offset = tex_y & (TILE_Y_SIZE_PIXELS - 1);
 
+				//Last X coordinate
 				u32 end = x_start + x_size;
 
 				u32 vram_tile_y_id = 0;
 
-				if (addressing_mode)
+				if (addressing_mode) {
+					//1D addressing mode, tiles
+					//for the same object are
+					//one line after the other
 					vram_tile_y_id = tile_y * total_x_tiles;
-				else
-					vram_tile_y_id = tile_y * (pal_mode ? 16 : 32);
+				}
+				else {
+					//2D addressing mode, the entire
+					//VRAM tile set is a 2-dimension
+					//matrix. Lines of the same
+					//object are not one after the other
+					vram_tile_y_id = tile_y * PAL_STRIDE;
+				}
 
+				//Start Y offset in VRAM
 				u32 vram_y_offset = (vram_tile_y_id * tile_size) +
 					(y_offset * line_size);
 
 				if ((int)end >= 0) {
 					for (u32 x = x_start < 0 ? 0 : x_start; x < end &&
 						x < 240; x++) {
+						//X coordinate aggiusted for mosaic
 						u32 transformed_x = x - (x % mos_h_size);
-
+						//X coordinate inside object
 						u32 tex_x = transformed_x - x_start;
 
 						if (tex_x > x_size)
@@ -212,40 +270,59 @@ namespace GBA::ppu {
 						if (h_flip)
 							tex_x = end - transformed_x - 1;
 
-						u32 tile_x = tex_x / 8;
-						u32 x_offset = tex_x % 8;
+						//Tile X position inside object's
+						//tiles
+						u32 tile_x   = tex_x / TILE_X_SIZE_PIXELS;
+						//Offset X inside tile
+						u32 x_offset = tex_x & (TILE_X_SIZE_PIXELS - 1);
 
-						if (!pal_mode)
-							x_offset /= 2;
+						//If palette is 16/16 (16 palettes, 16 colors)
+						//each byte contains the color information
+						//for two pixels
+						if (pal_mode == OAMEntryPalette::PAL_016)
+							x_offset >>= 1;
 
+						//Final offset inside the VRAM (relative
+						//to the tiles dedicated to objects)
 						u32 vram_offset = start_offset + vram_y_offset
 							+ (tile_x * tile_size)
 							+ x_offset;
 
-						vram_offset %= 0x8000;
-
+						vram_offset &= 0x7FFF;
 						u16 color_id = m_vram[OBJ_VRAM_BASE
 							+ vram_offset];
 
-
+						//Final packed RGB color
 						u16 color = 0;
 
-						if (pal_mode) {
+						if (pal_mode == OAMEntryPalette::PAL_256) {
+							//Direct color
 							color = READ_16(m_palette_ram,
-								color_id * 2 + OBJ_PALETTE_START);
+								(u32(color_id) << 1) + OBJ_PALETTE_START);
 						}
 						else {
 							u16 pixel_id = 0;
 
-							if (tex_x % 2)
-								pixel_id = (color_id >> 4) & 0xF;
-							else
-								pixel_id = color_id & 0xF;
+							//Each nibble (4 bits) gives the
+							//color id for each pixel. The color
+							//itself is taken from the palette
 
+							if (tex_x & 1) {
+								pixel_id = (color_id >> 4) & 0xF;
+							}
+							else {
+								pixel_id = color_id & 0xF;
+							}
+
+							//Save for later, to keep
+							//track of the palette id
 							color_id = pixel_id;
 
-							pixel_id *= 2;
-							pixel_id += pal_number * 32;
+							//Each palette is 16 colors, each color
+							//is 16 bits
+
+							pixel_id <<= 1;
+							pixel_id += u16(pal_number) << 5;
 
 							color = READ_16(m_palette_ram,
 								pixel_id + OBJ_PALETTE_START);
@@ -253,6 +330,8 @@ namespace GBA::ppu {
 
 						if (color_id) {
 							if (obj_window) {
+								//Object is not rendered, the pixel is marked
+								//as part of the object window
 								m_obj_window_pixels[x] = true;
 							}
 							else if (!m_line_data[4][x].is_present || m_line_data[4][x].priority >= prio_to_bg) {
@@ -260,112 +339,120 @@ namespace GBA::ppu {
 								m_line_data[4][x].priority = prio_to_bg;
 								m_line_data[4][x].palette_id = color_id;
 								m_line_data[4][x].color = color;
-								m_line_data[4][x].is_bld_enabled = mode == 1;
+								m_line_data[4][x].is_bld_enabled = mode == OAMEntryType::TRANSP;
 							}
 						}
 					}
 				}
 			}
 			else {
-				bool double_size = CHECK_BIT(attr_0, 9);
+				//Is object double size?
+				auto double_size = curr_obj.double_sz;
 
-				u32 parameter_sel = (attr_1 >> 9) & 0x1F;
+				//Which affine parameters to use
+				//inside OAM
+				u32 parameter_sel = curr_obj.rotation;
+				u32 group_offset  = parameter_sel << 5;
 
-				u32 group_offset = parameter_sel * 0x20;
-
-				i16 dx = READ_16(m_oam, group_offset + 0x6);
+				//Delta X inside texture for each X step on the screen
+				i16 dx  = READ_16(m_oam, group_offset + 0x6);
+				//Delta X inside texture for each Y step on the screen
 				i16 dmx = READ_16(m_oam, group_offset + 0xE);
-				i16 dy = READ_16(m_oam, group_offset + 0x16);
+				i16 dy  = READ_16(m_oam, group_offset + 0x16);
 				i16 dmy = READ_16(m_oam, group_offset + 0x1E);
 
-				u32 orig_x_size = x_size;
-				u32 orig_y_size = y_size;
+				auto orig_x_size = x_size;
+				auto orig_y_size = y_size;
 
 				if (double_size) {
-					y_size *= 2;
-					x_size *= 2;
+					y_size <<= 1;
+					x_size <<= 1;
 				}
 
-				i32 y_center = y_size / 2;
-				i32 x_center = x_size / 2;
+				//Center is in the middle of the object
 
-				i32 local_x = x_start <0 ? -x_center + -x_start : -x_center;
-				i32 local_y = transformed_y - (y_coord + y_center);
+				auto y_center = i32(y_size >> 1);
+				auto x_center = i32(x_size >> 1);
 
-				i32 tex_y_base = local_y * dmy;
-				i32 tex_x_base = local_y * dmx;
+				//Compute initial coordinates inside texture
+
+				auto local_x = i32(x_start < 0 ? -x_center + -x_start : -x_center);
+				auto local_y = i32(transformed_y - (y_coord + y_center));
+
+
+				auto tex_y_base = i32(local_y * dmy);
+				auto tex_x_base = i32(local_y * dmx);
 
 				u32 end_x = x_start + x_size;
 
 				if ((int)end_x >= 0) {
 					for (u32 x = x_start < 0 ? 0 : x_start; x < end_x && x < 240; x++) {
-						i32 curr_x = tex_x_base + dx * local_x + (x_size << 7);
-						i32 curr_y = tex_y_base + dy * local_x + (y_size << 7);
+						auto curr_x = i32(tex_x_base + dx * local_x + (x_size << 7));
+						auto curr_y = i32(tex_y_base + dy * local_x + (y_size << 7));
 
 						local_x++;
 
-						i32 tex_x = curr_x >> 8;
-						i32 tex_y = curr_y >> 8;
+						auto tex_x = i32(curr_x >> 8);
+						auto tex_y = i32(curr_y >> 8);
 
 						if (double_size) {
-							tex_x -= orig_x_size / 2;
-							tex_y -= orig_y_size / 2;
+							tex_x -= orig_x_size >> 1;
+							tex_y -= orig_y_size >> 1;
 						}
 
 						if (tex_x < 0 || tex_y < 0) {
 							continue;
 						}
 
-						if (tex_x >= (i32)orig_x_size || tex_y >= (i32)orig_y_size) {
+						if (tex_x >= i32(orig_x_size) || tex_y >= i32(orig_y_size)) {
 							continue;
 						}
 
-						u32 tile_y = tex_y / 8;
-						u32 y_offset = tex_y % 8;
+						u32 tile_y   = tex_y >> 3;
+						u32 y_offset = tex_y & (TILE_Y_SIZE_PIXELS - 1);
 
 						u32 vram_tile_y_id = 0;
 
 						if (addressing_mode)
 							vram_tile_y_id = tile_y * total_x_tiles;
 						else
-							vram_tile_y_id = tile_y * (pal_mode ? 16 : 32);
+							vram_tile_y_id = tile_y * PAL_STRIDE;
 
 						u32 vram_y_offset = (vram_tile_y_id * tile_size) +
 							(y_offset * line_size);
 
-						u32 tile_x = tex_x / 8;
-						u32 x_offset = tex_x % 8;
+						u32 tile_x   = tex_x >> 3;
+						u32 x_offset = tex_x & (TILE_X_SIZE_PIXELS - 1);
 
-						if (!pal_mode)
-							x_offset /= 2;
+						if (pal_mode == OAMEntryPalette::PAL_016)
+							x_offset >>= 1;
 
 						u32 vram_offset = start_offset + vram_y_offset
 							+ (tile_x * tile_size)
 							+ x_offset;
 
-						vram_offset %= 0x8000;
-
+						vram_offset &= 0x7FFF;
 						u16 color_id = m_vram[OBJ_VRAM_BASE
 							+ vram_offset];
 
 						u16 color = 0;
 
-						if (pal_mode) {
+						if (pal_mode == OAMEntryPalette::PAL_256) {
 							color = READ_16(m_palette_ram,
 								color_id * 2 + OBJ_PALETTE_START);
 						}
 						else {
 							u16 pixel_id = 0;
 
-							if (tex_x % 2)
+							if (tex_x & 1)
 								pixel_id = (color_id >> 4) & 0xF;
 							else
 								pixel_id = color_id & 0xF;
 
 							color_id = pixel_id;
 
-							pixel_id *= 2;
-							pixel_id += pal_number * 32;
+							pixel_id <<= 1;
+							pixel_id += u16(pal_number) << 5;
 
 							color = READ_16(m_palette_ram,
 								pixel_id + OBJ_PALETTE_START);
@@ -380,7 +467,7 @@ namespace GBA::ppu {
 								m_line_data[4][x].priority = prio_to_bg;
 								m_line_data[4][x].palette_id = color_id;
 								m_line_data[4][x].color = color;
-								m_line_data[4][x].is_bld_enabled = mode == 1;
+								m_line_data[4][x].is_bld_enabled = mode == OAMEntryType::TRANSP;
 							}
 						}
 					}

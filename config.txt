@@ -9,7 +9,7 @@ start_paused = true
 scale = 4
 rewind_buf_size = 
 rewind_interval_seconds = 
-rewind_enable = true
+rewind_enable = false
 startup_load_save = true
 enable_fastmem = true
 precise_bios_access = true
@@ -24,9 +24,10 @@ threaded_line_threshold = 4
 enable_cached = true
 max_block_len = 32
 region_size = 128
+waitloop_detection = true
 
 [ROM]
-#default_rom = ./testRoms/armwrestler/main.gba
+#default_rom = ./testRoms/tonc/obj_demo.gba
 default_rom = ./testRoms/PokemonEmerald.gba
 
 [cheats]

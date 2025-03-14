@@ -15,6 +15,7 @@ namespace GBA::cpu {
 		m_int_controller{nullptr}, 
 		m_halt{false}, m_cache{},
 		m_enable_cache{false},
+		m_enable_waitloop_detection{false},
 		m_sched{nullptr} {
 		m_ctx.m_cpsr.instr_state = InstructionMode::ARM;
 		m_ctx.ChangeMode(Mode::SYS);
@@ -237,7 +238,7 @@ namespace GBA::cpu {
 				//Has cache
 
 				//Get real block pointer
-				auto const& real_block = *block;
+				auto& real_block = *block;
 				//List of instructions in the block
 				auto const& instr_list = real_block->instructions;
 				//Save the first instruction in case
@@ -325,6 +326,17 @@ namespace GBA::cpu {
 							break;
 						if (*block == nullptr) [[unlikely]]
 							break;
+
+						if (m_enable_waitloop_detection) {
+							if (real_block->waitloop_evaluation == WaitloopState::NOT_EVALUATED) {
+								EvaluateLoop(*real_block);
+							}
+							else if (real_block->waitloop_evaluation == WaitloopState::WAITLOOP) {
+								if (RunWaitLoop(*real_block))
+									break;
+							}
+						}
+
 						//"No jump occurred" 
 						did_branch_final = false;
 						//Reset instruction and PC
@@ -533,5 +545,328 @@ namespace GBA::cpu {
 
 		m_sched->did_influence_cpu = false;
 		m_cache.AddBlock(base_pc, std::move(instr_block));
+	}
+
+	namespace waitloop {
+		static bool IsValidLoad(u16 instruction, CPUContext const& ctx, u32& poll_address) {
+			auto first_instruction_ty = thumb::DecodeThumb(instruction);
+
+			//Check if it is a valid load/store instruction
+			//(non PC-relative or SP-relative)
+			if (u8(first_instruction_ty) < u8(thumb::THUMBInstructionType::FORMAT_07) ||
+				u8(first_instruction_ty) > u8(thumb::THUMBInstructionType::FORMAT_10)) {
+				return false;
+			}
+
+			using thumb::THUMBInstructionType;
+
+			u32 opcode {};
+
+			switch (first_instruction_ty)
+			{
+			case THUMBInstructionType::FORMAT_07:
+				opcode = (instruction >> 10) & 3;
+				if (opcode == 0 || opcode == 1) {
+					//It is a store instruction
+					return false;
+				}
+
+				{
+					u8 offset_reg = (instruction >> 6) & 0x7;
+					u8 base_reg   = (instruction >> 3) & 0x7;
+					poll_address  = ctx.m_regs.GetReg(base_reg)
+						          + ctx.m_regs.GetReg(offset_reg);
+				}
+				break;
+			case THUMBInstructionType::FORMAT_08:
+				opcode = (instruction >> 10) & 3;
+				if (opcode != 2) {
+					//It is a sign-extend load or a store
+					return false;
+				}
+
+				{
+					u8 offset_reg = (instruction >> 6) & 0x7;
+					u8 base_reg   = (instruction >> 3) & 0x7;
+					poll_address  = ctx.m_regs.GetReg(base_reg)
+						          + ctx.m_regs.GetReg(offset_reg);
+				}
+				break;
+			case THUMBInstructionType::FORMAT_09:
+				opcode = (instruction >> 11) & 3;
+				if (opcode == 0 || opcode == 2) {
+					//It is a store
+					return false;
+				}
+
+				{
+					u32 offset    = (instruction >> 6) & 0x1F;
+					u8 base_reg   = (instruction >> 3) & 0x7;
+					u32 base_addr = ctx.m_regs.GetReg(base_reg);
+
+					if (opcode == 1) {
+						poll_address = base_addr + (offset << 2);
+					}
+					else {
+						poll_address = base_addr + offset;
+					}
+				}
+				break;
+			case THUMBInstructionType::FORMAT_10:
+				opcode = (instruction >> 11) & 1;
+				if (opcode == 0) {
+					return false;
+				}
+
+				{
+					u32 offset   = ((instruction >> 6) & 0x1F) * 2;
+					u8 base_reg  = (instruction >> 3) & 0x7;
+					poll_address = ctx.m_regs.GetReg(base_reg) + offset;
+				}
+				break;
+			default:
+				error::Unreachable();
+				break;
+			}
+
+			return true;
+		}
+
+		static bool IsValidCompare(u16 instruction) {
+			auto instruction_ty = thumb::DecodeThumb(instruction);
+
+			if (u8(instruction_ty) < u8(thumb::THUMBInstructionType::FORMAT_03) ||
+				u8(instruction_ty) > u8(thumb::THUMBInstructionType::FORMAT_05)) {
+				return false;
+			}
+
+			using thumb::THUMBInstructionType;
+
+			u32 opcode{};
+
+			switch (instruction_ty)
+			{
+			case THUMBInstructionType::FORMAT_03:
+				opcode = (instruction >> 11) & 3;
+				if (opcode != 1) {
+					return false;
+				}
+				break;
+			case THUMBInstructionType::FORMAT_04:
+				opcode = (instruction >> 6) & 0xF;
+				if (opcode != 0xA && opcode != 0XB) {
+					return false;
+				}
+				break;
+			case THUMBInstructionType::FORMAT_05:
+				opcode = (instruction >> 8) & 0x3;
+				if (opcode != 0x1) {
+					return false;
+				}
+				break;
+			default:
+				error::Unreachable();
+				break;
+			}
+
+			return true;
+		}
+
+		static bool IsAllowed(u16 instruction, u8& rd) {
+			auto instruction_ty = thumb::DecodeThumb(instruction);
+
+			if (u8(instruction_ty) > u8(thumb::THUMBInstructionType::FORMAT_05)) {
+				return false;
+			}
+
+			using thumb::THUMBInstructionType;
+
+			switch (instruction_ty)
+			{
+			case THUMBInstructionType::FORMAT_01:
+			case THUMBInstructionType::FORMAT_02:
+			case THUMBInstructionType::FORMAT_04:
+				rd = (instruction & 0x7);
+				break;
+			case THUMBInstructionType::FORMAT_03:
+				rd = (instruction >> 8) & 0x7;
+				break;
+			case THUMBInstructionType::FORMAT_05:
+				rd = (instruction & 0x7) | 
+					 ((instruction >> 4) & 0b1000);
+				break;
+			default:
+				error::Unreachable();
+				break;
+			}
+
+			return true;
+		}
+	}
+
+	void ARM7TDI::EvaluateLoop(Block& loop) {
+		if (loop.instr_set == InstructionMode::ARM) {
+			loop.waitloop_evaluation = WaitloopState::NOT_WAITLOOP;
+			return;
+		}
+
+		{
+			const auto loop_size = loop.instructions.size();
+			if (loop_size < 3 || loop_size > 6) {
+				loop.waitloop_evaluation = WaitloopState::NOT_WAITLOOP;
+				return;
+			}
+		}
+
+		//Try to evaluate a fixed number of possible waitloops
+		//First instruction should be a memory load
+		//Last instruction is for sure a backwards 
+		//conditional jump, given that this function
+		//has been called.
+
+		//After the load, only one register should change
+		//value. The last instruction before the jump should be
+		//a cmp or cmn
+
+		//Acceptable instructions in-between are logical/ALU
+		//operations
+
+		//For load, we have the following formats:
+		//7, 8, 9, 10
+
+		//For CMP/CMN we have
+		//3, 4, 5
+
+		u32 poll_address{ 0xdeadbeef };
+
+		if (!waitloop::IsValidLoad(u16(loop.instructions[0].orig_instruction), m_ctx,
+			poll_address)) {
+			loop.waitloop_evaluation = WaitloopState::NOT_WAITLOOP;
+			return;
+		}
+
+		constexpr u32 IO_DISPSTAT = 0x04000004;
+		constexpr u32 IO_VCOUNT   = 0x04000006;
+		constexpr u32 IO_IF       = 0x04000202;
+
+		using memory::MEMORY_RANGE;
+
+		auto poll_region = MEMORY_RANGE(poll_address >> 24);
+
+		switch (poll_region)
+		{
+		case MEMORY_RANGE::EWRAM:
+		case MEMORY_RANGE::IWRAM:
+			break;
+		case MEMORY_RANGE::IO:
+		{
+			switch (poll_address)
+			{
+			case IO_DISPSTAT:
+			case IO_VCOUNT:
+			case IO_IF:
+				break;
+			default:
+				loop.waitloop_evaluation = WaitloopState::NOT_WAITLOOP;
+				return;
+			}
+		}
+			break;
+		default:
+			loop.waitloop_evaluation = WaitloopState::NOT_WAITLOOP;
+			return;
+		}
+
+		auto last_instruction = u16((loop.instructions.rbegin() + 1)->orig_instruction);
+
+		if (!waitloop::IsValidCompare(last_instruction)) {
+			loop.waitloop_evaluation = WaitloopState::NOT_WAITLOOP;
+			return;
+		}
+
+		loop.poll_address = poll_address;
+
+		fmt::println("[INTERPRETER] Found possible waitloop at {:#010x}, poll address = {:#010x}",
+			loop.absolute_address, poll_address);
+
+		if (loop.instructions.size() == 3) {
+			fmt::println("[INTERPRETER] Marking block at {:#010x} as waitloop",
+				loop.absolute_address);
+			loop.waitloop_evaluation = WaitloopState::WAITLOOP;
+			return;
+		}
+
+		//Now we need to verify that all instructions in between
+		//are allowed
+
+		//Only allowed formats:
+		//[1, 5]
+
+		auto first_iter = loop.instructions.begin() + 1;
+		auto last_iter  = (loop.instructions.rbegin() + 2).base();
+
+		u8 modified_reg{};
+		if (!waitloop::IsAllowed(u16(first_iter->orig_instruction), modified_reg)) {
+			loop.waitloop_evaluation = WaitloopState::NOT_WAITLOOP;
+			fmt::println("[INTERPRETER] Waitloop rejected, unsupported format");
+			return;
+		}
+		++first_iter;
+
+		while (first_iter != last_iter) {
+			u8 mod_reg2{};
+			if (!waitloop::IsAllowed(u16(first_iter->orig_instruction), mod_reg2)) {
+				loop.waitloop_evaluation = WaitloopState::NOT_WAITLOOP;
+				fmt::println("[INTERPRETER] Waitloop rejected, unsupported format");
+				return;
+			}
+
+			if (modified_reg != mod_reg2) {
+				loop.waitloop_evaluation = WaitloopState::NOT_WAITLOOP;
+				fmt::println("[INTERPRETER] Waitloop rejected, modifies more than one register");
+				return;
+			}
+
+			++first_iter;
+		}
+
+		fmt::println("[INTERPRETER] Marking block at {:#010x} as waitloop",
+			loop.absolute_address);
+
+		loop.waitloop_evaluation = WaitloopState::WAITLOOP;
+	}
+
+	bool ARM7TDI::RunWaitLoop(Block& loop)
+	{
+		u32 poll_address{ 0xdeadbeef };
+
+		auto valid = waitloop::IsValidLoad(u16(loop.instructions[0].orig_instruction), m_ctx,
+			poll_address);
+
+		if (!valid) [[unlikely]] {
+			fmt::println("[INTERPRETER] \"Impossible\" happened, waitloop does not start with a load instruction");
+			error::DebugBreak();
+		}
+
+		if (loop.poll_address != poll_address) {
+			fmt::println("[INTERPRETER] Waitloop at {:#010x}, poll address changed",
+				loop.absolute_address);
+			fmt::println("              PREV = {:#010x}, NEW = {:#010x}",
+				loop.poll_address, poll_address);
+			fmt::println("              Marking as non-waitloop");
+			loop.waitloop_evaluation = WaitloopState::NOT_WAITLOOP;
+			return false;
+		}
+
+		bool do_quit = false;
+
+		do {
+			(void)m_sched->NextEvent();
+			do_quit = m_sched->did_influence_cpu;
+		} while (!do_quit);
+
+		m_sched->did_influence_cpu = false;
+
+		return true;
 	}
 }

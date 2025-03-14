@@ -93,6 +93,7 @@ int main(int argc, char* argv[]) {
 		.value_or(100));
 	unsigned region_size = unsigned(parse_int(conf.data["INTERPRETER"]["region_size"])
 		.value_or(1024));
+	bool enable_waitloop_detect = conf.data["INTERPRETER"]["waitloop_detection"] == "true";
 
 	auto emu_init = [&](std::string rom) {
 		if (has_rom) {
@@ -151,6 +152,10 @@ int main(int argc, char* argv[]) {
 			emu->SetCachedInterpreterPageSize(region_size);
 			emu->SetCachedInterpreterBlockSize(max_block_len);
 			emu->EnableCachedInterpreter();
+
+			if (enable_waitloop_detect) {
+				emu->EnableWaitloopDetection();
+			}
 		}
 
 		has_rom = true;

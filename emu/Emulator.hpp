@@ -179,6 +179,10 @@ namespace GBA::emulation {
 			m_ctx.processor.EnableCachedInterpreter();
 		}
 
+		inline void EnableWaitloopDetection() {
+			m_ctx.processor.EnableWaitloopDetection();
+		}
+
 		inline void SetCachedInterpreterPageSize(u32 region_size) {
 			m_ctx.processor.SetInterpreterPageSize(region_size);
 		}

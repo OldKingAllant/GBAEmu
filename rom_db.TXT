@@ -18,3 +18,10 @@ backup_type = SRAM
 [CASTLEVANIA2]
 backup_type = SRAM
 
+[GTA]
+backup_type = EEPROM_512
+
+[POKEMON FIRE]
+backup_type = FLASH_1M
+gpio = "RTC"
+rtc = 0124

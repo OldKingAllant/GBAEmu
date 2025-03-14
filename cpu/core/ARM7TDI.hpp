@@ -58,6 +58,10 @@ namespace GBA::cpu {
 			m_enable_cache = true;
 		}
 
+		void EnableWaitloopDetection() {
+			m_enable_waitloop_detection = true;
+		}
+
 		inline bool IsCacheEnabled() const {
 			return m_enable_cache;
 		}
@@ -89,10 +93,12 @@ namespace GBA::cpu {
 	private :
 		bool CheckIRQ();
 
-		void StepCached();
+		void				 StepCached();
 		std::pair<bool, u32> StepNoCache();
+		void				 RunMakeCache();
 
-		void RunMakeCache();
+		void                EvaluateLoop(Block& loop);
+		[[nodiscard]] bool   RunWaitLoop(Block& loop);
 
 	private :
 		CPUContext				m_ctx;
@@ -101,6 +107,7 @@ namespace GBA::cpu {
 		bool					m_halt;
 		InterpreterCache		m_cache;
 		bool					m_enable_cache;
+		bool					m_enable_waitloop_detection;
 		memory::EventScheduler* m_sched;
 	};
 }

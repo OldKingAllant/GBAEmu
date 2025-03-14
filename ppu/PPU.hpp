@@ -19,12 +19,14 @@ namespace GBA::memory {
 }
 
 namespace GBA::ppu {
+	using namespace common;
+
 	struct Pixel {
 		bool is_present;
 		bool is_bld_enabled;
-		GBA::common::i16 palette_id;
-		GBA::common::u16 color;
-		GBA::common::u8 priority;
+		i16 palette_id;
+		u16 color;
+		u8 priority;
 
 		template <typename Ar>
 		void save(Ar& ar) const {
@@ -45,13 +47,56 @@ namespace GBA::ppu {
 		}
 	};
 
+	enum class OAMEntryType : u8 {
+		NORMAL,
+		TRANSP,
+		WINDOW,
+		INVAL
+	};
+
+	enum class OAMEntryPalette : u8 {
+		PAL_016,
+		PAL_256
+	};
+
+	enum class OAMEntryShape : u8 {
+		SQUARE,
+		HORIZONTAL,
+		VERTICAL,
+		INVALID
+	};
+
+#pragma pack(push, 1)
+	struct OAMEntry {
+		u8   coord_y        : 8 {};
+		bool is_affine      : 1 {};
+		bool double_sz      : 1 {};
+		OAMEntryType type   : 2 {};
+		bool is_mosaic      : 1 {};
+		OAMEntryPalette pal : 1 {};
+		OAMEntryShape shape : 2 {};
+
+		u8 coord_x_low   : 8 {};
+		u8 coord_x_high  : 1 {};
+		u8 rotation		 : 5 {};
+		u8 obj_size_type : 2 {};
+
+		u8 tile_number_low  : 8 {};
+		u8 tile_number_high : 2 {};
+		u8 priority_to_bg   : 2 {};
+		u8 palette_num		: 4 {};
+
+		u16 affine_params{};
+	};
+#pragma pack(pop)
+
+	static_assert(sizeof(OAMEntry) == 8, "Invalid OAM entry size");
+
 	enum class Mode {
 		NORMAL,
 		VBLANK,
 		HBLANK
 	};
-
-	using namespace common;
 
 	class PPU {
 	public :

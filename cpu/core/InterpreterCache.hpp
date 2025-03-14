@@ -27,6 +27,12 @@ namespace GBA::cpu {
 		void*   arm_func{nullptr};
 	};
 
+	enum class WaitloopState {
+		NOT_EVALUATED = 0,
+		NOT_WAITLOOP  = 1,
+		WAITLOOP      = 2
+	};
+
 	/// <summary>
 	/// A block of instructions
 	/// </summary>
@@ -37,11 +43,15 @@ namespace GBA::cpu {
 		//Self-explanatory
 		u32 absolute_address = {};
 		std::vector<BlockEntry> instructions = {};
+		WaitloopState waitloop_evaluation = {};
+		u32 poll_address = {};
 
 		Block(Block&& other) noexcept :
 			instr_set{ other.instr_set },
 			absolute_address{ other.absolute_address },
-			instructions{std::move(other.instructions)} { }
+			instructions{std::move(other.instructions)},
+			waitloop_evaluation{other.waitloop_evaluation},
+			poll_address{other.poll_address} {}
 
 		Block() = default;
 	};
