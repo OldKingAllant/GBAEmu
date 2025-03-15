@@ -1,5 +1,4 @@
-#ifndef PROC_DEFS
-#define PROC_DEFS
+#pragma once
 
 #include "../common/Defs.hpp"
 
@@ -129,5 +128,3 @@ namespace GBA::cpu {
 		return mode == InstructionMode::ARM ? "ARM" : "THUMB";
 	}
 }
-
-#endif

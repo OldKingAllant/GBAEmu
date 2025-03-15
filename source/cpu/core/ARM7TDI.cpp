@@ -16,6 +16,7 @@ namespace GBA::cpu {
 		m_halt{false}, m_cache{},
 		m_enable_cache{false},
 		m_enable_waitloop_detection{false},
+		m_in_block{false},
 		m_sched{nullptr} {
 		m_ctx.m_cpsr.instr_state = InstructionMode::ARM;
 		m_ctx.ChangeMode(Mode::SYS);
@@ -175,6 +176,28 @@ namespace GBA::cpu {
 		return false;
 	}
 
+	bool ARM7TDI::CheckIRQ_NoReset() {
+		if (m_int_controller->GetLineStatus())
+			return false; //So an interrupt is triggered
+		//only once and not every time we check 
+		//IE and IF registers
+
+		bool cpsr_ime = !m_ctx.m_cpsr.irq_disable;
+		if (!cpsr_ime) {
+			return false;
+		}
+
+		bool ime = m_int_controller->GetIME();
+		if (!ime) {
+			return false;
+		}
+
+		u16 ie = m_int_controller->GetIE();
+		u16 _if = m_int_controller->GetIF();
+
+		return (ie & _if) != 0;
+	}
+
 	void ARM7TDI::EvaluateHaltState() {
 		u16 ie  = m_int_controller->GetIE();
 		u16 _if = m_int_controller->GetIF();
@@ -275,6 +298,11 @@ namespace GBA::cpu {
 
 				//fmt::println("[INTERPRETER] Block at {:#010x}", curr_pc);
 
+				//Tells the bus that we are in a cached
+				//block and that the open bus value
+				//needs to be computed when needed
+				m_in_block = true;
+
 				while (curr_instr != end) {
 					bool has_branched = false;
 					
@@ -291,21 +319,21 @@ namespace GBA::cpu {
 							m_bus->m_time.access = Access::Seq;
 						}
 
-						pc_step = 4;
-
 						//Compute cycles due to fetch, without actually
 						//fetching the instruction
 						cycles = m_bus->m_time.GetCyleCountForCachedInterpreter<u32>(
 							curr_pc
 						);
+						m_bus->m_time.access = Access::Seq;
 					}
 					else {
 						reinterpret_cast<thumb::ThumbFunc>(curr_instr->thumb_func)
 							(u16(curr_instr->orig_instruction), m_bus, m_ctx, has_branched);
-						pc_step = 2;
+						
 						cycles = m_bus->m_time.GetCyleCountForCachedInterpreter<u16>(
 							curr_pc
 						);
+						m_bus->m_time.access = Access::Seq;
 					}
 
 					//Actually step the scheduler
@@ -313,6 +341,7 @@ namespace GBA::cpu {
 
 					if (has_branched) {
 						did_branch_final = true;
+
 						if (m_ctx.m_regs.GetReg(15) != base_pc) {
 							//For sure the entire block is not 
 							//a loop. Since we do not want
@@ -324,6 +353,10 @@ namespace GBA::cpu {
 						//Something changed, we need to break anyway
 						if (event_changed_cpu || m_halt || m_bus->GetActiveDma() != memory::Bus::INVALID_DMA)
 							break;
+						if (CheckIRQ_NoReset()) [[unlikely]] {
+							fmt::println("[INTERPRETER] Unexpected IRQ during block");
+							break;
+						}
 						if (*block == nullptr) [[unlikely]]
 							break;
 
@@ -356,6 +389,9 @@ namespace GBA::cpu {
 
 					//Update the PC, else PC-relative
 					//computations will not work
+					pc_step = new_mode == InstructionMode::ARM ?
+						0x4 : 0x2;
+
 					curr_pc += pc_step;
 					m_ctx.m_regs.AddOffset(15, pc_step);
 
@@ -363,10 +399,16 @@ namespace GBA::cpu {
 					//BIOS accesses
 					m_ctx.m_old_pc = curr_pc;
 
-					if (event_changed_cpu || m_halt || 
+					if (event_changed_cpu || m_halt ||
 						m_bus->GetActiveDma() != memory::Bus::INVALID_DMA ||
-						new_mode != prev_mode)
+						new_mode != prev_mode) {
 						break;
+					}
+						
+					//if (CheckIRQ_NoReset()) [[unlikely]] {
+					//	fmt::println("[INTERPRETER] Unexpected IRQ during block");
+					//	break;
+					//}
 
 					if (*block == nullptr) [[unlikely]] {
 						//A write near pc happened
@@ -440,8 +482,8 @@ namespace GBA::cpu {
 						m_ctx.m_pipeline.Bubble<InstructionMode::THUMB, false>(new_pc);
 					}
 				}
-				
 
+				m_in_block = true;
 				event_changed_cpu = false;
 
 				//No need to update old PC, since the callee
@@ -526,7 +568,9 @@ namespace GBA::cpu {
 			
 			bool event_influenced_cpu = m_sched->did_influence_cpu;
 
-			if (event_influenced_cpu) {
+			if (event_influenced_cpu || m_halt || 
+				m_bus->GetActiveDma() != memory::Bus::INVALID_DMA ||
+				CheckIRQ_NoReset()) {
 				m_sched->did_influence_cpu = false;
 				return;
 			}
@@ -537,8 +581,7 @@ namespace GBA::cpu {
 			auto new_page = m_cache.GetPageFromAddress(curr_pc);
 
 			if (has_branched || curr_block_len >= max_block_len ||
-				new_page != page || prev_instr_mode != new_instr_mode ||
-				m_halt || m_bus->GetActiveDma() != memory::Bus::INVALID_DMA) {
+				new_page != page || prev_instr_mode != new_instr_mode) {
 				break;
 			}
 		}

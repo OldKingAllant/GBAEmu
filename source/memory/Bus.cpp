@@ -194,6 +194,26 @@ namespace GBA::memory {
 
 	u32 Bus::ReadOpenBus(u32 address) {
 		cpu::CPUContext& ctx = m_processor->GetContext();
+
+		if (m_processor->IsInBlock()) {
+			//Processor is in a cached block
+			//The open bus due to instruction
+			//fetch is not updated, which might
+			//break games that rely on it
+			//(Minish Cap crashes in very specific
+			//places)
+			if (ctx.m_cpsr.instr_state == cpu::InstructionMode::ARM) {
+				ctx.m_pipeline.Bubble<cpu::InstructionMode::ARM, false>(
+					ctx.m_regs.GetReg(15)
+				);
+			}
+			else {
+				ctx.m_pipeline.Bubble<cpu::InstructionMode::THUMB, false>(
+					ctx.m_regs.GetReg(15)
+				);
+			}
+		}
+
 		if (ctx.m_cpsr.instr_state ==
 			cpu::InstructionMode::ARM) {
 			return m_open_bus_value;

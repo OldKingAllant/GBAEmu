@@ -22,13 +22,13 @@ threaded_line_threshold = 4
 
 [INTERPRETER]
 enable_cached = true
-max_block_len = 32
-region_size = 128
+max_block_len = 64
+region_size = 256
 waitloop_detection = true
 
 [ROM]
 #default_rom = ./testRoms/tonc/obj_demo.gba
-default_rom = ./testRoms/PokemonEmerald.gba
+default_rom = ./testRoms/Zelda.gba
 
 [cheats]
 enable_hooks = 

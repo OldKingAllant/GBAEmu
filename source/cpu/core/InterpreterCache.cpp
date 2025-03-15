@@ -117,6 +117,8 @@ namespace GBA::cpu {
 	Block** InterpreterCache::GetBlock(u32 address) {
 		using namespace memory;
 
+		m_curr_block = nullptr;
+
 		//If we are not in cacheable region, 
 		//return
 		if (!IsCacheable(address))
@@ -129,8 +131,6 @@ namespace GBA::cpu {
 
 		//Get region cache
 		auto region_ptr = GetBlockRegion(address);
-
-		m_curr_block = nullptr;
 
 		//Fast block retrieval, O(1)
 		auto& block_ptr = (*region_ptr)[region_offset];
@@ -233,6 +233,8 @@ namespace GBA::cpu {
 			for (auto block_ptr : block_list.blocks) {
 				block_ptr->reset();
 			}
+
+			//fmt::println("[INTERPRETER] Invalidated {} blocks", block_list.blocks.size());
 			//All blocks are invalid, 
 			//clear the list of blocks
 			block_list.blocks.clear();

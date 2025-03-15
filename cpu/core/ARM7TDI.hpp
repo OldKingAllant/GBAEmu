@@ -70,6 +70,10 @@ namespace GBA::cpu {
 			return m_cache;
 		}
 
+		inline bool IsInBlock() const {
+			return m_in_block;
+		}
+
 		template <typename Ar>
 		void save(Ar& ar) const {
 			ar(m_halt);
@@ -92,6 +96,7 @@ namespace GBA::cpu {
 
 	private :
 		bool CheckIRQ();
+		bool CheckIRQ_NoReset();
 
 		void				 StepCached();
 		std::pair<bool, u32> StepNoCache();
@@ -108,6 +113,7 @@ namespace GBA::cpu {
 		InterpreterCache		m_cache;
 		bool					m_enable_cache;
 		bool					m_enable_waitloop_detection;
+		bool					m_in_block;
 		memory::EventScheduler* m_sched;
 	};
 }

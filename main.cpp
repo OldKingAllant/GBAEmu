@@ -254,7 +254,7 @@ int main(int argc, char* argv[]) {
 					now - last_save_timestamp
 				).count();
 
-				if (diff >= long long(rewind_interval)) {
+				if (diff >= (long long)(rewind_interval)) {
 					last_save_timestamp = now;
 					emu->RewindPush();
 				}

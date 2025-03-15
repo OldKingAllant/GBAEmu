@@ -33,7 +33,6 @@ namespace GBA::audio {
 		std::mutex m_buffer_mutex;
 		jnk0le::Ringbuffer<i16, 4096> m_buffer;
 
-		bool m_ready;
 		std::condition_variable m_cv;
 
 		SDL_AudioSpec m_spec;
