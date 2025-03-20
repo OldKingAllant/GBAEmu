@@ -450,6 +450,44 @@ namespace GBA::ppu {
 		}
 	}
 
+	void PPU::RenderBatch(u16 first_line, u16 last_line)
+	{
+		u8 mode = m_ctx_saved.m_control & 0x7;
+		m_obj_window_pixels = {};
+
+		switch (mode)
+		{
+		case 0:
+			Mode0_Batch(first_line, last_line);
+			break;
+
+		case 1:
+			Mode1_Batch(first_line, last_line);
+			break;
+
+		case 2:
+			Mode2_Batch(first_line, last_line);
+			break;
+
+		case 3:
+			Mode3_Batch(first_line, last_line);
+			break;
+
+		case 4:
+			Mode4_Batch(first_line, last_line);
+			break;
+
+		case 5:
+			Mode5_Batch(first_line, last_line);
+			break;
+
+		default:
+			LOG_ERROR("Invalid display mode {0}!", (unsigned)mode);
+			error::DebugBreak();
+			break;
+		}
+	}
+
 	void PPU::EnableThreadedRender() {
 		m_pal_buf = new u8[0x400];
 		m_oam_buf = new u8[0x400];
@@ -558,19 +596,40 @@ namespace GBA::ppu {
 
 		while (true) {
 			{
-				if (curr_line > 0 && 
-					(
-						m_ppu->m_line_has_changes[curr_line - 1] ||
-						m_ppu->m_sync_all_lines
-					)) {
-					//fmt::println("[PPU] Line {} had changes in previous frame", curr_line);
-					m_waiting_update.release();
-					m_finished_update.acquire();
+				if (curr_line == 0) {
+					m_ppu->RenderScanline(curr_line);
+					++curr_line;
 				}
+				else {
+					auto batch_end = std::find(
+						m_ppu->m_line_has_changes + curr_line - 1,
+						m_ppu->m_line_has_changes + VISIBLE_LINES - 1, true);
+					auto batch_size = std::distance(
+						m_ppu->m_line_has_changes + curr_line - 1,
+						batch_end
+					);
 
-				m_ppu->RenderScanline(curr_line);
+					u8 mode = m_ppu->m_ctx_saved.m_control & 0x7;
 
-				++curr_line;
+					if (mode >= 3 && batch_size >= 4 && !m_ppu->m_sync_all_lines) {
+						m_ppu->RenderBatch(curr_line,
+							curr_line + u16(batch_size));
+						curr_line += u16(batch_size);
+					}
+					else {
+						if (
+							m_ppu->m_line_has_changes[curr_line - 1] ||
+							m_ppu->m_sync_all_lines
+							) {
+							//fmt::println("[PPU] Line {} had changes in previous frame", curr_line);
+							m_waiting_update.release();
+							m_finished_update.acquire();
+						}
+
+						m_ppu->RenderScanline(curr_line);
+						++curr_line;
+					}
+				}
 			}
 
 			if (curr_line == VISIBLE_LINES) { 

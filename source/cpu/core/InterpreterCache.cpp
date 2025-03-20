@@ -15,7 +15,8 @@ namespace GBA::cpu {
 		m_page_shift{}, m_bios_cache{},
 		m_rom_cache{}, m_iwram_cache{},
 		m_iwram_page_blocks{},
-		m_curr_block{nullptr}
+		m_curr_block{nullptr},
+		m_was_init{false}
 	{}
 
 	void InterpreterCache::SetBlocksLen(u32 block_len) {
@@ -61,6 +62,8 @@ namespace GBA::cpu {
 		m_iwram_cache.resize(IRAM_SIZE >> 1);
 
 		m_iwram_page_blocks.resize(num_iwram_pages);
+
+		m_was_init = true;
 	}
 
 	bool InterpreterCache::IsCacheable(u32 address) const {

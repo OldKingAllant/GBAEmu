@@ -626,6 +626,22 @@ namespace GBA::video::renderer {
 				}
 			}
 
+			auto& proc = m_emu->GetContext().processor;
+			auto const& the_cache = proc.GetCache();
+
+			if (!the_cache.IsInit()) {
+				ImGui::BeginDisabled();
+			}
+
+			bool cache_enabled = proc.IsCacheEnabled();
+			if (ImGui::Checkbox("Enable interpreter cache", &cache_enabled)) {
+				proc.SetEnableCachedInterpreter(cache_enabled);
+			}
+
+			if (!the_cache.IsInit()) {
+				ImGui::EndDisabled();
+			}
+
 			ImGui::EndMenu();
 		}
 	}

@@ -230,7 +230,7 @@ int main(int argc, char* argv[]) {
 
 	/////////////////////////////////////////////////////////////////////
 
-	auto last_save_timestamp = std::chrono::system_clock::now();
+	auto last_save_timestamp   = std::chrono::system_clock::now();
 
 	while (!opengl_rend.Stopped())
 	{
@@ -242,11 +242,10 @@ int main(int argc, char* argv[]) {
 
 		if (!opengl_rend.IsPaused() && has_rom) {
 			emu->RunTillVblank();
+
+			auto framebuffer = ctx.ppu.GetFrame();
+			opengl_rend.SetFrame(framebuffer);
 			
-			if (ctx.ppu.HasFrame()) {
-				auto framebuffer = ctx.ppu.GetFrame();
-				opengl_rend.SetFrame(framebuffer);
-			}
 
 			if (emu->IsRewindEnabled()) {
 				auto now = std::chrono::system_clock::now();

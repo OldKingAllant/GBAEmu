@@ -66,6 +66,13 @@ namespace GBA::cpu {
 			return m_enable_cache;
 		}
 
+		inline void SetEnableCachedInterpreter(bool enable) {
+			if (!m_cache.IsInit())
+				return;
+
+			m_enable_cache = enable;
+		}
+
 		InterpreterCache& GetCache() {
 			return m_cache;
 		}

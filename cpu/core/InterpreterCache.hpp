@@ -82,6 +82,10 @@ namespace GBA::cpu {
 			return m_page_len;
 		}
 
+		inline bool IsInit() const {
+			return m_was_init;
+		}
+
 		/// <summary>
 		/// Inside IWRAM, get the page from
 		/// the given address
@@ -152,5 +156,7 @@ namespace GBA::cpu {
 		//Current block pointer, used for invalidation
 
 		Block* m_curr_block;
+
+		bool m_was_init;
 	};
 }

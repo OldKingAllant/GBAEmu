@@ -100,18 +100,13 @@ namespace GBA::memory {
 		return m_events[0];
 	}
 
-	void EventScheduler::Advance(common::u32 cycles) {
+	void EventScheduler::Advance(u32 cycles) {
 		m_timestamp += cycles;
 
 		bool _cont = true;
 
 		do {
-			if (!m_num_events) {
-				_cont = false;
-				continue;
-			}
-
-			Event const& ev = m_events[0];
+			Event ev = m_events[0];
 
 			if (ev.trigger_timestamp > m_timestamp) {
 				_cont = false;

@@ -132,7 +132,15 @@ namespace GBA::ppu {
 		void Mode4(u16 lcd_y);
 		void Mode5(u16 lcd_y);
 
+		void Mode0_Batch(u16 first_line, u16 last_line);
+		void Mode1_Batch(u16 first_line, u16 last_line);
+		void Mode2_Batch(u16 first_line, u16 last_line);
+		void Mode3_Batch(u16 first_line, u16 last_line);
+		void Mode4_Batch(u16 first_line, u16 last_line);
+		void Mode5_Batch(u16 first_line, u16 last_line);
+
 		void RenderScanline(u16 lcd_y);
+		void RenderBatch(u16 first_line, u16 last_line);
 
 		void SetMMIO(memory::MMIO* mmio, memory::Bus* bus) {
 			InitHandlers(mmio);

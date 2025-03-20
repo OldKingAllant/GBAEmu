@@ -49,4 +49,6 @@ namespace GBA::ppu {
 			m_framebuffer[framebuffer_y + x * 3 + 2] = (float)b / 0x1F;
 		}
 	}
+
+	void PPU::Mode1_Batch(u16 first_line, u16 last_line) {}
 }

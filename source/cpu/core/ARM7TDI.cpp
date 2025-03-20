@@ -277,11 +277,11 @@ namespace GBA::cpu {
 				//both in arm and thumb mode, but it is so
 				//unlikely that I simply consider it to be
 				//an error
-				if (prev_mode != instr_set) [[unlikely]] {
+				/*if (prev_mode != instr_set) [[unlikely]] {
 					fmt::println("[INTERPRETER] INSTR SET MISMATCH, block at {:#010x}",
 						curr_pc);
 					error::DebugBreak();
-				}
+				}*/
 
 				//Save a reference to this flag, which tells whether
 				//an event changed the CPU state during the execution
