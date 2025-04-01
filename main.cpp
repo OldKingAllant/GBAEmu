@@ -95,6 +95,9 @@ int main(int argc, char* argv[]) {
 		.value_or(1024));
 	bool enable_waitloop_detect = conf.data["INTERPRETER"]["waitloop_detection"] == "true";
 
+	bool enable_achievements = conf.data["ACHIEVEMENTS"]["enable"] == "true";
+	std::string credentials_file = conf.data["ACHIEVEMENTS"]["credentials_file"];
+
 	auto emu_init = [&](std::string rom) {
 		if (has_rom) {
 			std::cout << "Rom swapping not implemented" << std::endl;
@@ -116,6 +119,7 @@ int main(int argc, char* argv[]) {
 			save_path += "/" + fname + ".save";
 
 			if (std::filesystem::exists(save_path)) {
+				fmt::println("[EMU] Loading save from {}", save_path);
 				emu->GetContext().pack.LoadBackup(std::filesystem::path(save_path));
 			}
 		}
@@ -156,6 +160,10 @@ int main(int argc, char* argv[]) {
 			if (enable_waitloop_detect) {
 				emu->EnableWaitloopDetection();
 			}
+		}
+
+		if (enable_achievements) {
+			emu->EnableAchievements(credentials_file);
 		}
 
 		has_rom = true;
@@ -231,6 +239,9 @@ int main(int argc, char* argv[]) {
 	/////////////////////////////////////////////////////////////////////
 
 	auto last_save_timestamp   = std::chrono::system_clock::now();
+	auto last_idle_update      = last_save_timestamp;
+
+	bool has_shown_notifications = false;
 
 	while (!opengl_rend.Stopped())
 	{
@@ -238,6 +249,11 @@ int main(int argc, char* argv[]) {
 
 		while (SDL_PollEvent(&ev)) {
 			opengl_rend.ProcessEvent(&ev);
+		}
+
+		if (!has_shown_notifications && has_rom) {
+			has_shown_notifications = true;
+			opengl_rend.SetupNotifications();
 		}
 
 		if (!opengl_rend.IsPaused() && has_rom) {
@@ -257,6 +273,17 @@ int main(int argc, char* argv[]) {
 					last_save_timestamp = now;
 					emu->RewindPush();
 				}
+			}
+		}
+		else {
+			auto now = std::chrono::system_clock::now();
+			auto diff = std::chrono::duration_cast<std::chrono::seconds>(
+				now - last_idle_update
+			).count();
+
+			if (diff >= 1) {
+				last_idle_update = now;
+				emu->RetroAchievementsClientIdle();
 			}
 		}
 

@@ -1,5 +1,5 @@
 [BIOS]
-skip = true
+skip = false
 file = ./testRoms/gba_bios.bin
 enable_hle = true
 log_hle = false
@@ -28,7 +28,11 @@ waitloop_detection = true
 
 [ROM]
 #default_rom = ./testRoms/tonc/bm_modes.gba
-default_rom = ./testRoms/Zelda.gba
+default_rom = ./testRoms/SuperMarioWorldEU.gba
 
 [cheats]
 enable_hooks = 
+
+[ACHIEVEMENTS]
+enable = true
+credentials_file = ./rc_credentials/credentials.txt

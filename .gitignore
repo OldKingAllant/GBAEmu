@@ -7,3 +7,5 @@ saves/*
 *.state
 *.save
 Intel® VTune™ Profiler Results/*
+rc_credentials/*
+rc_cache/*

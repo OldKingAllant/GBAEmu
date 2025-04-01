@@ -20,6 +20,7 @@
 #include "../apu/APU.hpp"
 
 #include "Cheats.hpp"
+#include "RetroAchievements.hpp"
 
 namespace GBA::emulation {
 	struct EmulatorContext {
@@ -54,6 +55,10 @@ namespace GBA::emulation {
 
 		bool LoadRom(std::string_view loc);
 		void Init();
+
+		inline bool IsInit() const {
+			return m_is_init;
+		}
 
 		//////////////////////////
 
@@ -193,6 +198,21 @@ namespace GBA::emulation {
 
 		///////////////////////
 
+		void EnableAchievements(std::string const& credentials_path);
+
+		inline bool GetAchievementsEnabled() const {
+			return m_enable_ra;
+		}
+
+		inline RetroAchievements& GetRetroAchievements() {
+			_ASSERT(m_enable_ra);
+			return *m_ra.get();
+		}
+
+		void RetroAchievementsClientIdle();
+
+		///////////////////////
+
 		~Emulator();
 
 		template <typename Ar>
@@ -257,5 +277,8 @@ namespace GBA::emulation {
 
 		bool m_enable_hooks;
 		bool m_log_hle;
+
+		bool m_enable_ra;
+		std::unique_ptr<RetroAchievements> m_ra;
 	};
 }

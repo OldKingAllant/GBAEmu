@@ -6,6 +6,8 @@
 #include <vector>
 #include <string>
 #include <chrono>
+#include <unordered_map>
+#include <filesystem>
 
 struct SDL_Window;
 struct SDL_KeyboardEvent;
@@ -59,7 +61,25 @@ namespace GBA::video::renderer {
 			m_audio = audio;
 		}
 
+		void SetupNotifications();
+
 		~OpenGL() override;
+
+		struct Texture {
+			uint32_t texture_id = {};
+			uint32_t width  = {};
+			uint32_t height = {};
+		};
+
+		struct Notification {
+			static constexpr auto NOTIFICATION_DURATION_SECONDS = 5.0;
+			bool showing     = false;
+			std::string name = {};
+			std::chrono::system_clock::time_point start_time = {};
+			std::vector<std::string> text_lines   = {};
+			std::optional<std::string> texture_id = std::nullopt;
+			std::optional<std::filesystem::path> notification_sound_file = std::nullopt;
+		};
 
 	private :
 		void LoadOpengl();
@@ -75,6 +95,11 @@ namespace GBA::video::renderer {
 		void EmulationMenu();
 		void AudioMenu();
 		void VideoMenu();
+		void AchievementsMenu();
+		void AchievementsWindow();
+
+		void AppendAchievementNotifications();
+		void ShowNotifications();
 
 		std::string FileDialog(std::string title, std::string filters);
 
@@ -82,6 +107,9 @@ namespace GBA::video::renderer {
 
 		void Rewind(bool forward);
 		void DoSavestate(std::string const& path, bool store);
+
+		void LoadTexture(std::string const& path, std::string const& name);
+		void DestroyTextures();
 
 	private :
 		SDL_Window* m_window;
@@ -126,5 +154,11 @@ namespace GBA::video::renderer {
 
 		audio::AudioDevice* m_audio;
 		bool m_mute;
+
+		bool m_show_achievements_window;
+		std::unordered_map<std::string, Texture> m_textures;
+		
+		std::vector<Notification> m_notifications;
+		uint32_t m_notification_sound_device;
 	};
 }

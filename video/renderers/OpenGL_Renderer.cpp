@@ -16,7 +16,12 @@
 
 #include "../../thirdparty/ImGuiFileDialog/ImGuiFileDialog.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "../../thirdparty/stb/stb_image.h"
+
 #include <vector>
+#include <filesystem>
+#include <fstream>
 
 #include <fmt/format.h>
 
@@ -31,11 +36,32 @@ namespace GBA::video::renderer {
 		m_alt_status{false}, m_enable_hooks{hooks_enable},
 		m_emu{nullptr}, m_show_cheat_insert_win{false},
 		m_last_frame_timestamp{}, m_curr_fps{},
-		m_audio{nullptr}, m_mute{false}
+		m_audio{nullptr}, m_mute{false},
+		m_show_achievements_window{false},
+		m_textures{}, m_notifications{},
+		m_notification_sound_device{}
 	{
 		m_gl_data.placeholder_data = new float[240 * 160 * 3];
-
 		std::fill_n(m_gl_data.placeholder_data, 240 * 160 * 3, 0.5f);
+
+		SDL_AudioSpec dev_spec{};
+		dev_spec.samples  = 4096;
+		dev_spec.freq     = 44100;
+		dev_spec.channels = 2;
+		dev_spec.format   = AUDIO_S16;
+		dev_spec.callback = nullptr;
+
+		SDL_AudioSpec got{};
+
+		m_notification_sound_device = uint32_t(SDL_OpenAudioDevice(
+			nullptr, 0, &dev_spec, &got, 0
+		));
+		SDL_PauseAudioDevice(SDL_AudioDeviceID(m_notification_sound_device), 1);
+
+		if (m_notification_sound_device == 0) {
+			fmt::println("[OPENGL] Could not open notification audio device");
+			throw std::runtime_error("Could not open device");
+		}
 	}
 
 	void OpenGL::CheckForErrors() {
@@ -704,6 +730,309 @@ namespace GBA::video::renderer {
 		}
 	}
 
+	void OpenGL::AchievementsMenu() {
+		if (ImGui::BeginMenu("Achievements")) {
+			ImGui::Checkbox("Show window", &m_show_achievements_window);
+			ImGui::EndMenu();
+		}
+	}
+
+	void OpenGL::AchievementsWindow() {
+		ImGui::Begin("Achievements", &m_show_achievements_window);
+		
+		auto& ra = m_emu->GetRetroAchievements();
+
+		if (ra.IsLoggedIn()) {
+			auto const& user = ra.GetUser();
+
+			ImGui::Text("Retro Achivemenets Summary");
+
+			if (!m_textures.contains("user_avatar")) {
+				LoadTexture(ra.GetAvatarPath(), "user_avatar");
+			}
+
+			{
+				ImGui::BeginTable("UserDesc", 2, ImGuiTableFlags_Resizable);
+
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				
+				{
+					auto const& texture = m_textures["user_avatar"];
+					ImGui::Image(ImTextureID(texture.texture_id), ImVec2(
+						float(texture.width), float(texture.height)
+					));
+				}
+
+				ImGui::TableNextColumn();
+				ImGui::Text("Logged in as   : %s", user.username.c_str());
+				ImGui::Text("Total points   : %u", user.user_internal.score);
+				ImGui::Text("Softcore points: %u", user.user_internal.score_softcore);
+
+				ImGui::EndTable();
+			}
+			
+
+			ImGui::Separator();
+			auto game_info = ra.GetGameInfo();
+			ImGui::Text("Game title: %s", game_info->title);
+
+			if (!m_textures.contains("game_badge")) {
+				LoadTexture(ra.GetGameBadgePath(), "game_badge");
+			}
+
+			{
+				auto const& texture = m_textures["game_badge"];
+				ImGui::Image(ImTextureID(texture.texture_id), ImVec2(
+					float(texture.width), float(texture.height)
+				));
+			}
+
+			auto const& game_summary = ra.GetUserGameSummary();
+			ImGui::Text("Unlocked %u of %u achievements",
+				game_summary.num_unlocked_achievements,
+				game_summary.num_core_achievements);
+
+			
+			for (auto const& bucket : ra.GetAchievements()) {
+				auto const& ach_list = bucket.second;
+
+				auto table_name = fmt::format("AchTable_{}", bucket.first);
+
+				ImGui::Separator();
+				ImGui::Text("%s", bucket.first.c_str());
+				ImGui::BeginTable(table_name.c_str(), 3, ImGuiTableFlags_Borders |
+					ImGuiTableFlags_Resizable);
+
+				for (auto const& ach : ach_list) {
+					auto image_path = ra.GetGameCachePath();
+					image_path += fmt::vformat(ach.unlocked ?
+						"/{}_unlocked.png" : "/{}_locked.png",
+						fmt::make_format_args(ach.name));
+
+					ImGui::TableNextRow();
+
+					ImGui::TableNextColumn();
+					
+					std::string texture_name = ach.name;
+					texture_name += ach.unlocked ? "_unlocked" : "_locked";
+					if (!m_textures.contains(texture_name)) {
+						LoadTexture(image_path, texture_name);
+					}
+
+					{
+						auto const& texture = m_textures[texture_name];
+						ImGui::Image(ImTextureID(texture.texture_id), ImVec2(
+							float(texture.width), float(texture.height)
+						));
+					}
+
+					ImGui::TableNextColumn();
+					ImGui::Text("%s", ach.description.c_str());
+					ImGui::TableNextColumn();
+
+					if (ach.type == emulation::RetroAchievements::RA_AchievementType::UNOFFICIAL) {
+						ImGui::Text("Unofficial");
+					}
+					else {
+						ImGui::Text("Core");
+					}
+					
+				}
+
+				ImGui::EndTable();
+			}
+
+		}
+		else {
+			ImGui::Text("Not signed in");
+		}
+
+		ImGui::End();
+	}
+
+	void OpenGL::AppendAchievementNotifications() {
+		if (!m_emu->GetAchievementsEnabled())
+			return;
+
+		auto& ra = m_emu->GetRetroAchievements();
+
+		//////////////////////////////////////
+
+		auto& progress_updates = ra.GetProgressUpdates();
+
+		for (auto& ach : progress_updates) {
+			auto image_path = ra.GetGameCachePath();
+			image_path += fmt::format("/{}_locked.png",
+				ach.name);
+			std::string texture_name = fmt::format("{}_locked",
+				ach.name);
+
+			if (!m_textures.contains(texture_name)) {
+				LoadTexture(image_path, texture_name);
+			}
+
+			{
+				Notification notification{};
+				notification.name = fmt::format("{}_progress_update", ach.name);
+				notification.texture_id = texture_name;
+				notification.text_lines.push_back(ach.progress);
+				m_notifications.push_back(std::move(notification));
+			}
+		}
+
+		ra.ClearProgressUpdates();
+
+		///////////////////////////////////////
+
+		auto& recently_unlocked = ra.GetRecentlyUnlocked();
+
+		for (auto& ach : recently_unlocked) {
+			auto image_path = ra.GetGameCachePath();
+			image_path += fmt::format("/{}_unlocked.png",
+				ach.name);
+			std::string texture_name = fmt::format("{}_unlocked", 
+				ach.name);
+			
+			if (!m_textures.contains(texture_name)) {
+				LoadTexture(image_path, texture_name);
+			}
+
+			{
+				Notification notification{};
+				notification.name = texture_name;
+				notification.texture_id = texture_name;
+				notification.text_lines.push_back("Achievement unlocked!");
+				notification.text_lines.push_back(ach.description);
+				notification.notification_sound_file = std::filesystem::path{
+					"./assets/sound/unlock.wav"
+				};
+				m_notifications.push_back(std::move(notification));
+			}
+		}
+
+		ra.ClearRecentlyUnlocked();
+
+		//////////////////////////////////////////////
+
+		if (ra.mastery_achieved_interrupt) {
+			ra.mastery_achieved_interrupt = false;
+
+			if (!m_textures.contains("game_badge")) {
+				LoadTexture(ra.GetGameBadgePath(), "game_badge");
+			}
+
+			{
+				auto const& game_summary = ra.GetUserGameSummary();
+
+				Notification notification{};
+				notification.name = "mastery";
+				notification.texture_id = "game_badge";
+				notification.text_lines.push_back("Game completed!");
+				notification.text_lines.push_back(fmt::format("{} achievements, {} points", 
+					game_summary.num_core_achievements, 
+					game_summary.points_core));
+				notification.notification_sound_file = std::filesystem::path{
+					"./assets/sound/unlock.wav"
+				};
+				m_notifications.push_back(std::move(notification));
+			}
+		}
+	}
+
+	void OpenGL::ShowNotifications() {
+		if (m_notifications.empty())
+			return;
+
+		auto& notification = m_notifications.front();
+
+		if (!notification.showing) {
+			notification.showing = true;
+			notification.start_time = std::chrono::system_clock::now();
+
+			SDL_AudioSpec wav_spec{};
+			Uint32 wav_len{};
+			Uint8* wav_buf{nullptr};
+
+			if (notification.notification_sound_file.has_value()) {
+				auto const& sound_file = notification.notification_sound_file.value();
+				auto sound_file_str = sound_file.string();
+				if (std::filesystem::exists(sound_file) &&
+					sound_file.extension().string() == ".wav" &&
+					SDL_LoadWAV(sound_file_str.c_str(), &wav_spec, &wav_buf, 
+						&wav_len)) {
+					SDL_PauseAudioDevice(SDL_AudioDeviceID(m_notification_sound_device), 0);
+					SDL_QueueAudio(SDL_AudioDeviceID(m_notification_sound_device),
+						wav_buf, wav_len);
+					SDL_FreeWAV(wav_buf);
+				}
+			}
+		}
+
+		auto window_name = fmt::format("{}_notification",
+			notification.name);
+
+		ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
+		ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.4f, 0.5f));
+		ImGui::Begin(window_name.c_str(), nullptr,
+			ImGuiWindowFlags_NoCollapse |
+			ImGuiWindowFlags_NoFocusOnAppearing |
+			ImGuiWindowFlags_NoInputs |
+			ImGuiWindowFlags_NoTitleBar |
+			ImGuiWindowFlags_AlwaysAutoResize
+		);
+
+		if (notification.texture_id.has_value()) {
+			auto const& texture_id = notification.texture_id.value();
+
+			auto table_name = fmt::format("{}_notification_table",
+				notification.name);
+			//Use table
+			ImGui::BeginTable(table_name.c_str(), 2);
+			ImGui::TableNextRow();
+
+			ImGui::TableNextColumn();
+
+			for (auto const& text_line : notification.text_lines) {
+				ImGui::Text(text_line.c_str());
+			}
+			
+			ImGui::PopStyleColor();
+			ImGui::TableNextColumn();
+
+			{
+				auto const& texture = m_textures[texture_id];
+				ImGui::Image(ImTextureID(texture.texture_id), ImVec2(
+					40.0f, 40.0f
+				));
+			}
+
+			ImGui::EndTable();
+		}
+		else {
+			//Use normal text lines
+			for (auto const& text_line : notification.text_lines) {
+				ImGui::Text(text_line.c_str());
+			}
+
+			ImGui::PopStyleColor();
+		}
+
+		auto now = std::chrono::system_clock::now();
+		auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+			now - notification.start_time
+		).count();
+
+		if (elapsed >= Notification::NOTIFICATION_DURATION_SECONDS) {
+			if (notification.notification_sound_file.has_value()) {
+				SDL_PauseAudioDevice(SDL_AudioDeviceID(m_notification_sound_device), 1);
+			}
+			m_notifications.erase(m_notifications.begin());
+		}
+
+		ImGui::End();
+	}
+
 	void OpenGL::UpdateWindowTitle() {
 		static uint64_t last_fps_count{0};
 
@@ -740,24 +1069,42 @@ namespace GBA::video::renderer {
 
 		glBindVertexArray(0);
 
-		if (m_show_menu_bar) {
+		AppendAchievementNotifications();
+
+		bool showing_notification = !m_notifications.empty();
+
+		if (m_show_menu_bar || showing_notification) {
 			ImGui_ImplOpenGL3_NewFrame();
 			ImGui_ImplSDL2_NewFrame();
 			ImGui::NewFrame();
 
-			ImGui::BeginMainMenuBar();
+			if (m_show_menu_bar) {
+				ImGui::BeginMainMenuBar();
 
-			FileMenu();
-			EmulationMenu();
-			CheatMenu();
-			RewindMenu();
-			AudioMenu();
-			VideoMenu();
+				FileMenu();
+				EmulationMenu();
+				CheatMenu();
+				RewindMenu();
+				AudioMenu();
+				VideoMenu();
 
-			ImGui::EndMainMenuBar();
+				if (m_emu->GetAchievementsEnabled()) {
+					AchievementsMenu();
+				}
+
+				ImGui::EndMainMenuBar();
+			}
+
+			if (showing_notification) {
+				ShowNotifications();
+			}
 
 			if (m_show_cheat_insert_win) {
 				CheatInsertWindow();
+			}
+
+			if (m_show_achievements_window) {
+				AchievementsWindow();
 			}
 
 			ImGui::Render();
@@ -804,6 +1151,115 @@ namespace GBA::video::renderer {
 		}
 	}
 
+	void OpenGL::LoadTexture(std::string const& path, std::string const& name) {
+		if (!std::filesystem::exists(path)) {
+			fmt::println("[OPENGL] Could not load image from {}", path);
+			return;
+		}
+
+		int w{}, h{}, channels{};
+
+#ifdef _MSC_VER
+		FILE* fd{ nullptr };
+		(void)fopen_s(&fd, path.c_str(), "r+b");
+#else
+		auto fd = std::fopen(path.c_str(), "r+b");
+#endif 
+
+		if (fd == nullptr) {
+			fmt::println("[OPENGL] Could not load image from {}", path);
+			return;
+		}
+		
+		auto loaded_image = stbi_load_from_file(fd, &w, &h, &channels, 4);
+
+		if (loaded_image == nullptr) {
+			fmt::println("[OPENGL] Could not load image from {}", path);
+			return;
+		}
+
+		GLuint texture_id{};
+		glGenTextures(1, &texture_id);
+		glBindTexture(GL_TEXTURE_2D, texture_id);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+		glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA,
+			GL_UNSIGNED_BYTE, std::bit_cast<void*>(loaded_image));
+
+		glBindTexture(GL_TEXTURE_2D, 0);
+
+		stbi_image_free(loaded_image);
+		std::fclose(fd);
+
+		CheckForErrors();
+
+		m_textures[name] = Texture{
+			.texture_id = texture_id,
+			.width  = uint32_t(w),
+			.height = uint32_t(h)
+		};
+	}
+
+	void OpenGL::DestroyTextures() {
+		for (auto& [_, texture] : m_textures) {
+			glDeleteTextures(1, std::bit_cast<GLuint*>(&texture));
+		}
+	}
+
+	void OpenGL::SetupNotifications() {
+		if (m_emu->GetAchievementsEnabled()) {
+			auto& ra = m_emu->GetRetroAchievements();
+			auto& user = ra.GetUser();
+
+			{
+				std::string avatar_text = fmt::format("Logged in as: {}",
+					user.username);
+
+				Notification notification{};
+				notification.name = "show_avatar";
+				notification.texture_id = std::string{"user_avatar"};
+				notification.text_lines.push_back(avatar_text);
+				notification.text_lines.push_back(fmt::format(
+					"Score : {}", user.user_internal.score
+				));
+				m_notifications.push_back(std::move(notification));
+
+				if (!m_textures.contains("user_avatar")) {
+					LoadTexture(ra.GetAvatarPath(), "user_avatar");
+				}
+			}
+
+			{
+				auto game_info = ra.GetGameInfo();
+				auto const& game_summary = ra.GetUserGameSummary();
+
+				Notification notification{};
+				notification.name = "game_loaded";
+				notification.texture_id = std::string{"game_badge"};
+				notification.text_lines.push_back(fmt::format(
+					"Loaded: {}", game_info->title
+				));
+				notification.text_lines.push_back(fmt::format(
+					"Unlocked {}/{} achievements", 
+					game_summary.num_unlocked_achievements, 
+					game_summary.num_core_achievements
+				));
+				m_notifications.push_back(std::move(notification));
+
+				if (!m_textures.contains("game_badge")) {
+					LoadTexture(ra.GetGameBadgePath(), "game_badge");
+				}
+			}
+
+		}
+	}
+
 	void OpenGL::OnPauseChange(bool is_paused) {
 		if (m_pause != is_paused && !is_paused) {
 			m_emu->RewindPop();
@@ -814,12 +1270,19 @@ namespace GBA::video::renderer {
 
 	OpenGL::~OpenGL() {
 		if (m_gl_context) {
+			DestroyTextures();
 			ImGui_ImplOpenGL3_Shutdown();
 			ImGui_ImplSDL2_Shutdown();
 			ImGui::DestroyContext();
 			glDeleteTextures(1, &m_gl_data.texture_id);
 			SDL_GL_DeleteContext(m_gl_context);
 			SDL_DestroyWindow(m_window);
+		}
+
+		if (m_notification_sound_device != 0) {
+			SDL_PauseAudioDevice(SDL_AudioDeviceID(m_notification_sound_device),
+				1);
+			SDL_CloseAudioDevice(SDL_AudioDeviceID(m_notification_sound_device));
 		}
 
 		delete[] m_gl_data.placeholder_data;

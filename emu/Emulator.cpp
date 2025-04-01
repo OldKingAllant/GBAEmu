@@ -15,13 +15,11 @@ namespace GBA::emulation {
 		m_ctx{}, m_bios_loc{},
 		m_rewind_buf_size{}, m_rewind_buf{},
 		m_rewind_pos{}, m_enable_rewind{false},
-		
 		m_reset_state{}, m_is_init{false}, 
-		
 		m_cheats{}, m_enabled_cheats{},
 		m_hooks{}, m_enable_hooks{false},
-
-		m_log_hle{false}
+		m_log_hle{false},
+		m_enable_ra{false}, m_ra{}
 	{}
 
 	Emulator::Emulator(std::string_view rom_location, std::string_view bios_location) :
@@ -159,6 +157,10 @@ namespace GBA::emulation {
 			}
 
 		}
+
+		if (m_enable_ra) {
+			m_ra->ClientDoFrame();
+		}
 	}
 
 	void Emulator::ProcessHooks() {
@@ -201,6 +203,11 @@ namespace GBA::emulation {
 	}
 
 	void Emulator::LoadState(std::string const& path) {
+		if (m_enable_ra) {
+			fmt::println("[EMU] Cannot load state when retroachievements are enabled");
+			return;
+		}
+
 		std::ifstream in{ path, std::ios::in | std::ios::binary };
 
 		if (!in.is_open()) {
@@ -233,6 +240,10 @@ namespace GBA::emulation {
 	}
 
 	bool Emulator::LoadFromCurrentHistoryPosition() {
+		if (m_enable_ra) {
+			return false;
+		}
+
 		auto state = m_rewind_buf.begin();
 
 		for (u32 curr_pos = 1; curr_pos < m_rewind_pos; curr_pos++) {
@@ -244,6 +255,11 @@ namespace GBA::emulation {
 	}
 
 	bool Emulator::RewindBackward() {
+		if (m_enable_ra) {
+			fmt::println("[EMU] Cannot rewind when retroachievements are enabled");
+			return false;
+		}
+
 		if (m_rewind_buf.empty() || m_rewind_pos == m_rewind_buf.size())
 			return false;
 
@@ -252,6 +268,11 @@ namespace GBA::emulation {
 	}
 
 	bool Emulator::RewindForward() {
+		if (m_enable_ra) {
+			fmt::println("[EMU] Cannot rewind when retroachievements are enabled");
+			return false;
+		}
+
 		if (m_rewind_buf.empty() || m_rewind_pos == 0)
 			return false;
 
@@ -278,6 +299,11 @@ namespace GBA::emulation {
 		savestate::LoadFromBuffer(m_reset_state, this);
 		m_rewind_buf.clear();
 		m_rewind_pos = 0;
+
+		if (m_enable_ra) {
+			m_ra->ClientReset();
+		}
+
 		return true;
 	}
 
@@ -302,6 +328,11 @@ namespace GBA::emulation {
 	}
 
 	bool Emulator::EnableCheat(std::string const& name) {
+		if (m_enable_ra) {
+			fmt::println("[CHEATS] Cannot enable cheats when retroachievements are enabled");
+			return false;
+		}
+
 		if (m_cheats.find(name) == m_cheats.cend()) { return false; }
 		if (std::find(m_enabled_cheats.cbegin(), m_enabled_cheats.cend(), name)
 			!= m_enabled_cheats.cend()) 
@@ -366,6 +397,18 @@ namespace GBA::emulation {
 
 		if (position != m_hooks.end())
 			m_hooks.erase(position);
+	}
+
+	void Emulator::EnableAchievements(std::string const& credentials_path) {
+		m_enable_ra = true;
+		m_ra = std::make_unique<RetroAchievements>(this, credentials_path);
+		m_ra->LoadGame(m_ctx.pack.GetRomBase(), m_ctx.pack.GetRomSize());
+	}
+
+	void Emulator::RetroAchievementsClientIdle() {
+		if (m_enable_ra) {
+			m_ra->ClientIdle();
+		}
 	}
 
 	Emulator::~Emulator() {

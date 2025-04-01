@@ -65,6 +65,14 @@ namespace GBA::gamepack {
 			return m_internal_name;
 		}
 
+		inline u8* GetRomBase() const {
+			return m_rom;
+		}
+
+		inline std::size_t GetRomSize() const {
+			return m_info.file_size;
+		}
+
 	private :
 		bool MapFile();
 		bool UnMapFile();
