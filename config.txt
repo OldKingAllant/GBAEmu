@@ -28,11 +28,11 @@ waitloop_detection = true
 
 [ROM]
 #default_rom = ./testRoms/tonc/bm_modes.gba
-default_rom = ./testRoms/SuperMarioWorldEU.gba
+default_rom = ./testRoms/PokemonEmerald.gba
 
 [cheats]
 enable_hooks = 
 
 [ACHIEVEMENTS]
-enable = true
+enable = false
 credentials_file = ./rc_credentials/credentials.txt
