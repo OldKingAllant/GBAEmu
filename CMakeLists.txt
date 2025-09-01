@@ -63,6 +63,7 @@ set(Header_Files
     "gamepack/Header.hpp"
     "gamepack/mapping/FileMapping.hpp"
     "gamepack/mapping/windows.hpp"
+    "gamepack/mapping/linux.hpp"
     "memory/Bus.hpp"
     "memory/DirectMemoryAccess.hpp"
     "memory/DMAFireType.hpp"
@@ -160,7 +161,6 @@ set(Source_Files
     "source/gamepack/gpio/RTC.cpp"
     "source/gamepack/Header.cpp"
     "source/gamepack/mapping/FileMapping.cpp"
-    "source/gamepack/mapping/windows.cpp"
     "source/memory/Bus.cpp"
     "source/memory/DirectMemoryAccess.cpp"
     "source/memory/EventScheduler.cpp"
@@ -181,6 +181,13 @@ set(Source_Files
     "source/ppu/PPU.cpp"
     "video/renderers/OpenGL_Renderer.cpp"
 )
+
+if(WIN32)
+    list(APPEND ${Source_Files} "source/gamepack/mapping/windows.cpp")
+else()
+    list(APPEND ${Source_Files} "source/gamepack/mapping/linux.cpp")
+endif()
+
 source_group("Source Files" FILES ${Source_Files})
 
 set(Source_Files__ImGui
