@@ -1,5 +1,7 @@
 #include "BiosAffine.hpp"
 
+#include <cmath>
+
 namespace GBA::hle::affine {
 	static bool ObjAffineSet(memory::Bus* bus, cpu::CPUContext& ctx, bool& branch) {
 		auto& regs = ctx.m_regs;
