@@ -361,6 +361,6 @@ add_dependencies(${PROJECT_NAME}
 )
 
 target_link_directories(${PROJECT_NAME} PRIVATE "${PROJECT_SOURCE_DIR}/RetroAchievements")
-target_link_librarier(${PROJECT_NAME} PRIVATE "RetroAchievements")
+target_link_libraries(${PROJECT_NAME} PRIVATE "RetroAchievements")
 
 
