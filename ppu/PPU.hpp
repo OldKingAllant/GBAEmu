@@ -10,6 +10,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <semaphore>
+#include <algorithm>
 
 namespace GBA::memory {
 	class MMIO;
