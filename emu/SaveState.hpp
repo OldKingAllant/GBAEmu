@@ -48,7 +48,7 @@ namespace GBA::savestate {
 			ar(game_name);
 
 			if (magic != MAGIC || version != VERSION) {
-				fmt::println("Loading savestate failed, invalid magic or version");
+				fmt::print("Loading savestate failed, invalid magic or version\n");
 				return;
 			}
 
@@ -57,7 +57,7 @@ namespace GBA::savestate {
 			std::copy_n(title, game_name.size(), curr_name.data());
 
 			if (curr_name != game_name) {
-				fmt::println("Loading savestate failed, game id does not match");
+				fmt::print("Loading savestate failed, game id does not match\n");
 				return;
 			}
 

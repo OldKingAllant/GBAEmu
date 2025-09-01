@@ -181,7 +181,7 @@ namespace GBA::emulation {
 		auto curr_event = sched.NextEvent(); 
 
 		if (!curr_event.has_value()) { 
-			fmt::println("[EMU] Found empty scheduler queue when halted!");
+			fmt::print("[EMU] Found empty scheduler queue when halted!\n");
 			return;
 		}
 
@@ -192,7 +192,7 @@ namespace GBA::emulation {
 		std::ofstream out{ path, std::ios::out };
 
 		if (!out.is_open()) {
-			fmt::println("Save state failed!");
+			fmt::print("Save state failed!\n");
 			return;
 		}
 
@@ -204,14 +204,14 @@ namespace GBA::emulation {
 
 	void Emulator::LoadState(std::string const& path) {
 		if (m_enable_ra) {
-			fmt::println("[EMU] Cannot load state when retroachievements are enabled");
+			fmt::print("[EMU] Cannot load state when retroachievements are enabled\n");
 			return;
 		}
 
 		std::ifstream in{ path, std::ios::in | std::ios::binary };
 
 		if (!in.is_open()) {
-			fmt::println("Load state failed!");
+			fmt::print("Load state failed!\n");
 			return;
 		}
 
@@ -256,7 +256,7 @@ namespace GBA::emulation {
 
 	bool Emulator::RewindBackward() {
 		if (m_enable_ra) {
-			fmt::println("[EMU] Cannot rewind when retroachievements are enabled");
+			fmt::print("[EMU] Cannot rewind when retroachievements are enabled\n");
 			return false;
 		}
 
@@ -269,7 +269,7 @@ namespace GBA::emulation {
 
 	bool Emulator::RewindForward() {
 		if (m_enable_ra) {
-			fmt::println("[EMU] Cannot rewind when retroachievements are enabled");
+			fmt::print("[EMU] Cannot rewind when retroachievements are enabled\n");
 			return false;
 		}
 
@@ -329,7 +329,7 @@ namespace GBA::emulation {
 
 	bool Emulator::EnableCheat(std::string const& name) {
 		if (m_enable_ra) {
-			fmt::println("[CHEATS] Cannot enable cheats when retroachievements are enabled");
+			fmt::print("[CHEATS] Cannot enable cheats when retroachievements are enabled\n");
 			return false;
 		}
 
