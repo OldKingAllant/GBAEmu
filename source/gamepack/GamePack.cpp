@@ -9,6 +9,7 @@
 #include "../../common/Logger.hpp"
 
 #include <cstring>
+#include <algorithm>
 
 namespace GBA::gamepack {
 
