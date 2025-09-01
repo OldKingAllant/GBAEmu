@@ -448,47 +448,9 @@ namespace GBA::emulation {
 		Poco::URI uri{url};
 
 		if (std::filesystem::exists(dest)) {
-			Poco::Net::HTTPRequest request{};
-			request.setMethod(Poco::Net::HTTPRequest::HTTP_HEAD);
-			request.setURI(uri.getPathAndQuery());
-			request.setVersion(Poco::Net::HTTPRequest::HTTP_1_1);
-
-			Poco::Net::HTTPClientSession session{};
-			session.setHost(uri.getHost());
-			session.setPort(80);
-
-			session.setKeepAlive(false);
-			session.sendRequest(request);
-
-			Poco::Net::HTTPResponse response{};
-			auto& response_stream = session.receiveResponse(response);
-
-			auto status = response.getStatus();
-
-			if (status != Poco::Net::HTTPResponse::HTTP_OK) {
-				fmt::print("[ACHIEVEMENTS] Image fetch failed at {}\n",
-					url);
-				return;
-			}
-
-			auto& last_modified_remote = response.get("Last-Modified");
-			std::istringstream is{last_modified_remote};
-			std::tm gmtime{};
-			is >> std::get_time(&gmtime, "%a, %d %b %Y %H:%M:%S GMT");
-
-			auto last_modified_remote_time = mktime(&gmtime);
-			auto last_modified_remote_sys  = 
-				std::chrono::system_clock::from_time_t(last_modified_remote_time);
-
-			auto last_modified = std::filesystem::last_write_time(dest);
-			auto time_utc      = std::chrono::file_clock::to_utc(last_modified);
-			auto time_sys      = std::chrono::utc_clock::to_sys(time_utc);
-			
-			if (time_sys >= last_modified_remote_sys) {
-				fmt::print("[ACHIEVEMENTS] Using cached image {}\n",
-					dest);
-				return;
-			}
+			fmt::print("[ACHIEVEMENTS] Using cached image {}\n",
+				dest);
+			return;
 		}
 
 		Poco::Net::HTTPRequest request{};
