@@ -84,7 +84,7 @@ namespace GBA::cheats {
 		std::list<CheatDirective> parsed_list{};
 
 		if (directives.size() & 1) {
-			fmt::println("[CHEATS] Unexpected number of directives, must be even");
+			fmt::print("[CHEATS] Unexpected number of directives, must be even\n");
 			return parsed_list;
 		}
 
@@ -102,7 +102,7 @@ namespace GBA::cheats {
 				enc_l, enc_r, seeds
 			);
 
-			fmt::println("[CHEATS] Unimplemented GS opcode");
+			fmt::print("[CHEATS] Unimplemented GS opcode\n");
 		}
 
 		return parsed_list;

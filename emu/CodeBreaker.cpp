@@ -326,7 +326,7 @@ namespace GBA::cheats {
 			return _CB_ChangeEncryption(address, value, enc_ctx);
 			break;
 		default:
-			fmt::println("[CHEATS] Unknown CB opcode: {:#x}",
+			fmt::print("[CHEATS] Unknown CB opcode: {:#x}\n",
 				uint32_t(opcode));
 			return false;
 		}
@@ -341,7 +341,7 @@ namespace GBA::cheats {
 		_CB_EncryptionContext enc_ctx{};
 
 		if (directives.size() & 1) {
-			fmt::println("[CHEATS] Unexpected number of directives, must be even");
+			fmt::print("[CHEATS] Unexpected number of directives, must be even\n");
 			return parsed_directives;
 		}
 
