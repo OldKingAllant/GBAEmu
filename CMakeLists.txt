@@ -360,11 +360,7 @@ add_dependencies(${PROJECT_NAME}
     RetroAchievements
 )
 
-if("${CMAKE_VS_PLATFORM_NAME}" STREQUAL "x64")
-    set(ADDITIONAL_LIBRARY_DEPENDENCIES
-        "$<$<CONFIG:Release>:"
-        "$(OutDir)/RetroAchievements"
-    )
-endif()
-target_link_libraries(${PROJECT_NAME} PRIVATE "${ADDITIONAL_LIBRARY_DEPENDENCIES}")
+target_link_directories(${PROJECT_NAME} PRIVATE "${PROJECT_SOURCE_DIR}/RetroAchievements")
+target_link_librarier(${PROJECT_NAME} PRIVATE "RetroAchievements")
+
 
