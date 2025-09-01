@@ -205,7 +205,6 @@ namespace GBA::emulation {
 		}
 
 		inline RetroAchievements& GetRetroAchievements() {
-			_ASSERT(m_enable_ra);
 			return *m_ra.get();
 		}
 

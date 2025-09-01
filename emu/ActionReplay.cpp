@@ -93,7 +93,7 @@ namespace GBA::cheats {
 		auto action    = AR_CondAction(cond_descriptor & AR_COND_ACTION_MASK);
 
 		if (action == AR_CondAction::OFF) {
-			fmt::println("[CHEATS] Unimplemented AR action OFF");
+			fmt::print("[CHEATS] Unimplemented AR action OFF\n");
 			return false;
 		}
 
@@ -162,7 +162,7 @@ namespace GBA::cheats {
 			if_block.then_size = 2;
 			break;
 		case AR_CondAction::BLOCK:
-			fmt::println("[CHEATS] Unimplemented AR if action: BLOCK");
+			fmt::print("[CHEATS] Unimplemented AR if action: BLOCK\n");
 			error::DebugBreak();
 			break;
 		case AR_CondAction::OFF:
@@ -210,7 +210,7 @@ namespace GBA::cheats {
 			auto zero = decrypted.second;
 
 			if (zero != 0x0) {
-				fmt::println("[CHEATS] Warning! Encountered AR patch without zero");
+				fmt::print("[CHEATS] Warning! Encountered AR patch without zero\n");
 			}
 
 			auto offset = value & 0xFF'FF'FF;
@@ -327,7 +327,7 @@ namespace GBA::cheats {
 		}
 			break;
 		default:
-			fmt::println("[CHEATS] Unimplemented AR special: {:#x}",
+			fmt::print("[CHEATS] Unimplemented AR special: {:#x}\n",
 				uint32_t(special_match));
 			return false;
 		}
@@ -371,7 +371,7 @@ namespace GBA::cheats {
 		switch (address_match)
 		{
 		case AR_OpcodeMatchSpecial::SEEDS:
-			fmt::println("[CHEATS] Changing AR seeds");
+			fmt::print("[CHEATS] Changing AR seeds\n");
 			_AR_Change_Seeds(value, seeds);
 			return true;
 		case AR_OpcodeMatchSpecial::SPECIAL:
@@ -486,7 +486,7 @@ namespace GBA::cheats {
 			};
 			break;
 		default:
-			fmt::println("[CHEATS] Unimplemented AR opcode {:#x}", uint32_t(opcode));
+			fmt::print("[CHEATS] Unimplemented AR opcode {:#x}\n", uint32_t(opcode));
 			return false;
 		}
 
@@ -499,7 +499,7 @@ namespace GBA::cheats {
 		std::list<CheatDirective> parsed_list{};
 
 		if (directives.size() & 1) {
-			fmt::println("[CHEATS] Unexpected number of directives, must be even");
+			fmt::print("[CHEATS] Unexpected number of directives, must be even\n");
 			return parsed_list;
 		}
 
