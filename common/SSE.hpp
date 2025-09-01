@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #if defined(__x86_64__) || defined(_M_AMD64)
+#include <immintrin.h>
 #include <xmmintrin.h>
 #endif
 
