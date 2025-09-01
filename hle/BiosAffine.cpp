@@ -21,8 +21,8 @@ namespace GBA::hle::affine {
 
 			float a{}, b{}, c{}, d{};
 
-			a = d = std::cosf(theta);
-			b = c = std::sinf(theta);
+			a = d = cosf(theta);
+			b = c = sinf(theta);
 
 			a *= sx;
 			b *= -sx;
