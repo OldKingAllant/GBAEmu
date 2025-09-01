@@ -284,7 +284,7 @@ namespace GBA::cheats {
 		}
 			break;
 		default:
-			fmt::println("[CHEATS] Encountered unknown instruction");
+			fmt::print("[CHEATS] Encountered unknown instruction\n");
 			error::DebugBreak();
 			break;
 		}
@@ -293,9 +293,9 @@ namespace GBA::cheats {
 	}
 
 	bool RunCheatInterpreter(CheatSet& cheat_set, emulation::Emulator* emu) {
-		auto directive_iter = cheat_set.directives.begin();
+		auto directive_iter = cheat_set.directives.cbegin();
 
-		while(directive_iter != cheat_set.directives.end()) {
+		while(directive_iter != cheat_set.directives.cend()) {
 			InterpretDirective(directive_iter, emu);
 			directive_iter++;
 		}
