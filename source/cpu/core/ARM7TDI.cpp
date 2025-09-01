@@ -354,7 +354,7 @@ namespace GBA::cpu {
 						if (event_changed_cpu || m_halt || m_bus->GetActiveDma() != memory::Bus::INVALID_DMA)
 							break;
 						if (CheckIRQ_NoReset()) [[unlikely]] {
-							fmt::println("[INTERPRETER] Unexpected IRQ during block");
+							fmt::print("[INTERPRETER] Unexpected IRQ during block\n");
 							break;
 						}
 						if (*block == nullptr) [[unlikely]]
@@ -829,11 +829,11 @@ namespace GBA::cpu {
 
 		loop.poll_address = poll_address;
 
-		fmt::println("[INTERPRETER] Found possible waitloop at {:#010x}, poll address = {:#010x}",
+		fmt::print("[INTERPRETER] Found possible waitloop at {:#010x}, poll address = {:#010x}\n",
 			loop.absolute_address, poll_address);
 
 		if (loop.instructions.size() == 3) {
-			fmt::println("[INTERPRETER] Marking block at {:#010x} as waitloop",
+			fmt::print("[INTERPRETER] Marking block at {:#010x} as waitloop\n",
 				loop.absolute_address);
 			loop.waitloop_evaluation = WaitloopState::WAITLOOP;
 			return;
@@ -851,7 +851,7 @@ namespace GBA::cpu {
 		u8 modified_reg{};
 		if (!waitloop::IsAllowed(u16(first_iter->orig_instruction), modified_reg)) {
 			loop.waitloop_evaluation = WaitloopState::NOT_WAITLOOP;
-			fmt::println("[INTERPRETER] Waitloop rejected, unsupported format");
+			fmt::print("[INTERPRETER] Waitloop rejected, unsupported format\n");
 			return;
 		}
 		++first_iter;
@@ -860,20 +860,20 @@ namespace GBA::cpu {
 			u8 mod_reg2{};
 			if (!waitloop::IsAllowed(u16(first_iter->orig_instruction), mod_reg2)) {
 				loop.waitloop_evaluation = WaitloopState::NOT_WAITLOOP;
-				fmt::println("[INTERPRETER] Waitloop rejected, unsupported format");
+				fmt::print("[INTERPRETER] Waitloop rejected, unsupported format\n");
 				return;
 			}
 
 			if (modified_reg != mod_reg2) {
 				loop.waitloop_evaluation = WaitloopState::NOT_WAITLOOP;
-				fmt::println("[INTERPRETER] Waitloop rejected, modifies more than one register");
+				fmt::print("[INTERPRETER] Waitloop rejected, modifies more than one register\n");
 				return;
 			}
 
 			++first_iter;
 		}
 
-		fmt::println("[INTERPRETER] Marking block at {:#010x} as waitloop",
+		fmt::print("[INTERPRETER] Marking block at {:#010x} as waitloop\n",
 			loop.absolute_address);
 
 		loop.waitloop_evaluation = WaitloopState::WAITLOOP;
@@ -887,16 +887,16 @@ namespace GBA::cpu {
 			poll_address);
 
 		if (!valid) [[unlikely]] {
-			fmt::println("[INTERPRETER] \"Impossible\" happened, waitloop does not start with a load instruction");
+			fmt::print("[INTERPRETER] \"Impossible\" happened, waitloop does not start with a load instruction\n");
 			error::DebugBreak();
 		}
 
 		if (loop.poll_address != poll_address) {
-			fmt::println("[INTERPRETER] Waitloop at {:#010x}, poll address changed",
+			fmt::print("[INTERPRETER] Waitloop at {:#010x}, poll address changed\n",
 				loop.absolute_address);
-			fmt::println("              PREV = {:#010x}, NEW = {:#010x}",
+			fmt::print("              PREV = {:#010x}, NEW = {:#010x}\n",
 				loop.poll_address, poll_address);
-			fmt::println("              Marking as non-waitloop");
+			fmt::print("              Marking as non-waitloop\n");
 			loop.waitloop_evaluation = WaitloopState::NOT_WAITLOOP;
 			return false;
 		}

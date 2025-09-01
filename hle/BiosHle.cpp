@@ -38,7 +38,7 @@ namespace GBA::hle {
 		auto iter = types.find(type_str);
 
 		if (iter == types.cend()) {
-			fmt::println("[HLE] Could not find datatype for \"{}\"",
+			fmt::print("[HLE] Could not find datatype for \"{}\"\n",
 				type_str);
 			return ArgType::INT32;
 		}
@@ -110,7 +110,7 @@ namespace GBA::hle {
 		std::pair<std::string, ArgType> const& param, memory::Bus* bus, 
 		cpu::CPUContext& ctx, std::ostringstream& os) {
 		if (param_pos >= 4) {
-			fmt::println("[HLE] Unimplemented, logging more than 4 parameters");
+			fmt::print("[HLE] Unimplemented, logging more than 4 parameters\n");
 			error::DebugBreak();
 		}
 
@@ -152,7 +152,7 @@ namespace GBA::hle {
 		auto descriptor_iter = DESCRIPTOR_TABLE.find(id);
 
 		if (descriptor_iter == DESCRIPTOR_TABLE.cend()) {
-			fmt::println("[HLE] Function {:#04x} called", id);
+			fmt::print("[HLE] Function {:#04x} called\n", id);
 			return;
 		}
 
@@ -170,7 +170,7 @@ namespace GBA::hle {
 
 		os << ")";
 
-		fmt::println("[HLE] {}", os.str());
+		fmt::print("[HLE] {}\n", os.str());
 	}
 
 	static FunctionTable CreateFunctionTable() {

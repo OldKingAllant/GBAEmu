@@ -119,7 +119,7 @@ int main(int argc, char* argv[]) {
 			save_path += "/" + fname + ".save";
 
 			if (std::filesystem::exists(save_path)) {
-				fmt::println("[EMU] Loading save from {}", save_path);
+				fmt::print("[EMU] Loading save from {}\n", save_path);
 				emu->GetContext().pack.LoadBackup(std::filesystem::path(save_path));
 			}
 		}

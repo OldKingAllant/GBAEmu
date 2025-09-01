@@ -37,7 +37,7 @@ namespace GBA::emulation {
 
 			if (region == memory::MEMORY_RANGE::BIOS ||
 				address + num_bytes > memory::REGIONS_LEN[u8(region)]) {
-				fmt::println("[ACHIEVEMENTS] Reading invalid address {:#010x}",
+				fmt::print("[ACHIEVEMENTS] Reading invalid address {:#010x}\n",
 					address);
 				return 0;
 			}
@@ -151,7 +151,7 @@ namespace GBA::emulation {
 		// Write log messages to the console
 		static void log_message(const char* message, const rc_client_t* client)
 		{
-			fmt::println("[ACHIEVEMENTS] {}", message);
+			fmt::print("[ACHIEVEMENTS] {}\n", message);
 		}
 
 		static void login_callback(int result, const char* error_message, rc_client_t* client, void* userdata)
@@ -159,7 +159,7 @@ namespace GBA::emulation {
 			// If not successful, just report the error and bail.
 			if (result != RC_OK)
 			{
-				fmt::println("[ACHIEVEMENTS] Login failed: {}", error_message);
+				fmt::print("[ACHIEVEMENTS] Login failed: {}\n", error_message);
 				return;
 			}
 
@@ -168,7 +168,7 @@ namespace GBA::emulation {
 			//store_retroachievements_credentials(user->username, user->token);
 
 			// Inform user of successful login
-			fmt::println("[ACHIEVEMENTS] Logged in as {} ({} points)", user->display_name, user->score);
+			fmt::print("[ACHIEVEMENTS] Logged in as {} ({} points)\n", user->display_name, user->score);
 
 			RetroAchievements* ra = std::bit_cast<RetroAchievements*>(userdata);
 			ra->SetLoggedIn();
@@ -179,7 +179,7 @@ namespace GBA::emulation {
 		{
 			if (result != RC_OK)
 			{
-				fmt::println("[ACHIEVEMENTS] RetroAchievements game load failed: {}", 
+				fmt::print("[ACHIEVEMENTS] RetroAchievements game load failed: {}\n", 
 					error_message);
 				return;
 			}
@@ -251,7 +251,7 @@ namespace GBA::emulation {
 			&iter)};
 
 		if (hash_success == 0) {
-			fmt::println("[ACHIEVEMENTS] Game load failed, could not generate hash");
+			fmt::print("[ACHIEVEMENTS] Game load failed, could not generate hash\n");
 			return;
 		}
 
@@ -381,7 +381,7 @@ namespace GBA::emulation {
 		case RC_CLIENT_EVENT_ACHIEVEMENT_PROGRESS_INDICATOR_HIDE:
 			break;
 		default:
-			fmt::println("[ACHIEVEMENTS] Unhandled Event! ({})", event->type);
+			fmt::print("[ACHIEVEMENTS] Unhandled Event! ({})\n", event->type);
 			break;
 		}
 	}
@@ -391,7 +391,7 @@ namespace GBA::emulation {
 
 		if (!std::filesystem::exists(credentials_file) ||
 			!std::filesystem::is_regular_file(credentials_file)) {
-			fmt::println("[ACHIEVEMENTS] Could not read credentials");
+			fmt::print("[ACHIEVEMENTS] Could not read credentials\n");
 			throw std::runtime_error("Invalid credentials");
 		}
 
@@ -401,13 +401,13 @@ namespace GBA::emulation {
 		}
 		
 		if (!credentials.has("CREDENTIALS")) {
-			fmt::println("[ACHIEVEMENTS] Could not read credentials");
+			fmt::print("[ACHIEVEMENTS] Could not read credentials\n");
 			throw std::runtime_error("Invalid credentials");
 		}
 
 		if (!credentials["CREDENTIALS"].has("username") ||
 			!credentials["CREDENTIALS"].has("password")) {
-			fmt::println("[ACHIEVEMENTS] Missing required credentials");
+			fmt::print("[ACHIEVEMENTS] Missing required credentials\n");
 			throw std::runtime_error("Invalid credentials");
 		}
 
@@ -466,7 +466,7 @@ namespace GBA::emulation {
 			auto status = response.getStatus();
 
 			if (status != Poco::Net::HTTPResponse::HTTP_OK) {
-				fmt::println("[ACHIEVEMENTS] Image fetch failed at {}",
+				fmt::print("[ACHIEVEMENTS] Image fetch failed at {}\n",
 					url);
 				return;
 			}
@@ -485,7 +485,7 @@ namespace GBA::emulation {
 			auto time_sys      = std::chrono::utc_clock::to_sys(time_utc);
 			
 			if (time_sys >= last_modified_remote_sys) {
-				fmt::println("[ACHIEVEMENTS] Using cached image {}",
+				fmt::print("[ACHIEVEMENTS] Using cached image {}\n",
 					dest);
 				return;
 			}
@@ -512,7 +512,7 @@ namespace GBA::emulation {
 			return;
 
 		if (response.getStatus() != Poco::Net::HTTPResponse::HTTP_OK) {
-			fmt::println("[ACHIEVEMENTS] Image fetch failed at {}",
+			fmt::print("[ACHIEVEMENTS] Image fetch failed at {}\n",
 				url);
 			return;
 		}
@@ -528,20 +528,20 @@ namespace GBA::emulation {
 		auto ach = GetAchievementByBadge(badge_name);
 
 		if (ach == nullptr) {
-			fmt::println("[ACHIEVEMENTS] Could not find achievement with badge {}",
+			fmt::print("[ACHIEVEMENTS] Could not find achievement with badge {}\n",
 				achievement->badge_name);
 			return;
 		}
 
 		if (ach->unlocked) {
-			fmt::println("[ACHIEVEMENTS] Achievement with badge {} already unlocked",
+			fmt::print("[ACHIEVEMENTS] Achievement with badge {} already unlocked\n",
 				achievement->badge_name);
 			return;
 		}
 
-		fmt::println("[ACHIEVEMENTS] Unlocked \"{}\"", ach->description);
+		fmt::print("[ACHIEVEMENTS] Unlocked \"{}\"\n", ach->description);
 		if (ach->type == RA_AchievementType::UNOFFICIAL) {
-			fmt::println("               Unofficial Achievement Unlocked");
+			fmt::print("               Unofficial Achievement Unlocked\n");
 		}
 		UpdateSummaries();
 		LoadAchievementList(false);
@@ -556,12 +556,12 @@ namespace GBA::emulation {
 		auto ach = GetAchievementByBadge(badge_name);
 		
 		if (ach == nullptr) {
-			fmt::println("[ACHIEVEMENTS] Could not find achievement with badge {}",
+			fmt::print("[ACHIEVEMENTS] Could not find achievement with badge {}\n",
 				achievement->badge_name);
 			return;
 		}
 
-		fmt::println("[ACHIEVEMENTS] Progress for {}, {}",
+		fmt::print("[ACHIEVEMENTS] Progress for {}, {}\n",
 			ach->name, achievement->measured_progress);
 
 		ach->progress = std::string{achievement->measured_progress};
@@ -573,12 +573,12 @@ namespace GBA::emulation {
 		auto ach = GetAchievementByBadge(badge_name);
 
 		if (ach == nullptr) {
-			fmt::println("[ACHIEVEMENTS] Could not find achievement with badge {}",
+			fmt::print("[ACHIEVEMENTS] Could not find achievement with badge {}\n",
 				achievement->badge_name);
 			return;
 		}
 
-		fmt::println("[ACHIEVEMENTS] Showing progress for {} = {}",
+		fmt::print("[ACHIEVEMENTS] Showing progress for {} = {}\n",
 			ach->description, achievement->measured_progress);
 
 		ach->progress = std::string{ achievement->measured_progress };

@@ -12,14 +12,14 @@ namespace GBA::hle::math {
 		auto denom = int32_t(regs.GetReg(1));
 
 		if (denom == 0) {
-			fmt::println("[HLE] Division by zero at {:#010x}",
+			fmt::print("[HLE] Division by zero at {:#010x}\n",
 				regs.GetReg(15));
 			return false;
 		}
 
 		if (denom == -1 &&
 			num == std::numeric_limits<int32_t>::min()) {
-			fmt::println("[HLE] Integer overflow at {:#010x}",
+			fmt::print("[HLE] Integer overflow at {:#010x}\n",
 				regs.GetReg(15));
 			return false;
 		}

@@ -59,7 +59,7 @@ namespace GBA::video::renderer {
 		SDL_PauseAudioDevice(SDL_AudioDeviceID(m_notification_sound_device), 1);
 
 		if (m_notification_sound_device == 0) {
-			fmt::println("[OPENGL] Could not open notification audio device");
+			fmt::print("[OPENGL] Could not open notification audio device\n");
 			throw std::runtime_error("Could not open device");
 		}
 	}
@@ -398,10 +398,10 @@ namespace GBA::video::renderer {
 
 					if (save != "NULL") {
 						if (!m_emu->GetContext().pack.LoadBackup(save)) {
-							fmt::println("[PPU] Load failed");
+							fmt::print("[EMU] Load failed\n");
 						}
 						else {
-							fmt::println("[PPU] Load successfull");
+							fmt::print("[EMU] Load successfull\n");
 						}
 					}
 
@@ -415,10 +415,10 @@ namespace GBA::video::renderer {
 
 					if (dest != "NULL") {
 						if (!m_emu->GetContext().pack.StoreBackup(dest)) {
-							fmt::println("[EMU] Save failed");
+							fmt::print("[EMU] Save failed\n");
 						}
 						else {
-							fmt::println("[EMU] Save OK");
+							fmt::print("[EMU] Save OK\n");
 						}
 					}
 
@@ -495,22 +495,22 @@ namespace GBA::video::renderer {
 					if (is_enabled) {
 						//Was off
 						if (m_emu->EnableCheat(name))
-							fmt::println("[CHEATS] Enabled \"{}\"", name);
+							fmt::print("[CHEATS] Enabled \"{}\"\n", name);
 						else 
-							fmt::println("[CHEATS] Could not enable \"{}\"", name);
+							fmt::print("[CHEATS] Could not enable \"{}\"\n", name);
 					}
 					else {
 						//Was on
 						m_emu->DisableCheat(name);
-						fmt::println("[CHEATS] Disabled \"{}\"", name);
-						fmt::println("[CHEATS] You may need to reset depending on the cheat");
+						fmt::print("[CHEATS] Disabled \"{}\"\n", name);
+						fmt::print("[CHEATS] You may need to reset depending on the cheat\n");
 					}
 				}
 
 			}
 
 			for (auto& cheat_name : cheats_for_deletion) {
-				fmt::println("[CHEATS] Removing \"{}\"", cheat_name);
+				fmt::print("[CHEATS] Removing \"{}\"\n", cheat_name);
 				m_emu->RemoveCheat(cheat_name);
 			}
 
@@ -648,7 +648,7 @@ namespace GBA::video::renderer {
 					SetFrame(framebuf);
 				}
 				else {
-					fmt::println("[EMU] Reset failed");
+					fmt::print("[EMU] Reset failed\n");
 				}
 			}
 
@@ -1123,7 +1123,7 @@ namespace GBA::video::renderer {
 				SetFrame(framebuf);
 			}
 			else {
-				fmt::println("[EMU] Cannot forward");
+				fmt::print("[EMU] Cannot forward\n");
 			}
 		}
 		else {
@@ -1134,7 +1134,7 @@ namespace GBA::video::renderer {
 				SetFrame(framebuf);
 			}
 			else {
-				fmt::println("[EMU] Cannot backward");
+				fmt::print("[EMU] Cannot backward\n");
 			}
 		}
 	}
@@ -1153,7 +1153,7 @@ namespace GBA::video::renderer {
 
 	void OpenGL::LoadTexture(std::string const& path, std::string const& name) {
 		if (!std::filesystem::exists(path)) {
-			fmt::println("[OPENGL] Could not load image from {}", path);
+			fmt::print("[OPENGL] Could not load image from {}\n", path);
 			return;
 		}
 
@@ -1167,14 +1167,14 @@ namespace GBA::video::renderer {
 #endif 
 
 		if (fd == nullptr) {
-			fmt::println("[OPENGL] Could not load image from {}", path);
+			fmt::print("[OPENGL] Could not load image from {}\n", path);
 			return;
 		}
 		
 		auto loaded_image = stbi_load_from_file(fd, &w, &h, &channels, 4);
 
 		if (loaded_image == nullptr) {
-			fmt::println("[OPENGL] Could not load image from {}", path);
+			fmt::print("[OPENGL] Could not load image from {}\n", path);
 			return;
 		}
 

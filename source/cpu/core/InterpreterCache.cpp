@@ -25,8 +25,8 @@ namespace GBA::cpu {
 
 	void InterpreterCache::SetPageLen(u32 region_sz) {
 		if ((region_sz & (region_sz - 1)) > 0) {
-			fmt::println("[INTERPRETER] Invalid region size, must be power of two!");
-			fmt::println("              Using previous size {}", m_page_len);
+			fmt::print("[INTERPRETER] Invalid region size, must be power of two!\n");
+			fmt::print("              Using previous size {}\n", m_page_len);
 		}
 
 		m_page_len = region_sz;
@@ -39,7 +39,7 @@ namespace GBA::cpu {
 		const auto THUMB_BLOCK_SIZE = m_block_len << 1;
 
 		if (ARM_BLOCK_SIZE > m_page_len || THUMB_BLOCK_SIZE > m_page_len) {
-			fmt::println("[INTERPRETER] Block size x2 or x4 > region size");
+			fmt::print("[INTERPRETER] Block size x2 or x4 > region size\n");
 			m_block_len  = DEFAULT_BLOCK_LEN;
 			m_page_len = DEFAULT_REGION_SZ;
 		}
@@ -163,7 +163,7 @@ namespace GBA::cpu {
 		auto& block_ptr = (*region_ptr)[region_offset];
 		if (block_ptr) [[unlikely]] {
 			//This might be a problem, not sure what to do here
-			fmt::println("[INTERPRETER] Replacing block at {:#010x}", address);
+			fmt::print("[INTERPRETER] Replacing block at {:#010x}\n", address);
 			block_ptr.reset();
 		}
 
@@ -212,7 +212,7 @@ namespace GBA::cpu {
 		auto second_page = GetPageFromAddress(end_address);
 
 		if (first_page != second_page) [[unlikely]] {
-			fmt::println("[INTERPRETER] Write crosses page boundary!");
+			fmt::print("[INTERPRETER] Write crosses page boundary!\n");
 			error::DebugBreak();
 		}
 
@@ -222,7 +222,7 @@ namespace GBA::cpu {
 
 			if (region == curr_block_region &&
 				first_page == curr_block_page) {
-				fmt::println("[INTERPRETER] Invalidating current block!");
+				fmt::print("[INTERPRETER] Invalidating current block!\n");
 				m_curr_block = nullptr;
 			}
 		}

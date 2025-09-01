@@ -551,7 +551,7 @@ namespace GBA::ppu {
 
 	void PPU::RenderThread::StartScanline() {
 		if (m_rendering_line) {
-			fmt::println("[PPU] Already rendering scanline!");
+			fmt::print("[PPU] Already rendering scanline!\n");
 			return;
 		}
 
@@ -567,7 +567,7 @@ namespace GBA::ppu {
 
 	void PPU::RenderThread::FinalizeScanline() {
 		if (!m_rendering_line) {
-			fmt::println("[PPU] Not rendering scanline!");
+			fmt::print("[PPU] Not rendering scanline!\n");
 			return;
 		}
 		m_rendering_line = false;
