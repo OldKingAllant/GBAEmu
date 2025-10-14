@@ -119,6 +119,12 @@ namespace GBA::cpu {
 		/// <param name="write_size"></param>
 		void Invalidate(u32 address, u32 write_size);
 
+		/// <summary>
+		/// Invalidate ALL blocks, reset
+		/// state to initial cache
+		/// </summary>
+		void Reset();
+
 		bool IsCacheable(u32 address) const;
 
 		static constexpr u32 IWRAM_END_ADDRESS = (4 << 24);

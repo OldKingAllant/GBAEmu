@@ -14,6 +14,8 @@ namespace GBA::savestate {
 
 		SaveState state{ emu };
 		ar(state);
+
+		emu->GetContext().processor.GetCache().Reset();
 	}
 
 	void StoreToFile(std::ofstream& fd, emulation::Emulator* emu) {
@@ -45,5 +47,7 @@ namespace GBA::savestate {
 
 		SaveState state{ emu };
 		ar(state);
+
+		emu->GetContext().processor.GetCache().Reset();
 	}
 }

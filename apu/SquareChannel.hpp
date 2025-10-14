@@ -61,6 +61,14 @@ namespace GBA::apu {
 			ar(m_curr_freq);
 			ar(m_enabled);
 			ar(m_seq);
+
+			if (m_curr_freq > 2047) {
+				m_curr_freq = 2047;
+			}
+
+			if (m_curr_wave_pos > 7) {
+				m_curr_wave_pos = 7;
+			}
 		}
 
 	private :

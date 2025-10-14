@@ -108,10 +108,19 @@ namespace GBA::cpu {
 
 		template <typename Ar>
 		void load(Ar& ar) {
-			ar(m_curr_mode);
+			u8 new_mode_temp{ 0 };
+
+			ar(new_mode_temp);
 			ar(m_curr_regs.array);
 			ar(m_commonly_shared);
 			ar(m_banked_regs);
+
+			if (new_mode_temp <= 5) {
+				//Invalid processor mode
+				//could cause OOB R/W when
+				//switching registers
+				m_curr_mode = new_mode_temp;
+			}
 		}
 
 	private :

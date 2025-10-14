@@ -170,6 +170,10 @@ namespace GBA::apu {
 
 		u8 dmg_sound_vol = m_soundcnt_h.dmg_sound_volume;
 
+		if (dmg_sound_vol >= 3) {
+			dmg_sound_vol = 2;
+		}
+
 		switch (ch_id)
 		{
 		case GBA::apu::ChannelId::FIFO_A: {

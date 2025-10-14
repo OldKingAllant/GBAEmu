@@ -122,7 +122,10 @@ namespace GBA::cheats {
 		case AR_Cond::AND:
 			if_block.cond = Condition::AND;
 			break;
-		default:
+		default: {
+			fmt::print("[CHEATS] Invalid AR condition {:#x}\n", uint8_t(condition));
+			return false;
+			}
 			break;
 		}
 
@@ -146,6 +149,10 @@ namespace GBA::cheats {
 			if_block.operand_size = ConditionOperand::ALWAYS_FALSE;
 			break;
 		default:
+		{
+			fmt::print("[CHEATS] Invalid AR condition operand size {:#x}\n", uint8_t(size));
+			return false;
+		}
 			break;
 		}
 
@@ -168,6 +175,10 @@ namespace GBA::cheats {
 		case AR_CondAction::OFF:
 			break;
 		default:
+		{
+			fmt::print("[CHEATS] Invalid AR action {:#x}\n", uint8_t(action));
+			return false;
+		}
 			break;
 		}
 

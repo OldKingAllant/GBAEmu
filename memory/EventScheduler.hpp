@@ -114,6 +114,11 @@ namespace GBA::memory {
 			uint64_t old_ev_count{};
 
 			ar(old_ev_count);
+
+			if (size_t(old_ev_count) > MAX_EVENTS) {
+				old_ev_count = MAX_EVENTS;
+			}
+
 			ar(m_timestamp);
 
 			m_num_events = 0;
@@ -125,6 +130,10 @@ namespace GBA::memory {
 				ar(base);
 				ar(trigger);
 				ar(ty);
+
+				if (u32(ty) >= u32(EventType::EVENT_MAX)) {
+					continue;
+				}
 
 				auto callback = m_event_type_rodata[u32(ty)].first;
 				auto data = m_event_type_rodata[u32(ty)].second;

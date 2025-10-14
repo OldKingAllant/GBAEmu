@@ -253,4 +253,26 @@ namespace GBA::cpu {
 
 		return page_in_region;
 	}
+
+	void InterpreterCache::Reset() {
+		m_curr_block = nullptr;
+
+		for (auto& wram_page : m_iwram_page_blocks) {
+			wram_page.blocks.clear();
+		}
+
+		using namespace memory;
+
+		constexpr uint64_t BIOS_SIZE = REGIONS_LEN[u8(MEMORY_RANGE::BIOS)] + 1ULL;
+		constexpr uint64_t ROM_SIZE = Bus::ROM_REGION_SIZE;
+		constexpr uint64_t IRAM_SIZE = REGIONS_LEN[u8(MEMORY_RANGE::IWRAM)] + 1ULL;
+
+		m_bios_cache.clear();
+		m_rom_cache.clear();
+		m_iwram_cache.clear();
+
+		m_bios_cache.resize(BIOS_SIZE >> 1);
+		m_rom_cache.resize(ROM_SIZE >> 1);
+		m_iwram_cache.resize(IRAM_SIZE >> 1);
+	}
 }

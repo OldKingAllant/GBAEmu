@@ -98,6 +98,14 @@ namespace GBA::apu {
 			ar(*m_sound2);
 			ar(*m_noise);
 			ar(*m_wave);
+
+			if (m_A_pos < 0 || m_A_pos >= 32) {
+				m_A_pos = 0;
+			}
+
+			if (m_B_pos < 0 || m_B_pos >= 32) {
+				m_B_pos = 0;
+			}
 		}
 
 	private :

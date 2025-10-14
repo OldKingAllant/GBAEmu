@@ -43,6 +43,18 @@ namespace GBA::apu {
 			ar(m_curr_div_value);
 			ar(m_curr_sample_pos);
 			ar(m_curr_bank);
+
+			if (m_freq > 2047) {
+				m_freq = 2047;
+			}
+
+			if (m_curr_bank > 1) {
+				m_curr_bank = 1;
+			}
+
+			if (m_curr_sample_pos > 31) {
+				m_curr_sample_pos = 31;
+			}
 		}
 
 	private:

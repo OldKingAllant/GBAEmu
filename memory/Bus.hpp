@@ -577,6 +577,17 @@ namespace GBA::memory {
 			ar(m_halt_cnt);
 			ar(m_mem_control);
 
+			if (active_dmas_count > 4) {
+				//Solve possible OOB reads/writes
+				active_dmas_count = 0;
+			}
+
+			for (u8 dma_id = 0; dma_id < active_dmas_count; dma_id++) {
+				//Solve possible OOB reads
+				if (active_dmas[dma_id] > 4)
+					active_dmas[dma_id] = 0;
+			}
+
 			std::copy_n(wram_temp.begin(), 0x40000, m_wram);
 			std::copy_n(iram_temp.begin(), 0x8000, m_iwram);
 		}

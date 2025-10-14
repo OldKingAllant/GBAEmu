@@ -120,7 +120,30 @@ namespace GBA::cpu {
 		void load(Ar& ar) {
 			u32 temp{};
 			ar(temp);
-			*this = temp;
+
+			CPSR temp_cpsr{};
+			temp_cpsr = temp;
+			
+
+			auto check_if_mode_valid = [](Mode mode) {
+				/*
+				User = 0x10,
+				FIQ = 0x11,
+				IRQ = 0x12,
+				SWI = 0x13,
+				ABRT = 0x17,
+				UND = 0x1B,
+				SYS = 0x1F
+				*/
+				return mode == Mode::User || mode == Mode::FIQ || mode == Mode::IRQ ||
+					mode == Mode::SWI || mode == Mode::ABRT || mode == Mode::UND ||
+					mode == Mode::SYS;
+			};
+			if (check_if_mode_valid(temp_cpsr.mode)) {
+				//Make sure mode is valid
+				*this = temp;
+			}
+			
 		}
 	};
 

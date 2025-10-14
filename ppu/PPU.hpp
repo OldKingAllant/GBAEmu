@@ -344,6 +344,9 @@ namespace GBA::ppu {
 			framebuf_temp.resize(size_t(240) * 160 * 3);
 
 			ar(m_ctx.array);
+
+			//Not even used, attacker cannot
+			//do anything
 			ar(m_mode_cycles);
 			ar(m_curr_mode);
 
@@ -355,6 +358,11 @@ namespace GBA::ppu {
 			ar(m_internal_reference_x);
 			ar(m_internal_reference_y);
 
+			m_internal_reference_x[0] &= 0x0F'FF'FF'FF;
+			m_internal_reference_y[0] &= 0x0F'FF'FF'FF;
+			m_internal_reference_x[1] &= 0x0F'FF'FF'FF;
+			m_internal_reference_y[1] &= 0x0F'FF'FF'FF;
+
 			ar(m_frame_ok);
 
 			ar(m_last_event_timestamp);
@@ -363,6 +371,19 @@ namespace GBA::ppu {
 			ar(line_sprites_count);
 			ar(m_line_data);
 			ar(m_obj_window_pixels);
+
+			if (line_sprites_count > 128) {
+				line_sprites_count = 0;
+			}
+
+			for (u16 obj_index = 0; obj_index < line_sprites_count; obj_index++) {
+				if (line_sprites_ids[obj_index] >> 3 >= 128)
+					line_sprites_ids[obj_index] = 0;
+			}
+
+			if (m_ctx.m_vcount > 227) {
+				m_ctx.m_vcount = 0;
+			}
 
 			std::copy_n(palette_temp.begin(), 0x400, m_palette_ram);
 			std::copy_n(vram_temp.begin(), 0x18000, m_vram);

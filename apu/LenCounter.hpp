@@ -21,6 +21,10 @@ namespace GBA::apu {
 		template <typename Ar>
 		void load(Ar& ar) {
 			ar(m_curr_len);
+
+			if (m_curr_len > 64) {
+				m_curr_len = 64;
+			}
 		}
 
 	private:

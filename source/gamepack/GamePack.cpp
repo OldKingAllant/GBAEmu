@@ -215,6 +215,9 @@ namespace GBA::gamepack {
 	}
 
 	u16 GamePack::Patch(u32 address, u16 value) {
+		if (address >= m_info.file_size) [[unlikely]] {
+			return 0;
+		}
 		auto value_ptr = std::bit_cast<u16*>(m_rom + address);
 		u16 temp = *value_ptr;
 		*value_ptr = value;
