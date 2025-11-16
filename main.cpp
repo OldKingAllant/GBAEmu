@@ -14,6 +14,8 @@
 #include "debugger/Debugger.hpp"
 #include "debugger/DebugWindow.hpp"
 
+#include "emu/TASParser.hpp"
+
 #ifdef main
 #undef main
 #endif // main
@@ -98,6 +100,8 @@ int main(int argc, char* argv[]) {
 	bool enable_achievements = conf.data["ACHIEVEMENTS"]["enable"] == "true";
 	std::string credentials_file = conf.data["ACHIEVEMENTS"]["credentials_file"];
 
+	bool enable_fake_prefetch = conf.data["ROM"]["fake_prefetch"] == "true";
+
 	auto emu_init = [&](std::string rom) {
 		if (has_rom) {
 			std::cout << "Rom swapping not implemented" << std::endl;
@@ -164,6 +168,10 @@ int main(int argc, char* argv[]) {
 
 		if (enable_achievements) {
 			emu->EnableAchievements(credentials_file);
+		}
+
+		if (enable_fake_prefetch) {
+			emu->EnableFakePrefetch(enable_fake_prefetch);
 		}
 
 		has_rom = true;

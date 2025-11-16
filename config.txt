@@ -27,8 +27,9 @@ region_size = 256
 waitloop_detection = true
 
 [ROM]
-#default_rom = ./testRoms/tonc/bm_modes.gba
-default_rom = ./testRoms/PokemonEmerald.gba
+default_rom = ./testRoms/FinalFantasy6.gba
+#default_rom = ./testRoms/FireRed.gba
+fake_prefetch = false
 
 [cheats]
 enable_hooks = 

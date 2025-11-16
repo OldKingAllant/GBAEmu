@@ -39,7 +39,8 @@ namespace GBA::video::renderer {
 		m_audio{nullptr}, m_mute{false},
 		m_show_achievements_window{false},
 		m_textures{}, m_notifications{},
-		m_notification_sound_device{}
+		m_notification_sound_device{},
+		m_show_tas_window{}
 	{
 		m_gl_data.placeholder_data = new float[240 * 160 * 3];
 		std::fill_n(m_gl_data.placeholder_data, 240 * 160 * 3, 0.5f);
@@ -149,6 +150,8 @@ namespace GBA::video::renderer {
 		ImGui::CreateContext();
 		ImGuiIO& io = ImGui::GetIO();
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+		io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+		io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
 		ImGui_ImplSDL2_InitForOpenGL(m_window, m_gl_context);
 		ImGui_ImplOpenGL3_Init("#version 330");
@@ -188,6 +191,37 @@ namespace GBA::video::renderer {
 			m_stop = true;
 		}
 		break;
+
+		case SDL_DROPFILE: {
+			if (ev->drop.windowID == SDL_GetWindowID(m_window)) {
+				std::filesystem::path fname{ ev->drop.file };
+				fmt::println("Dropped file {}", fname.string());
+				SDL_free(ev->drop.file);
+
+				auto extension = fname.extension().string();
+				if (extension == ".gba" || extension == ".GBA") {
+					if (!m_emu->IsInit()) {
+						m_on_select(fname.string());
+					}
+					break;
+				}
+
+				if (extension == ".save" || extension == ".SAVE" ||
+					extension == ".sav" || extension == ".SAV") {
+					m_emu->GetContext().pack.LoadBackup(fname);
+					break;
+				}
+
+				if (extension == ".state" || extension == ".STATE") {
+					DoSavestate(fname.string(), false);
+					break;
+				}
+
+				if (extension == ".tas" || extension == ".TAS") {
+					m_emu->SetTASFile(fname.string());
+				}
+			}
+		} break;
 
 		default:
 			break;
@@ -851,6 +885,197 @@ namespace GBA::video::renderer {
 		ImGui::End();
 	}
 
+	void OpenGL::TasMenu() {
+		if (ImGui::BeginMenu("TAS")) {
+			bool record_inputs = m_emu->IsInputRecordingEnabled();
+			ImGui::Checkbox("Enable input recording", &record_inputs);
+			m_emu->EnableInputRecording(record_inputs);
+
+			if (ImGui::BeginMenu("Store inputs")) {
+				std::string dest = FileDialog("Store saved inputs", ".*");
+
+				if (dest != "NULL") {
+					m_emu->SaveRecordedInputs(dest);
+				}
+
+				ImGui::EndMenu();
+			}
+
+			bool fake_prefetch = m_emu->IsFakePrefetchEnabled();
+			ImGui::Checkbox("Fake ROM prefetch", &fake_prefetch);
+			m_emu->EnableFakePrefetch(fake_prefetch);
+
+			if (m_emu->GetTAS().HasActions()) {
+				ImGui::Checkbox("Show command window", &m_show_tas_window);
+			}
+
+			if (ImGui::BeginMenu("Load file")) {
+				std::string tas = FileDialog("Load TAS", ".*");
+
+				if (tas != "NULL") {
+					m_emu->SetTASFile(tas);
+				}
+
+				ImGui::EndMenu();
+			}
+
+			ImGui::EndMenu();
+		}
+	}
+
+	void OpenGL::TasWindow() {
+		static int32_t s_action_count = {10};
+		if (ImGui::Begin("TAS", &m_show_tas_window)) {
+			using namespace common;
+
+			auto keystat = m_emu->GetContext().keypad.GetKeyStatus();
+			const auto c_BTNCOUNT = uint32_t(std::log2(double(input::Buttons::BUTTON_L)));
+
+			/*
+			BUTTON_A = 0x1,
+			BUTTON_B = 0x2,
+			BUTTON_SELECT = 0x4,
+			BUTTON_START = 0x8,
+			BUTTON_RIGHT = 0x10,
+			BUTTON_LEFT = 0x20,
+			BUTTON_UP = 0x40,
+			BUTTON_DOWN = 0x80,
+			BUTTON_R = 0x100,
+			BUTTON_L = 0x200
+			*/
+			constexpr const char* c_BTN_NAMES[] = {
+				"A", "B", "SELECT", "START", "RIGHT",
+				"LEFT", "UP", "DOWN", "R", "L"
+			};
+			for (uint32_t btn_id = 0; btn_id <= c_BTNCOUNT; btn_id++) {
+				bool is_btn_pressed = (~keystat & u16(1 << btn_id)) != 0;
+				auto curr_btn_name = c_BTN_NAMES[btn_id];
+				std::string texture_name = "./assets/images/";
+				if (is_btn_pressed) {
+					texture_name += fmt::format("{}_button.png", curr_btn_name);
+				}
+				else {
+					texture_name += fmt::format("{}_button_not_pressed.png", curr_btn_name);
+				}
+
+				if (!m_textures.contains(texture_name)) {
+					LoadTexture(texture_name, texture_name);
+				}
+
+				ImGui::SameLine();
+				auto const& texture = m_textures[texture_name];
+				ImGui::Image(ImTextureID(texture.texture_id), ImVec2(
+					40.0f, 40.0f
+				));
+			}
+
+			auto const& tas = m_emu->GetTAS();
+			ImGui::SliderInt("Directives shown", &s_action_count, 0, 100, "%d");
+			int32_t curr_action = {};
+			auto const& actions = tas.GetActions();
+			auto action_id = tas.GetCurrentActionId();
+			while (curr_action < s_action_count && size_t(curr_action) + action_id < actions.size()) {
+				tas::Action action = actions[size_t(curr_action) + action_id];
+				std::string keys = {};
+
+				if (action.buttons == 0x3FF) {
+					keys = "WAIT";
+				}
+				else {
+					uint32_t keycnt = 0;
+					if ((~action.buttons & u16(input::Buttons::BUTTON_A)) != 0) {
+						keys += "A";
+						++keycnt;
+					}
+
+					if ((~action.buttons & u16(input::Buttons::BUTTON_B)) != 0) {
+						if (keycnt > 0) {
+							keys += " , ";
+						}
+						keys += "B";
+						++keycnt;
+					}
+
+					if ((~action.buttons & u16(input::Buttons::BUTTON_SELECT)) != 0) {
+						if (keycnt > 0) {
+							keys += " , ";
+						}
+						keys += "SELECT";
+						++keycnt;
+					}
+
+					if ((~action.buttons & u16(input::Buttons::BUTTON_START)) != 0) {
+						if (keycnt > 0) {
+							keys += " , ";
+						}
+						keys += "START";
+						++keycnt;
+					}
+
+					if ((~action.buttons & u16(input::Buttons::BUTTON_RIGHT)) != 0) {
+						if (keycnt > 0) {
+							keys += " , ";
+						}
+						keys += "RIGHT";
+						++keycnt;
+					}
+
+					if ((~action.buttons & u16(input::Buttons::BUTTON_LEFT)) != 0) {
+						if (keycnt > 0) {
+							keys += " , ";
+						}
+						keys += "LEFT";
+						++keycnt;
+					}
+
+					if ((~action.buttons & u16(input::Buttons::BUTTON_UP)) != 0) {
+						if (keycnt > 0) {
+							keys += " , ";
+						}
+						keys += "UP";
+						++keycnt;
+					}
+
+					if ((~action.buttons & u16(input::Buttons::BUTTON_DOWN)) != 0) {
+						if (keycnt > 0) {
+							keys += " , ";
+						}
+						keys += "DOWN";
+						++keycnt;
+					}
+
+					if ((~action.buttons & u16(input::Buttons::BUTTON_R)) != 0) {
+						if (keycnt > 0) {
+							keys += " , ";
+						}
+						keys += "R";
+						++keycnt;
+					}
+
+					if ((~action.buttons & u16(input::Buttons::BUTTON_L)) != 0) {
+						if (keycnt > 0) {
+							keys += " , ";
+						}
+						keys += "L";
+						++keycnt;
+					}
+				}
+
+				const char* c_FORMAT = "%s for %d frames";
+				if (curr_action == 0) {
+					ImGui::TextColored(ImVec4(255.f, 255.f, 0.f, 255.f), c_FORMAT,
+						keys.c_str(), action.num_frames);
+				}
+				else {
+					ImGui::Text(c_FORMAT, keys.c_str(), action.num_frames);
+				}
+				curr_action++;
+			}
+			//ImGui::PopFont();
+		}
+		ImGui::End();
+	}
+
 	void OpenGL::AppendAchievementNotifications() {
 		if (!m_emu->GetAchievementsEnabled())
 			return;
@@ -1073,11 +1298,13 @@ namespace GBA::video::renderer {
 
 		bool showing_notification = !m_notifications.empty();
 
-		if (m_show_menu_bar || showing_notification) {
-			ImGui_ImplOpenGL3_NewFrame();
-			ImGui_ImplSDL2_NewFrame();
-			ImGui::NewFrame();
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplSDL2_NewFrame();
+		ImGui::NewFrame();
 
+		//ImGui::DockSpaceOverViewport();
+
+		if (m_show_menu_bar || showing_notification) {
 			if (m_show_menu_bar) {
 				ImGui::BeginMainMenuBar();
 
@@ -1087,6 +1314,7 @@ namespace GBA::video::renderer {
 				RewindMenu();
 				AudioMenu();
 				VideoMenu();
+				TasMenu();
 
 				if (m_emu->GetAchievementsEnabled()) {
 					AchievementsMenu();
@@ -1106,9 +1334,24 @@ namespace GBA::video::renderer {
 			if (m_show_achievements_window) {
 				AchievementsWindow();
 			}
+		}
 
-			ImGui::Render();
-			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+		if (m_show_tas_window) {
+			TasWindow();
+		}
+
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+		auto& io = ImGui::GetIO();
+		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+			void* gl_current = SDL_GL_GetCurrentContext();
+			void* curr_window = SDL_GL_GetCurrentWindow();
+
+			ImGui::UpdatePlatformWindows();
+			ImGui::RenderPlatformWindowsDefault();
+
+			SDL_GL_MakeCurrent((SDL_Window*)curr_window, gl_current);
 		}
 
 		SDL_GL_SwapWindow(m_window);

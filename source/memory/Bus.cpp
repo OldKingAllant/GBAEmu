@@ -29,7 +29,9 @@ namespace GBA::memory {
 		m_mem_control{}, m_timers(nullptr),
 		m_enable_fastmem{false},
 		m_fastmem_was_init{false},
-		m_page_table{}
+		m_page_table{}, m_watchpoints{},
+		m_last_watchpoint_id{},
+		m_fake_prefetch{false}
 	{
 		m_wram = new u8[0x40000];
 		m_iwram = new u8[0x8000];
@@ -409,5 +411,36 @@ namespace GBA::memory {
 		delete[] m_wram;
 		delete mmio;
 		delete[] m_bios;
+	}
+
+	std::optional<uint64_t> Bus::AddWatchpoint(uint32_t address, bool write, std::function<bool(uint32_t&)> action) {
+		auto w = Watchpoint{};
+
+		w.action = action;
+		w.write = write;
+		w.address = address;
+		w.id = m_last_watchpoint_id++;
+		
+		m_watchpoints.push_back(w);
+
+		return w.id;
+	}
+
+	bool Bus::RemoveWatchpoint(uint64_t id) {
+		auto pos = std::find_if(
+			m_watchpoints.begin(),
+			m_watchpoints.end(),
+			[id](Watchpoint const& w) {
+				return w.id == id;
+			}
+		);
+
+		if (pos == m_watchpoints.end()) {
+			return false;
+		}
+
+		m_watchpoints.erase(pos);
+
+		return true;
 	}
 }

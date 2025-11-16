@@ -10,6 +10,7 @@
 #include "../gamepack/GamePack.hpp"
 #include "../common/Logger.hpp"
 #include "../memory/Timers.hpp"
+#include "../memory/Keypad.hpp"
 
 #include <algorithm>
 #include <vector>
@@ -337,6 +338,23 @@ namespace GBA::memory {
 
 		template <typename Ty, bool AddCycles = true>
 		Ty ReadFast(u32 address, bool code = false) {
+			if (!m_watchpoints.empty()) {
+				decltype(m_watchpoints)::const_iterator pos = 
+					std::find_if(
+						m_watchpoints.cbegin(),
+						m_watchpoints.cend(), 
+						[address](Watchpoint const& w) {
+						return w.address == address && w.write == false;
+					});
+
+				if (pos != m_watchpoints.cend()) {
+					uint32_t value = {};
+					if (pos->action(value)) {
+						return static_cast<Ty>(value);
+					}
+				}
+			}
+
 			if (!m_enable_fastmem) {
 				return Read<Ty, AddCycles>(address, code);
 			}
@@ -375,6 +393,23 @@ namespace GBA::memory {
 
 		template <typename Type>
 		void WriteFast(u32 address, Type value) {
+			if (!m_watchpoints.empty()) {
+				decltype(m_watchpoints)::const_iterator pos =
+					std::find_if(
+						m_watchpoints.cbegin(),
+						m_watchpoints.cend(),
+						[address](Watchpoint const& w) {
+							return w.address == address && w.write == true;
+						});
+
+				if (pos != m_watchpoints.cend()) {
+					uint32_t value = {};
+					if (pos->action(value)) {
+						return;
+					}
+				}
+			}
+
 			constexpr u32 ADDRESS_MASK = ~(u32(sizeof(Type)) - 1);
 			address &= ADDRESS_MASK;
 
@@ -604,6 +639,17 @@ namespace GBA::memory {
 			return m_enable_fastmem;
 		}
 
+		std::optional<uint64_t> AddWatchpoint(uint32_t address, bool write, std::function<bool(uint32_t&)> action);
+		bool RemoveWatchpoint(uint64_t id);
+
+		inline void EnableFakePrefetch(bool enable) {
+			m_fake_prefetch = enable;
+		}
+
+		inline bool IsFakePrefetchEnabled() const {
+			return m_fake_prefetch;
+		}
+
 	private :
 		void InitFastmem(bool precise_bios, bool precise_ppu);
 
@@ -662,5 +708,17 @@ namespace GBA::memory {
 		};
 
 		std::unique_ptr<_PageTableEntry[]> m_page_table;
+
+		struct Watchpoint {
+			bool write;
+			uint32_t address;
+			std::function<bool(uint32_t&)> action;
+			uint64_t id;
+		};
+
+		std::vector<Watchpoint> m_watchpoints;
+		uint64_t m_last_watchpoint_id;
+
+		bool m_fake_prefetch;
 	};
 }

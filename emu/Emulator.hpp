@@ -21,6 +21,8 @@
 
 #include "Cheats.hpp"
 #include "RetroAchievements.hpp"
+#include "TASManager.hpp"
+#include "InputRecorder.hpp"
 
 namespace GBA::emulation {
 	struct EmulatorContext {
@@ -122,6 +124,9 @@ namespace GBA::emulation {
 			return m_cheats;
 		}
 
+		std::optional<uint64_t> AddWatchpoint(uint32_t address, bool write, std::function<bool(uint32_t&)> action);
+		bool RemoveWatchpoint(uint64_t id);
+
 		/////////////////////////
 
 		inline void SetHleEnable(bool hle_enable) {
@@ -212,6 +217,38 @@ namespace GBA::emulation {
 
 		///////////////////////
 
+		inline bool IsBootComplete() const {
+			return m_boot_complete;
+		}
+
+		bool SetTASFile(std::string const& path);
+
+		inline void EnableFakePrefetch(bool enable) {
+			m_ctx.bus.EnableFakePrefetch(enable);
+		}
+
+		inline bool IsFakePrefetchEnabled() const {
+			return m_ctx.bus.IsFakePrefetchEnabled();
+		}
+
+		inline tas::TASManager& GetTAS() {
+			return m_tas;
+		}
+
+		inline void EnableInputRecording(bool enable) {
+			m_record_inputs = enable;
+		}
+
+		inline bool IsInputRecordingEnabled() const {
+			return m_record_inputs;
+		}
+
+		inline bool SaveRecordedInputs(std::string const& path) const {
+			return m_input_recorder.Dump(path);
+		}
+
+		///////////////////////
+
 		~Emulator();
 
 		template <typename Ar>
@@ -229,6 +266,7 @@ namespace GBA::emulation {
 			ar(*m_ctx.all_dma[3]);
 			ar(m_ctx.apu);
 			ar(m_ctx.scheduler);
+			ar(m_boot_complete);
 		}
 
 		template <typename Ar>
@@ -246,6 +284,7 @@ namespace GBA::emulation {
 			ar(*m_ctx.all_dma[3]);
 			ar(m_ctx.apu);
 			ar(m_ctx.scheduler);
+			ar(m_boot_complete);
 		}
 
 	private :
@@ -279,5 +318,12 @@ namespace GBA::emulation {
 
 		bool m_enable_ra;
 		std::unique_ptr<RetroAchievements> m_ra;
+
+		bool m_boot_complete;
+		uint64_t m_boot_complete_callback;
+
+		tas::TASManager m_tas;
+		tas::InputRecorder m_input_recorder;
+		bool m_record_inputs;
 	};
 }

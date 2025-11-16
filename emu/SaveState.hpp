@@ -14,7 +14,7 @@ namespace GBA::savestate {
 	//First thing in the savestate
 	static constexpr u32 MAGIC = 0xdeadbeef;
 	//Current savestate version
-	static constexpr u32 VERSION = 2;
+	static constexpr u32 VERSION = 3;
 
 	static constexpr std::size_t STATE_UPPER_BOUND_SIZE = std::size_t(1024) * 1024;
 

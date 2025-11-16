@@ -97,6 +97,8 @@ namespace GBA::video::renderer {
 		void VideoMenu();
 		void AchievementsMenu();
 		void AchievementsWindow();
+		void TasMenu();
+		void TasWindow();
 
 		void AppendAchievementNotifications();
 		void ShowNotifications();
@@ -160,5 +162,7 @@ namespace GBA::video::renderer {
 		
 		std::vector<Notification> m_notifications;
 		uint32_t m_notification_sound_device;
+
+		bool m_show_tas_window;
 	};
 }

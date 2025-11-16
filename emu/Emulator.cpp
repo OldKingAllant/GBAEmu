@@ -19,7 +19,11 @@ namespace GBA::emulation {
 		m_cheats{}, m_enabled_cheats{},
 		m_hooks{}, m_enable_hooks{false},
 		m_log_hle{false},
-		m_enable_ra{false}, m_ra{}
+		m_enable_ra{false}, m_ra{},
+		m_boot_complete{false},
+		m_boot_complete_callback{},
+		m_tas{this}, m_input_recorder{},
+		m_record_inputs{false}
 	{}
 
 	Emulator::Emulator(std::string_view rom_location, std::string_view bios_location) :
@@ -124,11 +128,17 @@ namespace GBA::emulation {
 	void Emulator::UseBIOS() {
 		m_ctx.bus.LoadBIOS(m_bios_loc);
 		m_ctx.processor.GetContext().m_pipeline.Bubble<cpu::InstructionMode::ARM>(0x0);
+		m_boot_complete_callback = AddWatchpoint(u32(memory::MEMORY_RANGE::ROM_REG_1) << 24, 
+			false, [this](uint32_t&) {
+				this->m_boot_complete = true;
+				return false;
+			}).value();
 	}
 
 	void Emulator::SkipBios() {
 		m_ctx.processor.SkipBios();
 		m_ctx.bus.LoadBiosResetOpcode();
+		m_boot_complete = true;
 	}
 
 	void Emulator::RunTillVblank() {
@@ -143,10 +153,17 @@ namespace GBA::emulation {
 					NextEvent();
 				}
 				else {
-					m_ctx.processor.Step();
+					bool prev_boot_status = m_boot_complete;
 
+					m_ctx.processor.Step();
 					if (m_enable_hooks && !m_hooks.empty()) {
 						ProcessHooks();
+					}
+
+					bool post_boot_status = m_boot_complete;
+					if (!prev_boot_status && post_boot_status) {
+						RemoveWatchpoint(m_boot_complete_callback);
+						m_tas.BootComplete();
 					}
 				}
 				
@@ -156,6 +173,12 @@ namespace GBA::emulation {
 				m_ctx.all_dma[dma]->Step();
 			}
 
+		}
+
+		m_tas.FrameDone();
+		
+		if (m_record_inputs && IsBootComplete()) {
+			m_input_recorder.DoFrame(m_ctx.keypad);
 		}
 
 		if (m_enable_ra) {
@@ -200,6 +223,10 @@ namespace GBA::emulation {
 		out.open(path, std::ios::out | std::ios::binary);
 
 		savestate::StoreToFile(out, this);
+
+		if (!m_tas.DumpRemainingActions(path + ".tas")) {
+			fmt::println("[TAS] No actions were dumped");
+		}
 	}
 
 	void Emulator::LoadState(std::string const& path) {
@@ -399,6 +426,14 @@ namespace GBA::emulation {
 			m_hooks.erase(position);
 	}
 
+	std::optional<uint64_t> Emulator::AddWatchpoint(uint32_t address, bool write, std::function<bool(uint32_t&)> action) {
+		return m_ctx.bus.AddWatchpoint(address, write, action);
+	}
+
+	bool Emulator::RemoveWatchpoint(uint64_t id) {
+		return m_ctx.bus.RemoveWatchpoint(id);
+	}
+
 	void Emulator::EnableAchievements(std::string const& credentials_path) {
 		m_enable_ra = true;
 		m_ra = std::make_unique<RetroAchievements>(this, credentials_path);
@@ -409,6 +444,15 @@ namespace GBA::emulation {
 		if (m_enable_ra) {
 			m_ra->ClientIdle();
 		}
+	}
+
+	bool Emulator::SetTASFile(std::string const& path) {
+		auto directives = tas::_ParseFile(path);
+		if (!directives.has_value()) {
+			return false;
+		}
+		m_tas.SetActions(std::move(directives.value()));
+		return true;
 	}
 
 	Emulator::~Emulator() {
